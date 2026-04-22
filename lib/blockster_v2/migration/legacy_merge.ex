@@ -32,7 +32,14 @@ defmodule BlocksterV2.Migration.LegacyMerge do
   The summary map describes what was transferred so the UI can show a
   "Welcome back" success card.
   """
-  def merge_legacy_into!(%User{} = new_user, %User{} = legacy_user) do
+  def merge_legacy_into!(%User{} = new_user, %User{} = legacy_user, opts \\ []) do
+    # Web3Auth email sign-in routes through here with `skip_reclaimable_check:
+    # true` because email-ownership IS the canonical account-ownership signal.
+    # In production every existing user is a legacy EVM holder, so the gate
+    # is satisfied either way — the bypass only matters in dev + for the rare
+    # post-migration Solana wallet user who also wants to log in by email.
+    skip_check = Keyword.get(opts, :skip_reclaimable_check, false)
+
     cond do
       legacy_user.id == new_user.id ->
         {:error, :same_user}
@@ -43,10 +50,10 @@ defmodule BlocksterV2.Migration.LegacyMerge do
       legacy_user.is_active == false ->
         {:error, :legacy_already_deactivated}
 
-      not User.reclaimable_holder?(legacy_user) ->
-        # Defense-in-depth: refuse to merge an active Solana wallet user.
-        # `User.reclaimable_holder?/1` only returns true for legacy EVM
-        # holders (`auth_method = "email"`) and deactivated rows.
+      not skip_check and not User.reclaimable_holder?(legacy_user) ->
+        # Defense-in-depth for the legacy EmailVerification.verify_code path:
+        # refuse to merge an active Solana wallet user unless the caller
+        # explicitly bypasses (Web3Auth sign-in does, see above).
         {:error, :not_a_legacy_holder}
 
       true ->

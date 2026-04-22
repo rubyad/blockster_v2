@@ -159,8 +159,28 @@ All 12 phases complete. Migrated from Rogue Chain (EVM) to Solana.
 - Upgrade authority = settler keypair (`6b4n...`). Deploy fee payer = CLI wallet (`49aN...`).
 - Settler service (`contracts/blockster-settler/`) replaces the legacy `bux-minter.fly.dev` for all Solana ops.
 - Multi-vault: SOL + BUX, LP tokens `bSOL` / `bBUX` (displayed as SOL-LP / BUX-LP).
-- Auth: SIWS via Wallet Standard. User model has `is_active`, `legacy_email`, `pending_email`, `merged_into_user_id` for legacy account reclaim.
+- Auth: SIWS via Wallet Standard OR Web3Auth social login (email/X/Google/Apple/Telegram) — see Social Login section below.
+- User model has `is_active`, `legacy_email`, `pending_email`, `merged_into_user_id` for legacy account reclaim.
 - Multiplier v2: `overall = x * phone * sol * email`, capped at 200x. Stored in `unified_multipliers_v2`.
+
+## Social Login (Web3Auth)
+
+All 10 phases complete — see [docs/social_login_plan.md](docs/social_login_plan.md) + Appendices D + E for session narratives, [docs/web3auth_integration.md](docs/web3auth_integration.md) for technical reference.
+
+**Key facts**:
+- Two feature flags gate the rollout: `SOCIAL_LOGIN_ENABLED` (master switch, default off in prod) + `WEB3AUTH_SOL_CHECKOUT_ENABLED` (default off; SOL-priced shop checkout is wallet-only in v1).
+- Sign-in modal: email input + X/Google/Apple/Telegram tile grid + existing Phantom/Solflare/Backpack wallet list. Invoke `/frontend-design:frontend-design` for any modal changes per CLAUDE.md.
+- **Email flow runs through a Custom JWT, NOT Web3Auth's EMAIL_PASSWORDLESS popup**. In-app OTP (two-stage inline entry) → `Auth.EmailOtpStore` (ETS) → `Auth.Web3AuthSigning.sign_id_token` → `connectTo(AUTH, { authConnection: CUSTOM, authConnectionId: "blockster-email", extraLoginOptions: {id_token, verifierIdField: "sub"} })`. No popup, no captcha. See docs/social_login_plan.md Appendix E for the "why".
+- Telegram flow: same Custom JWT infrastructure, verifier `blockster-telegram`. Widget embed wires to `POST /api/auth/telegram/verify`.
+- Google/Apple/X: still use Web3Auth's OAuth popup (provider-owned, unavoidable). Those popups are quick, not captcha+code.
+- **Email ownership = account ownership**: when a Web3Auth email sign-in matches an existing user by email, `Accounts.reclaim_legacy_via_web3auth/3` creates a new user with the Web3Auth-derived Solana wallet, runs `LegacyMerge.merge_legacy_into!` with `skip_reclaimable_check: true`, and merges: legacy BUX minted to new wallet via settler, username/X/Telegram/phone/content/referrals/fingerprints transferred, old row deactivated. Returning users skip onboarding. This replaces legacy wallet_address wholesale.
+- `wallet_address` is ALWAYS the primary wallet. For a Web3Auth sign-in that subsumes an existing user, this means the Web3Auth-derived Solana pubkey REPLACES whatever was there (EVM EOA or old Phantom wallet).
+- `smart_wallet_address` is legacy EVM ERC-4337 only. NULL for all Web3Auth users and new Solana users.
+- **Signing pattern for Web3Auth**: `provider.request({method: "solana_privateKey"})` on every call → `Keypair.fromSecretKey` → sign → `secretKey.fill(0)` in `finally`. NEVER cache the key. See `assets/js/hooks/web3auth_hook.js`.
+- **Web3Auth chain IDs are ws-embed-specific**: `0x65` mainnet, `0x66` testnet, `0x67` devnet. NOT the `0x1/0x2/0x3` from the public docs.
+- Web3Auth methods are `solana_*` prefixed (`solana_requestAccounts`, `solana_signMessage`, etc.). Bare names fail.
+- Buffer/process polyfills (`assets/js/polyfills.js`) MUST be the first import in `app.js`. Web3Auth's transitive deps reference Node globals directly.
+- Onboarding: single "Get started" CTA. The old "I have an existing account" branch + `migrate_email` step were retired — legacy reclaim now happens server-side during Web3Auth email sign-in, not as an onboarding step.
 
 ## Coin Flip (Solana)
 
@@ -178,6 +198,7 @@ All 12 phases complete. Migrated from Rogue Chain (EVM) to Solana.
 - Routes: `/pool` (`PoolIndexLive`), `/pool/sol`, `/pool/bux` (`PoolDetailLive`).
 - Pool JS hook: `assets/js/hooks/pool_hook.js` (deposit/withdraw signing).
 - LP prices: `LpPriceTracker` (GlobalSingleton, 60s poll) + `LpPriceHistory` (Mnesia, per-timeframe downsampling). Real-time chart updates via PubSub on `{:bet_settled, vault_type}`.
+- Cost basis / P/L: `BlocksterV2.PoolPositions` + Mnesia `:user_pool_positions` (ACB accounting). Updated on every confirmed deposit/withdraw; pre-existing holders seeded with `cost = lp × current_lp_price` on first render.
 
 ## Shop / Checkout (SOL-direct)
 

@@ -20,7 +20,7 @@ import {
   Transaction,
 } from "@solana/web3.js";
 import bs58 from "bs58";
-import { getSigner } from "./signer.js";
+import { getSigner, signAndConfirm } from "./signer.js";
 
 const RPC_URL =
   window.__SOLANA_RPC_URL ||
@@ -75,8 +75,17 @@ export const SolPaymentHook = {
         verifySignatures: false,
       });
 
-      const { signature } = await signer.signAndSendTransaction(new Uint8Array(serialized));
-      const sig = bs58.encode(new Uint8Array(signature));
+      // Route through signAndConfirm which handles BOTH signer sources:
+      //   * wallet-standard (Phantom et al): signTransaction + own-submit,
+      //     swallows Phantom's silent auto-submit race.
+      //   * web3auth: signTransaction (local nacl) + own-submit, plain.
+      // signer.signAndSendTransaction throws for web3auth so we can't use
+      // that path uniformly — this one works for both.
+      const sig = await signAndConfirm(
+        signer,
+        this._connection,
+        new Uint8Array(serialized),
+      );
 
       this.pushEvent("sol_payment_submitted", {
         signature: sig,

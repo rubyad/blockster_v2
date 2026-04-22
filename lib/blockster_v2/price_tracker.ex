@@ -95,6 +95,12 @@ defmodule BlocksterV2.PriceTracker do
       [] ->
         {:error, :not_found}
     end
+  rescue
+    # Mnesia table may not have been initialized yet — callers should treat
+    # this the same as "not cached" and fall back to their configured default.
+    _ -> {:error, :not_available}
+  catch
+    :exit, _ -> {:error, :not_available}
   end
 
   @doc "Get all cached prices as a map keyed by symbol"

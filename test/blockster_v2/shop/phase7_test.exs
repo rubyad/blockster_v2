@@ -1,6 +1,11 @@
 defmodule BlocksterV2.Shop.Phase7Test do
   use BlocksterV2Web.ConnCase, async: false
 
+  # Helio fiat integration — removed in Phase 13 of the Solana migration.
+  # `BlocksterV2.Helio` and `BlocksterV2Web.HelioWebhookController` no longer
+  # exist; replaced by SOL-direct payment intents. Skipped; kept for history.
+  @moduletag :skip
+
   alias BlocksterV2.Repo
   alias BlocksterV2.Cart, as: CartContext
   alias BlocksterV2.Orders

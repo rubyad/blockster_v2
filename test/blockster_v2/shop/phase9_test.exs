@@ -1,6 +1,11 @@
 defmodule BlocksterV2.Shop.Phase9Test do
   use BlocksterV2.DataCase, async: false
 
+  # ROGUE-based affiliate payout phase — deprecated when ROGUE payments were
+  # removed in Phase 9 of the Solana migration. Affiliate calc now runs on
+  # SOL totals; those tests live elsewhere. Skipped; kept for history.
+  @moduletag :skip
+
   alias BlocksterV2.Cart, as: CartContext
   alias BlocksterV2.Orders
   alias BlocksterV2.Orders.{Order, AffiliatePayout}

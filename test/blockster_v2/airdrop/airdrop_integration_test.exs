@@ -13,6 +13,8 @@ defmodule BlocksterV2.Airdrop.IntegrationTest do
     :mnesia.start()
 
     tables = [
+      {:user_solana_balances,
+       [:user_id, :wallet_address, :updated_at, :sol_balance, :bux_balance]},
       {:user_bux_balances,
        [:user_id, :user_smart_wallet, :updated_at, :aggregate_bux_balance,
         :bux_balance, :moonbux_balance, :neobux_balance, :roguebux_balance,
@@ -34,11 +36,18 @@ defmodule BlocksterV2.Airdrop.IntegrationTest do
   end
 
   defp set_bux_balance(user, balance) do
-    record =
+    now = System.system_time(:second)
+
+    solana_record =
+      {:user_solana_balances, user.id, user.wallet_address, now, 0.0, balance * 1.0}
+
+    :mnesia.dirty_write(:user_solana_balances, solana_record)
+
+    legacy_record =
       {:user_bux_balances, user.id, user.smart_wallet_address, DateTime.utc_now(),
        balance * 1.0, balance * 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0}
 
-    :mnesia.dirty_write(:user_bux_balances, record)
+    :mnesia.dirty_write(:user_bux_balances, legacy_record)
   end
 
   setup :setup_mnesia

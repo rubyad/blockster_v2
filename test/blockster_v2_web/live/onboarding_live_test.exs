@@ -110,18 +110,20 @@ defmodule BlocksterV2Web.OnboardingLiveTest do
   # ==========================================================================
 
   describe "welcome step" do
-    test "renders both branch buttons", %{conn: conn} do
+    test "renders a single 'Get started' CTA", %{conn: conn} do
       user = create_solana_user()
       conn = log_in_user(conn, user)
 
       {:ok, view, _html} = live(conn, ~p"/onboarding/welcome")
 
+      # Legacy migration branch is retired: existing Blockster users reclaim
+      # via Web3Auth email sign-in (server-side merge), not via the welcome
+      # screen's "I have an account" button, which was removed.
       assert has_element?(view, "button[phx-value-intent='new']")
-      assert has_element?(view, "button[phx-value-intent='returning']")
-      assert has_element?(view, "button[phx-value-intent='returning']", "I have an account")
+      refute has_element?(view, "button[phx-value-intent='returning']")
     end
 
-    test "'I'm new' patches to /onboarding/redeem", %{conn: conn} do
+    test "'Get started' patches to /onboarding/redeem", %{conn: conn} do
       user = create_solana_user()
       conn = log_in_user(conn, user)
 
@@ -133,119 +135,15 @@ defmodule BlocksterV2Web.OnboardingLiveTest do
 
       assert_patched(view, ~p"/onboarding/redeem")
     end
-
-    test "'I have an account' patches to /onboarding/migrate_email", %{conn: conn} do
-      user = create_solana_user()
-      conn = log_in_user(conn, user)
-
-      {:ok, view, _html} = live(conn, ~p"/onboarding/welcome")
-
-      view
-      |> element("button[phx-value-intent='returning']")
-      |> render_click()
-
-      assert_patched(view, ~p"/onboarding/migrate_email")
-    end
   end
 
   # ==========================================================================
-  # Migrate branch — no-match path (everyone gets a verified email)
+  # Legacy reclaim now happens server-side in `Accounts.get_or_create_user_by_web3auth`
+  # via the Web3Auth email sign-in flow. Merge logic is unit-tested against
+  # `BlocksterV2.Migration.LegacyMerge` directly — no LiveView coverage needed
+  # here anymore. The old "welcome → migrate_email → OTP → merge" UI path is
+  # retired.
   # ==========================================================================
-
-  describe "migrate_email step — no legacy match" do
-    test "verifies email, sets it on user, falls through to redeem", %{conn: conn} do
-      user = create_solana_user()
-      conn = log_in_user(conn, user)
-
-      {:ok, view, _html} = live(conn, ~p"/onboarding/migrate_email")
-
-      view
-      |> element("form[phx-submit='send_migration_code']")
-      |> render_submit(%{"email" => "fresh_no_match@example.com"})
-
-      # Now the user record should have a real verification code; we read it
-      reloaded = Repo.get!(User, user.id)
-      assert reloaded.pending_email == "fresh_no_match@example.com"
-
-      view
-      |> element("form[phx-submit='verify_migration_code']")
-      |> render_submit(%{"code" => reloaded.email_verification_code})
-
-      final = Repo.get!(User, user.id)
-      assert final.email == "fresh_no_match@example.com"
-      assert final.email_verified == true
-      assert final.pending_email == nil
-    end
-  end
-
-  # ==========================================================================
-  # Migrate branch — happy path (everything transfers)
-  # ==========================================================================
-
-  describe "migrate_email step — full legacy merge" do
-    test "merges everything and reports success in the UI", %{conn: conn} do
-      legacy =
-        create_legacy_user(%{
-          username: "valid_legacy_un",
-          telegram_user_id: "tg_legacy_full",
-          telegram_username: "legacy_tg_handle"
-        })
-
-      _snapshot = create_legacy_bux_snapshot(legacy.email, "750")
-
-      {:ok, _legacy_phone} =
-        Repo.insert(%PhoneVerification{
-          user_id: legacy.id,
-          phone_number: "+15557776666",
-          country_code: "US",
-          geo_tier: "premium",
-          geo_multiplier: Decimal.new("2.0"),
-          verified: true
-        })
-
-      {:ok, legacy} =
-        legacy
-        |> User.changeset(%{
-          phone_verified: true,
-          geo_multiplier: Decimal.new("2.0"),
-          geo_tier: "premium"
-        })
-        |> Repo.update()
-
-      new_user = create_solana_user()
-      conn = log_in_user(conn, new_user)
-
-      {:ok, view, _html} = live(conn, ~p"/onboarding/migrate_email")
-
-      view
-      |> element("form[phx-submit='send_migration_code']")
-      |> render_submit(%{"email" => legacy.email})
-
-      reloaded = Repo.get!(User, new_user.id)
-
-      html =
-        view
-        |> element("form[phx-submit='verify_migration_code']")
-        |> render_submit(%{"code" => reloaded.email_verification_code})
-
-      assert html =~ "Welcome back"
-      assert html =~ "BUX restored"
-      assert html =~ "Username restored"
-      assert html =~ "Phone restored"
-      assert html =~ "Telegram restored"
-
-      merged = Repo.get!(User, new_user.id)
-      assert merged.email == String.downcase(legacy.email)
-      assert merged.email_verified == true
-      assert merged.username == "valid_legacy_un"
-      assert merged.phone_verified == true
-      assert merged.telegram_user_id == "tg_legacy_full"
-
-      reloaded_legacy = Repo.get!(User, legacy.id)
-      assert reloaded_legacy.is_active == false
-      assert reloaded_legacy.merged_into_user_id == new_user.id
-    end
-  end
 
   # ==========================================================================
   # Redesigned template assertions
@@ -264,9 +162,9 @@ defmodule BlocksterV2Web.OnboardingLiveTest do
       assert html =~ "progress"  || html =~ "rounded-full"
       # Heading text
       assert html =~ "Welcome to Blockster"
-      # Branch buttons
-      assert html =~ "I&#39;m new" || html =~ "I'm new"
-      assert html =~ "I have an account"
+      # Single CTA (legacy "I have an account" branch retired —
+      # Web3Auth email flow handles reclaim server-side).
+      assert html =~ "Get started"
     end
 
     test "redeem step renders icons", %{conn: conn} do
@@ -345,14 +243,14 @@ defmodule BlocksterV2Web.OnboardingLiveTest do
       assert {:error, {:live_redirect, %{to: "/login"}}} = live(conn, ~p"/onboarding/welcome")
     end
 
-    test "migrate_email step renders restore heading", %{conn: conn} do
+    test "migrate_email step URL redirects to welcome (step retired)", %{conn: conn} do
+      # The migrate_email step was removed from @base_steps; deep-linking to
+      # its URL now bounces the user back to welcome via handle_params.
       user = create_solana_user()
       conn = log_in_user(conn, user)
 
-      {:ok, _view, html} = live(conn, ~p"/onboarding/migrate_email")
-
-      assert html =~ "Restore your account"
-      assert html =~ "Previous email" || html =~ "send_migration_code"
+      assert {:error, {:live_redirect, %{to: "/onboarding/welcome"}}} =
+               live(conn, ~p"/onboarding/migrate_email")
     end
   end
 
@@ -361,12 +259,12 @@ defmodule BlocksterV2Web.OnboardingLiveTest do
   # ==========================================================================
 
   describe "next_unfilled_step/2" do
-    test "from migrate_email, fully filled user goes to redeem (never skipped)" do
+    test "from welcome, fully filled user advances to redeem" do
       user = %User{username: "u", phone_verified: true, email_verified: true}
 
       # `redeem` is always shown per the plan, even for returning users.
       assert "redeem" =
-               BlocksterV2Web.OnboardingLive.Index.next_unfilled_step(user, "migrate_email")
+               BlocksterV2Web.OnboardingLive.Index.next_unfilled_step(user, "welcome")
     end
 
     test "from redeem, fully filled user lands on complete" do

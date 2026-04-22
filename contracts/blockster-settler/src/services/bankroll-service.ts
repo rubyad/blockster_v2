@@ -385,12 +385,24 @@ const DISCRIMINATORS = {
 /**
  * Build unsigned deposit SOL transaction.
  * User deposits SOL → receives bSOL LP tokens.
+ *
+ * `feePayerMode` — "player" (default, Wallet Standard) or "settler"
+ * (Web3Auth users, zero-SOL UX). Same mechanics as `buildPlaceBetTx`:
+ * settler becomes tx fee_payer AND ATA funder, partial-signs, user still
+ * signs as depositor. The Anchor deposit ix has `init_if_needed` with
+ * `payer = depositor` on the bSOL ATA, but because we pre-create the ATA
+ * in a separate instruction the program-side init never fires — no
+ * program upgrade needed.
  */
 export async function buildDepositSolTx(
   wallet: string,
-  amount: number
+  amount: number,
+  feePayerMode: "player" | "settler" = "player"
 ): Promise<string> {
   const player = new PublicKey(wallet);
+  const settler = MINT_AUTHORITY;
+  const useSettlerFeePayer = feePayerMode === "settler";
+  const feePayerKey = useSettlerFeePayer ? settler.publicKey : player;
   const lamports = BigInt(Math.floor(amount * LAMPORTS_PER_SOL));
 
   const [gameRegistry] = deriveGameRegistry();
@@ -431,14 +443,15 @@ export async function buildDepositSolTx(
     data,
   });
 
-  // Check if bSOL ATA exists — if not, create it
+  // Check if bSOL ATA exists — if not, create it. Funder = feePayerKey so
+  // a zero-SOL Web3Auth user can still open the ATA.
   const ataIxs: TransactionInstruction[] = [];
   try {
     await getAccount(connection, playerBsolAta);
   } catch {
     ataIxs.push(
       createAssociatedTokenAccountInstruction(
-        player,
+        feePayerKey,
         playerBsolAta,
         player,
         bsolMint
@@ -449,9 +462,13 @@ export async function buildDepositSolTx(
   const blockhash = await getRecentBlockhash();
   const tx = new Transaction({
     recentBlockhash: blockhash,
-    feePayer: player,
+    feePayer: feePayerKey,
   });
   tx.add(...computeBudgetIxs(), ...ataIxs, ix);
+
+  if (useSettlerFeePayer) {
+    tx.partialSign(settler);
+  }
 
   return tx
     .serialize({ requireAllSignatures: false, verifySignatures: false })
@@ -461,12 +478,19 @@ export async function buildDepositSolTx(
 /**
  * Build unsigned withdraw SOL transaction.
  * User burns bSOL LP tokens → receives SOL.
+ *
+ * `feePayerMode` — "player" (default) or "settler" (Web3Auth, zero-SOL).
+ * Withdraw has no ATA init, so this is purely a tx-level fee_payer swap.
  */
 export async function buildWithdrawSolTx(
   wallet: string,
-  lpAmount: number
+  lpAmount: number,
+  feePayerMode: "player" | "settler" = "player"
 ): Promise<string> {
   const player = new PublicKey(wallet);
+  const settler = MINT_AUTHORITY;
+  const useSettlerFeePayer = feePayerMode === "settler";
+  const feePayerKey = useSettlerFeePayer ? settler.publicKey : player;
   const [bsolMint] = deriveBsolMint();
   // LP token amount in raw units (9 decimals like SOL)
   const rawLpAmount = BigInt(Math.floor(lpAmount * 1e9));
@@ -502,9 +526,13 @@ export async function buildWithdrawSolTx(
   const blockhash = await getRecentBlockhash();
   const tx = new Transaction({
     recentBlockhash: blockhash,
-    feePayer: player,
+    feePayer: feePayerKey,
   });
   tx.add(...computeBudgetIxs(), ix);
+
+  if (useSettlerFeePayer) {
+    tx.partialSign(settler);
+  }
 
   return tx
     .serialize({ requireAllSignatures: false, verifySignatures: false })
@@ -514,12 +542,20 @@ export async function buildWithdrawSolTx(
 /**
  * Build unsigned deposit BUX transaction.
  * User deposits BUX → receives bBUX LP tokens.
+ *
+ * `feePayerMode` — see `buildDepositSolTx`. Pre-creates the bBUX ATA so
+ * the program-side `init_if_needed` never runs; `payer = depositor`
+ * constraint on the Rust struct is therefore inert when the pre-ix runs.
  */
 export async function buildDepositBuxTx(
   wallet: string,
-  amount: number
+  amount: number,
+  feePayerMode: "player" | "settler" = "player"
 ): Promise<string> {
   const player = new PublicKey(wallet);
+  const settler = MINT_AUTHORITY;
+  const useSettlerFeePayer = feePayerMode === "settler";
+  const feePayerKey = useSettlerFeePayer ? settler.publicKey : player;
   const rawAmount = BigInt(Math.floor(amount * 10 ** BUX_DECIMALS));
 
   const [gameRegistry] = deriveGameRegistry();
@@ -564,14 +600,15 @@ export async function buildDepositBuxTx(
     data,
   });
 
-  // Check if bBUX ATA exists — if not, create it
+  // Check if bBUX ATA exists — if not, create it. Funder = feePayerKey so
+  // a zero-SOL Web3Auth user can still open the ATA.
   const ataIxs: TransactionInstruction[] = [];
   try {
     await getAccount(connection, playerBbuxAta);
   } catch {
     ataIxs.push(
       createAssociatedTokenAccountInstruction(
-        player,
+        feePayerKey,
         playerBbuxAta,
         player,
         bbuxMint
@@ -582,9 +619,13 @@ export async function buildDepositBuxTx(
   const blockhash = await getRecentBlockhash();
   const tx = new Transaction({
     recentBlockhash: blockhash,
-    feePayer: player,
+    feePayer: feePayerKey,
   });
   tx.add(...computeBudgetIxs(), ...ataIxs, ix);
+
+  if (useSettlerFeePayer) {
+    tx.partialSign(settler);
+  }
 
   return tx
     .serialize({ requireAllSignatures: false, verifySignatures: false })
@@ -594,12 +635,19 @@ export async function buildDepositBuxTx(
 /**
  * Build unsigned withdraw BUX transaction.
  * User burns bBUX LP tokens → receives BUX.
+ *
+ * `feePayerMode` — "player" (default) or "settler". No ATA init here;
+ * pure tx-level fee_payer swap.
  */
 export async function buildWithdrawBuxTx(
   wallet: string,
-  lpAmount: number
+  lpAmount: number,
+  feePayerMode: "player" | "settler" = "player"
 ): Promise<string> {
   const player = new PublicKey(wallet);
+  const settler = MINT_AUTHORITY;
+  const useSettlerFeePayer = feePayerMode === "settler";
+  const feePayerKey = useSettlerFeePayer ? settler.publicKey : player;
   const rawLpAmount = BigInt(Math.floor(lpAmount * 10 ** BUX_DECIMALS));
 
   const [gameRegistry] = deriveGameRegistry();
@@ -638,9 +686,13 @@ export async function buildWithdrawBuxTx(
   const blockhash = await getRecentBlockhash();
   const tx = new Transaction({
     recentBlockhash: blockhash,
-    feePayer: player,
+    feePayer: feePayerKey,
   });
   tx.add(...computeBudgetIxs(), ix);
+
+  if (useSettlerFeePayer) {
+    tx.partialSign(settler);
+  }
 
   return tx
     .serialize({ requireAllSignatures: false, verifySignatures: false })
@@ -656,7 +708,8 @@ export async function buildPlaceBetTx(
   nonce: number,
   amount: number,
   difficulty: number,
-  vaultType: "sol" | "bux"
+  vaultType: "sol" | "bux",
+  feePayerMode: "player" | "settler" = "player"
 ): Promise<string> {
   const player = new PublicKey(wallet);
   const nonceBigint = BigInt(nonce);
@@ -727,21 +780,31 @@ export async function buildPlaceBetTx(
   });
 
   const blockhash = await getRecentBlockhash();
-  // Player is fee_payer (pays ~5k lamports priority fee from their wallet).
-  // Settler partial-signs ONLY the rent_payer signer slot (Phase 1 requires
-  // settler as rent_payer; program enforces `rent_payer == game_registry.settler`).
-  // Fee_payer is decoupled from rent_payer by design so Wallet Standard
-  // wallets (Phantom/Solflare/Backpack) don't reject the tx for "fee payer
-  // is not the connected wallet" — that's a Phantom UX invariant.
+
+  // Fee-payer branches on the caller's signing environment:
   //
-  // Web3Auth social users will get a different build path in Phase 5 (they
-  // sign locally after key export, so no wallet-approval layer to appease;
-  // settler can be fee_payer there to deliver zero-SOL UX).
+  //   "player" (default, Wallet Standard): Phantom/Solflare/Backpack reject
+  //   multi-signer txs where the connected wallet isn't fee_payer, so we
+  //   set feePayer = player. Settler partial-signs ONLY the rent_payer slot.
+  //   Player must hold enough SOL to cover the ~5000 lamport priority fee.
+  //
+  //   "settler" (Web3Auth users): Web3Auth signs locally from an exported
+  //   keypair — no wallet-approval invariant to respect. Settler becomes
+  //   fee_payer AND rent_payer, partial-signing BOTH slots. Player keeps
+  //   zero SOL; settler absorbs the ~5000 lamport priority fee per bet.
+  //   Rent still cycles: settler pays on init, gets it back on
+  //   close=rent_payer at settle/reclaim time.
+  const useSettlerFeePayer = feePayerMode === "settler";
+
   const tx = new Transaction({
     recentBlockhash: blockhash,
-    feePayer: player,
+    feePayer: useSettlerFeePayer ? settler.publicKey : player,
   });
   tx.add(...computeBudgetIxs(), ix);
+
+  // Settler always partial-signs as rent_payer. When it's also fee_payer,
+  // the single partialSign call covers both slots because the same
+  // Keypair signs all slots it controls.
   tx.partialSign(settler);
 
   return tx

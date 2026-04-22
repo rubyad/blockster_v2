@@ -12,7 +12,13 @@ defmodule BlocksterV2.AirdropTest do
   defp setup_mnesia(_context) do
     :mnesia.start()
 
+    # Post-Solana-migration (Phase 3), BUX/SOL balances live in
+    # `user_solana_balances` — EngagementTracker.get_user_token_balances/1
+    # reads from there. Keep the legacy `user_bux_balances` table ensured
+    # since some code paths still fall through to it for historical totals.
     tables = [
+      {:user_solana_balances,
+       [:user_id, :wallet_address, :updated_at, :sol_balance, :bux_balance]},
       {:user_bux_balances,
        [:user_id, :user_smart_wallet, :updated_at, :aggregate_bux_balance,
         :bux_balance, :moonbux_balance, :neobux_balance, :roguebux_balance,
@@ -34,11 +40,22 @@ defmodule BlocksterV2.AirdropTest do
   end
 
   defp set_bux_balance(user, balance) do
-    record =
+    # user_solana_balances record shape: {table, user_id, wallet_address,
+    # updated_at, sol_balance, bux_balance}. Set `bux_balance` at index 5.
+    now = System.system_time(:second)
+
+    solana_record =
+      {:user_solana_balances, user.id, user.wallet_address, now, 0.0, balance * 1.0}
+
+    :mnesia.dirty_write(:user_solana_balances, solana_record)
+
+    # Keep the legacy mirror in sync so any still-active reader sees the
+    # same test state.
+    legacy_record =
       {:user_bux_balances, user.id, user.smart_wallet_address, DateTime.utc_now(),
        balance * 1.0, balance * 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0}
 
-    :mnesia.dirty_write(:user_bux_balances, record)
+    :mnesia.dirty_write(:user_bux_balances, legacy_record)
   end
 
   setup :setup_mnesia

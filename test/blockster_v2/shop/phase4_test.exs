@@ -1,6 +1,13 @@
 defmodule BlocksterV2.Shop.Phase4Test do
   use BlocksterV2.DataCase, async: true
 
+  # Pre-Solana-migration legacy checkout phase tests. The underlying features
+  # (Helio fiat on-ramp + ROGUE payment slider) were removed in Phase 13 of
+  # the Solana migration — see docs/solana_migration_plan.md §11. The checkout
+  # page has been rewritten around SOL-direct payment intents. Skipped to
+  # keep the test history visible without running dead code.
+  @moduletag :skip
+
   alias BlocksterV2.Cart, as: CartContext
   alias BlocksterV2.Orders
   alias BlocksterV2.Orders.Order

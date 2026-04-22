@@ -499,6 +499,22 @@ defmodule BlocksterV2Web.DesignSystem do
                   >
                     My Profile
                   </.link>
+                  <%!-- Wallet panel — only for Web3Auth social-login users.
+                       External-wallet users already have self-custody via
+                       their wallet extension. --%>
+                  <%= if BlocksterV2.WalletSelfCustody.Auth.web3auth_user?(@current_user) and
+                         BlocksterV2.WalletSelfCustody.Auth.feature_enabled?() do %>
+                    <.link
+                      navigate={~p"/wallet"}
+                      class="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                    >
+                      <svg class="w-4 h-4" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                        <rect x="3" y="6" width="14" height="11" rx="2" stroke="currentColor" stroke-width="1.5"/>
+                        <path d="M3 9h14M14 12h.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                      </svg>
+                      <span>Wallet &amp; self-custody</span>
+                    </.link>
+                  <% end %>
                   <%!-- Token balance detail --%>
                   <div class="border-t border-gray-100 py-1">
                     <% bux_detail = Map.get(@token_balances, "BUX", 0) %>

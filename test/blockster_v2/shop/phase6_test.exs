@@ -1,6 +1,12 @@
 defmodule BlocksterV2.Shop.Phase6Test do
   use BlocksterV2.DataCase, async: false
 
+  # ROGUE payment phase — removed in the Solana migration. The ROGUE chain
+  # slider, live rate display, and payment flow were all deleted in Phase 9
+  # (see docs/solana_migration_plan.md). These tests exercise classes that
+  # no longer exist. Skipped; kept for history.
+  @moduletag :skip
+
   alias BlocksterV2.Cart, as: CartContext
   alias BlocksterV2.Orders
   alias BlocksterV2.Orders.Order

@@ -156,6 +156,7 @@ defmodule BlocksterV2Web.Router do
       live "/shop/:slug", ShopLive.Show, :show
       live "/cart", CartLive.Index, :index
       live "/checkout/:order_id", CheckoutLive.Index, :index
+      live "/wallet", WalletLive.Index, :index
       live "/category/:category", PostLive.Category, :show
       live "/tag/:tag", PostLive.Tag, :show
       live "/notifications", NotificationLive.Index, :index
@@ -219,6 +220,16 @@ defmodule BlocksterV2Web.Router do
     # Web3Auth social login — verifies a Web3Auth-issued ID token and
     # creates/looks up the matching user row. See Auth.Web3Auth.
     post "/auth/web3auth/session", AuthController, :verify_web3auth
+
+    # In-app email OTP for the custom-JWT Web3Auth path. Replaces
+    # Web3Auth's EMAIL_PASSWORDLESS popup flow. See Auth.EmailOtpStore.
+    post "/auth/web3auth/email_otp/send", AuthController, :email_otp_send
+    post "/auth/web3auth/email_otp/verify", AuthController, :email_otp_verify
+
+    # Silent-reconnect: returns a fresh custom-JWT for the current session's
+    # web3auth user. Lets the Web3Auth hook re-establish the MPC signer
+    # after a page reload without forcing the user to re-enter an OTP.
+    post "/auth/web3auth/refresh_jwt", AuthController, :refresh_web3auth_jwt
   end
 
   # Web3Auth Custom verifier reads this to validate our JWTs.
@@ -270,14 +281,12 @@ defmodule BlocksterV2Web.Router do
       pipe_through :browser
 
       live "/design-preview", DesignPreviewLive, :index
+
+      # One-shot login helper for manual E2E verification.
+      # GET /dev/login-as/:user_id signs the user in by minting a session
+      # and setting the signed cookie. Dev-only. Remove when done.
+      get "/login-as/:user_id", DevLoginController, :login
     end
 
-    # Phase 0 Web3Auth prototype — THROWAWAY. Delete once Phase 5 ships.
-    # Routed under /dev so the main scope's /:slug catch-all doesn't swallow it.
-    scope "/dev", BlocksterV2Web do
-      pipe_through :browser
-
-      live "/test-web3auth", TestWeb3AuthLive, :index
-    end
   end
 end

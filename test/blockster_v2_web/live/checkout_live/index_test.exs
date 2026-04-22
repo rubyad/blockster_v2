@@ -124,7 +124,8 @@ defmodule BlocksterV2Web.CheckoutLive.IndexTest do
       assert html =~ "ds-site-header"
       assert html =~ "SolanaWallet"
       assert html =~ "Why Earn BUX?"
-      assert html =~ "Where the chain meets the model."
+      # Footer was retuned to the Solana brand line in the post-migration polish.
+      assert html =~ "All in on Solana."
     end
 
     test "renders shipping form", %{conn: conn, user: user, order: order} do
@@ -336,16 +337,15 @@ defmodule BlocksterV2Web.CheckoutLive.IndexTest do
       %{order: Orders.get_order(order.id)}
     end
 
-    test "renders Helio payment card", %{conn: conn, user: user, order: order} do
+    test "renders SOL payment card", %{conn: conn, user: user, order: order} do
+      # Helio fiat card was removed in Phase 13; replaced by SOL-direct
+      # payment intent with a countdown timer + address QR.
       conn = log_in_user(conn, user)
       {:ok, view, _html} = live(conn, ~p"/checkout/#{order.id}")
       _html = render_click(view, "select_shipping_rate", %{"rate" => "us_standard"})
       html = render_click(view, "proceed_to_payment")
 
       assert html =~ "Pay your order"
-      assert html =~ "Helio"
-      assert html =~ "helio-checkout-hook"
-      assert html =~ "HelioCheckoutHook"
     end
 
     test "renders order total in sidebar", %{conn: conn, user: user, order: order} do
@@ -406,7 +406,7 @@ defmodule BlocksterV2Web.CheckoutLive.IndexTest do
       conn = log_in_user(conn, user)
       {:ok, _view, html} = live(conn, ~p"/checkout/#{order.id}")
 
-      assert html =~ "Where the chain meets the model."
+      assert html =~ "All in on Solana."
     end
   end
 end

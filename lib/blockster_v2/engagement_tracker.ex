@@ -1863,6 +1863,7 @@ defmodule BlocksterV2.EngagementTracker do
       [] ->
         record = {:user_solana_balances, user_id, wallet_address, now, sol_float, 0.0}
         :mnesia.dirty_write(record)
+        broadcast_solana_sol_update(user_id, sol_float)
         {:ok, sol_float}
 
       [existing] ->
@@ -1871,6 +1872,7 @@ defmodule BlocksterV2.EngagementTracker do
           |> put_elem(3, now)             # updated_at
           |> put_elem(4, sol_float)       # sol_balance
         :mnesia.dirty_write(updated)
+        broadcast_solana_sol_update(user_id, sol_float)
         {:ok, sol_float}
     end
   rescue
@@ -1881,6 +1883,12 @@ defmodule BlocksterV2.EngagementTracker do
     :exit, e ->
       Logger.error("[EngagementTracker] Exit updating SOL balance: #{inspect(e)}")
       {:error, e}
+  end
+
+  defp broadcast_solana_sol_update(user_id, sol_float) do
+    BlocksterV2Web.BuxBalanceHook.broadcast_token_balances_update(user_id, %{"SOL" => sol_float})
+  rescue
+    _ -> :ok
   end
 
   @doc """
@@ -1895,6 +1903,7 @@ defmodule BlocksterV2.EngagementTracker do
       [] ->
         record = {:user_solana_balances, user_id, wallet_address, now, 0.0, bux_float}
         :mnesia.dirty_write(record)
+        broadcast_solana_bux_update(user_id, bux_float)
         {:ok, bux_float}
 
       [existing] ->
@@ -1903,6 +1912,7 @@ defmodule BlocksterV2.EngagementTracker do
           |> put_elem(3, now)             # updated_at
           |> put_elem(5, bux_float)       # bux_balance
         :mnesia.dirty_write(updated)
+        broadcast_solana_bux_update(user_id, bux_float)
         {:ok, bux_float}
     end
   rescue
@@ -1913,6 +1923,16 @@ defmodule BlocksterV2.EngagementTracker do
     :exit, e ->
       Logger.error("[EngagementTracker] Exit updating Solana BUX balance: #{inspect(e)}")
       {:error, e}
+  end
+
+  # Broadcast BUX balance updates so BuxBalanceHook-subscribed LiveViews
+  # (header, shop, bet UIs) refresh without a page reload. Mirrors the
+  # broadcast pair fired by `update_user_token_balance/5`.
+  defp broadcast_solana_bux_update(user_id, bux_float) do
+    BlocksterV2Web.BuxBalanceHook.broadcast_balance_update(user_id, bux_float)
+    BlocksterV2Web.BuxBalanceHook.broadcast_token_balances_update(user_id, %{"BUX" => bux_float})
+  rescue
+    _ -> :ok
   end
 
   # ============================================================================

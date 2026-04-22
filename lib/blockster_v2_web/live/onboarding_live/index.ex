@@ -17,10 +17,16 @@ defmodule BlocksterV2Web.OnboardingLive.Index do
   alias BlocksterV2.PhoneVerification
   alias BlocksterV2.Accounts.EmailVerification
 
-  # All valid steps in order. `migrate_email` is shown ONLY when the user picks
-  # "I have an account" on welcome.
-  @steps ["welcome", "migrate_email", "redeem", "profile", "phone", "email", "x", "complete"]
-  @total_steps length(@steps)
+  # All valid steps in order. The legacy `migrate_email` step is retired —
+  # existing Blockster users reclaim their account by signing in with the
+  # Web3Auth email flow (the merge happens server-side in Accounts), not
+  # by connecting a wallet and then entering an email. New wallet users go
+  # straight from welcome → redeem with no migration prompt.
+  #
+  # The runtime step list is filtered per user based on `auth_method` —
+  # Web3Auth social users skip the step that corresponds to the identity
+  # they already signed in with (Phase 6).
+  @base_steps ["welcome", "redeem", "profile", "phone", "email", "x", "complete"]
 
   @impl true
   def mount(_params, _session, socket) do
@@ -38,6 +44,8 @@ defmodule BlocksterV2Web.OnboardingLive.Index do
         # config change like the email floor going from 1.0x → 0.5x).
         multipliers = UnifiedMultiplier.refresh_multipliers(user.id)
 
+        steps = build_steps_for_user(user)
+
         socket =
           socket
           |> assign(page_title: "Welcome to Blockster")
@@ -45,7 +53,8 @@ defmodule BlocksterV2Web.OnboardingLive.Index do
           |> assign(multipliers: multipliers)
           |> assign(current_step: "welcome")
           |> assign(step_index: 0)
-          |> assign(total_steps: @total_steps)
+          |> assign(steps: steps)
+          |> assign(total_steps: length(steps))
           # Phone verification state (adapted from PhoneVerificationModalComponent)
           |> assign(phone_step_state: :enter_phone)
           |> assign(phone_number: "")
@@ -76,19 +85,21 @@ defmodule BlocksterV2Web.OnboardingLive.Index do
   @impl true
   def handle_params(params, _uri, socket) do
     step = Map.get(params, "step", "welcome")
+    steps = socket.assigns[:steps] || @base_steps
 
-    # Validate step
-    step_index = Enum.find_index(@steps, &(&1 == step))
+    # Validate step — must be in this user's filtered step list. If the URL
+    # references a step this user skipped (e.g., social user deep-linking to
+    # /onboarding/email), bounce them to the next step they actually need.
+    case Enum.find_index(steps, &(&1 == step)) do
+      nil ->
+        {:noreply, push_patch(socket, to: ~p"/onboarding/welcome")}
 
-    if step_index do
-      {:noreply,
-       socket
-       |> assign(current_step: step)
-       |> assign(step_index: step_index)
-       |> assign(page_title: step_title(step))}
-    else
-      # Invalid step, redirect to welcome
-      {:noreply, push_patch(socket, to: ~p"/onboarding/welcome")}
+      step_index ->
+        {:noreply,
+         socket
+         |> assign(current_step: step)
+         |> assign(step_index: step_index)
+         |> assign(page_title: step_title(step))}
     end
   end
 
@@ -253,24 +264,20 @@ defmodule BlocksterV2Web.OnboardingLive.Index do
   end
 
   # =============================================================================
-  # Migration Branch Events (welcome → migrate_email)
+  # Welcome Step → Redeem
   # =============================================================================
+  # Legacy account reclaim used to live here (welcome → migrate_email →
+  # OTP → merge). That path is retired: existing Blockster users reclaim
+  # their account by signing in with their email via Web3Auth, which runs
+  # the merge server-side before they ever hit onboarding. So welcome now
+  # always routes to redeem regardless of the payload.
 
   @impl true
-  def handle_event("set_migration_intent", %{"intent" => intent}, socket) do
-    intent_atom =
-      case intent do
-        "new" -> :new
-        "returning" -> :returning
-        _ -> :new
-      end
-
-    next_step = if intent_atom == :returning, do: "migrate_email", else: "redeem"
-
+  def handle_event("set_migration_intent", _params, socket) do
     {:noreply,
      socket
-     |> assign(:migration_intent, intent_atom)
-     |> push_patch(to: ~p"/onboarding/#{next_step}")}
+     |> assign(:migration_intent, :new)
+     |> push_patch(to: ~p"/onboarding/redeem")}
   end
 
   @impl true
@@ -440,6 +447,7 @@ defmodule BlocksterV2Web.OnboardingLive.Index do
                   phone_countdown={@phone_countdown}
                   verification_result={@verification_result}
                   phone_country_code={@phone_country_code}
+                  skip_to={next_step_in_flow("phone", @steps)}
                 />
               <% "email" -> %>
                 <.email_step
@@ -450,9 +458,14 @@ defmodule BlocksterV2Web.OnboardingLive.Index do
                   email_error={@email_error}
                   email_success={@email_success}
                   email_countdown={@email_countdown}
+                  skip_to={next_step_in_flow("email", @steps)}
                 />
               <% "x" -> %>
-                <.x_step user={@user} multipliers={@multipliers} />
+                <.x_step
+                  user={@user}
+                  multipliers={@multipliers}
+                  skip_to={next_step_in_flow("x", @steps)}
+                />
               <% "complete" -> %>
                 <.complete_step user={@user} multipliers={@multipliers} />
               <% _ -> %>
@@ -489,28 +502,21 @@ defmodule BlocksterV2Web.OnboardingLive.Index do
           Welcome to Blockster
         </h1>
         <p class="text-[15px] text-[#6B7280] leading-relaxed">
-          Are you new here, or migrating from an existing Blockster account?
+          A few quick steps and you'll be earning BUX for reading.
         </p>
       </div>
 
-      <%!-- CTAs: branch on intent --%>
-      <div class="pt-4 space-y-3">
+      <%!-- Single CTA — legacy account reclaim now happens automatically
+           when a user signs in with their old email via Web3Auth, so the
+           onboarding flow just starts here for everyone. --%>
+      <div class="pt-4">
         <button
           type="button"
           phx-click="set_migration_intent"
           phx-value-intent="new"
           class="block w-full bg-[#0a0a0a] text-white font-medium py-3.5 rounded-xl text-center hover:bg-[#1a1a22] transition-colors cursor-pointer"
         >
-          I'm new
-        </button>
-
-        <button
-          type="button"
-          phx-click="set_migration_intent"
-          phx-value-intent="returning"
-          class="block w-full bg-[#f5f5f4] text-[#141414] font-medium py-3.5 rounded-xl text-center hover:bg-neutral-200 transition-colors cursor-pointer"
-        >
-          I have an account
+          Get started
         </button>
       </div>
     </div>
@@ -914,7 +920,7 @@ defmodule BlocksterV2Web.OnboardingLive.Index do
               </button>
 
               <.link
-                patch={~p"/onboarding/email"}
+                patch={~p"/onboarding/#{@skip_to}"}
                 class="block w-full text-[#9CA3AF] text-[13px] py-2 text-center hover:text-[#6B7280] transition-colors cursor-pointer"
               >
                 Skip for now
@@ -1127,7 +1133,7 @@ defmodule BlocksterV2Web.OnboardingLive.Index do
               </button>
 
               <.link
-                patch={~p"/onboarding/x"}
+                patch={~p"/onboarding/#{@skip_to}"}
                 class="block w-full text-[#9CA3AF] text-[13px] py-2 text-center hover:text-[#6B7280] transition-colors cursor-pointer"
               >
                 Skip for now
@@ -1297,7 +1303,7 @@ defmodule BlocksterV2Web.OnboardingLive.Index do
           </.link>
 
           <.link
-            patch={~p"/onboarding/complete"}
+            patch={~p"/onboarding/#{@skip_to}"}
             class="block w-full text-[#9CA3AF] text-[13px] py-2 text-center hover:text-[#6B7280] transition-colors cursor-pointer"
           >
             Skip for now
@@ -1460,16 +1466,56 @@ defmodule BlocksterV2Web.OnboardingLive.Index do
   defp step_title(_), do: "Onboarding"
 
   @doc false
-  # Walks @steps from the step AFTER `current_step` and returns the first one
-  # that hasn't been filled by the user's current state. Used after a merge
-  # (or whenever we want to fast-forward past steps the user has already
-  # completed via the legacy reclaim flow).
+  # Walks the user's filtered step list from the step AFTER `current_step`
+  # and returns the first one that hasn't been filled by the user's current
+  # state. Used after a merge (or whenever we want to fast-forward past
+  # steps the user has already completed via the legacy reclaim flow).
   def next_unfilled_step(user, current_step) do
-    current_idx = Enum.find_index(@steps, &(&1 == current_step)) || 0
+    steps = build_steps_for_user(user)
+    current_idx = Enum.find_index(steps, &(&1 == current_step)) || 0
 
-    @steps
+    steps
     |> Enum.drop(current_idx + 1)
     |> Enum.find("complete", fn step -> step_unfilled?(step, user) end)
+  end
+
+  @doc """
+  Return the next step in the user's filtered step list after `current_step`.
+  Falls back to `"complete"` if `current_step` is unknown or at the end.
+  Used by "Skip for now" links so they route through steps that actually
+  exist for this user's auth_method (Web3Auth users have some steps
+  filtered out).
+  """
+  def next_step_in_flow(current_step, steps) when is_list(steps) do
+    case Enum.find_index(steps, &(&1 == current_step)) do
+      nil -> "complete"
+      idx -> Enum.at(steps, idx + 1, "complete")
+    end
+  end
+
+  @doc """
+  Filter the base step list based on the user's `auth_method`.
+
+  Web3Auth social users signed in with an identity already — we don't
+  re-verify it here. Email Web3Auth users skip the email step; X Web3Auth
+  users skip the X step. All Web3Auth users skip `migrate_email` (they are
+  new users with no legacy account to reclaim).
+
+  Wallet users (Phantom et al) see the full legacy flow unchanged.
+  """
+  def build_steps_for_user(nil), do: @base_steps
+
+  def build_steps_for_user(user) do
+    auth = Map.get(user, :auth_method, "wallet")
+
+    skip =
+      case auth do
+        "web3auth_email" -> ["email"]
+        "web3auth_x" -> ["x"]
+        _ -> []
+      end
+
+    Enum.reject(@base_steps, &(&1 in skip))
   end
 
   defp step_unfilled?("welcome", _user), do: false

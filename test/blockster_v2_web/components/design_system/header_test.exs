@@ -66,7 +66,11 @@ defmodule BlocksterV2Web.DesignSystem.HeaderTest do
       assert html =~ "border-[#CAFC00]"
     end
 
-    test "renders the search input with phx-keyup handler" do
+    test "renders the search trigger button" do
+      # The header's search chrome is a button that opens a modal, not an
+      # inline input. The actual search `phx-keyup="search_posts"` lives on
+      # the modal's input element, which only renders when
+      # `@show_search_modal == true`.
       assigns = %{}
 
       html =
@@ -74,7 +78,7 @@ defmodule BlocksterV2Web.DesignSystem.HeaderTest do
         <.header current_user={nil} />
         """)
 
-      assert html =~ ~s(phx-keyup="search_posts")
+      assert html =~ ~s(phx-click="open_search_modal")
     end
   end
 
@@ -171,14 +175,21 @@ defmodule BlocksterV2Web.DesignSystem.HeaderTest do
       assert html =~ "Posts"
     end
 
-    test "renders search results dropdown when show_search_results is true" do
+    test "renders search results dropdown when show_search_modal + show_search_results are true" do
+      # The search results dropdown was moved inside the search modal in the
+      # redesign — it no longer appears on the header chrome directly.
       user = %{username: "marcus", wallet_address: "abc", slug: "marcus", is_author: false, is_admin: false}
       post = %{slug: "test-post", title: "Test Post", featured_image: "https://example.com/img.jpg", category: %{name: "DeFi"}}
       assigns = %{user: user, post: post}
 
       html =
         rendered_to_string(~H"""
-        <.header current_user={@user} show_search_results={true} search_results={[@post]} />
+        <.header
+          current_user={@user}
+          show_search_modal={true}
+          show_search_results={true}
+          search_results={[@post]}
+        />
         """)
 
       assert html =~ "Test Post"

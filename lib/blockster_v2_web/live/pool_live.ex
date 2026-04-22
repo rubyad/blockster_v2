@@ -671,6 +671,7 @@ defmodule BlocksterV2Web.PoolLive do
       true ->
         amount = parse_amount(raw_amount)
         wallet = socket.assigns.wallet_address
+        fee_payer_mode = BuxMinter.fee_payer_mode_for_user(socket.assigns.current_user)
 
         socket = assign(socket, processing_key, true)
 
@@ -678,8 +679,15 @@ defmodule BlocksterV2Web.PoolLive do
           start_async(socket, :build_tx, fn ->
             result =
               case action do
-                :deposit -> BuxMinter.build_deposit_tx(wallet, amount, vault_type)
-                :withdraw -> BuxMinter.build_withdraw_tx(wallet, amount, vault_type)
+                :deposit ->
+                  BuxMinter.build_deposit_tx(wallet, amount, vault_type,
+                    fee_payer_mode: fee_payer_mode
+                  )
+
+                :withdraw ->
+                  BuxMinter.build_withdraw_tx(wallet, amount, vault_type,
+                    fee_payer_mode: fee_payer_mode
+                  )
               end
 
             case result do

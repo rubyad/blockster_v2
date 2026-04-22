@@ -63,7 +63,15 @@ defmodule BlocksterV2Web.WalletAuthEvents do
                       {:halt, Phoenix.LiveView.redirect(socket, to: "/")}
 
                     true ->
-                      {:halt, socket}
+                      # Returning user signed in — the WebSocket's session map
+                      # was captured BEFORE login (empty `wallet_address`), so
+                      # any subsequent live-navigate to a different page would
+                      # re-mount with a stale session and lose current_user.
+                      # Force a full HTTP reload so the new session cookie is
+                      # picked up fresh. Land on the homepage — small UX cost
+                      # vs staying on the current page, but guarantees every
+                      # downstream page sees the signed-in user.
+                      {:halt, Phoenix.LiveView.redirect(socket, to: "/")}
                   end
               end
             end
@@ -209,6 +217,285 @@ defmodule BlocksterV2Web.WalletAuthEvents do
         {:noreply, socket |> assign(:connecting, false) |> assign(:connecting_wallet_name, nil) |> put_flash(:error, error)}
       end
 
+      # ── Web3Auth Social Login ──
+      #
+      # UI entry points from the sign-in modal (wallet_components.ex). Each
+      # button pushes a `start_web3auth_login` event down to the Web3Auth JS
+      # hook with the right provider key. On success the hook sends
+      # `web3auth_authenticated` back with { wallet_address, id_token, ... }
+      # which we POST to /api/auth/web3auth/session to mint a session cookie.
+
+      def handle_event("start_email_login", %{"email" => email}, socket) do
+        email = String.trim(email || "")
+
+        cond do
+          email == "" ->
+            {:noreply, put_flash(socket, :error, "Enter your email.")}
+
+          not BlocksterV2Web.WalletAuthEvents.valid_email?(email) ->
+            {:noreply, put_flash(socket, :error, "That doesn't look like a valid email.")}
+
+          true ->
+            case BlocksterV2.Auth.EmailOtpStore.send_otp(email) do
+              {:ok, _ttl} ->
+                socket =
+                  socket
+                  |> assign(:email_prefill, email)
+                  |> assign(:email_otp_stage, :enter_code)
+                  |> assign(:email_otp_error, nil)
+                  |> assign(:email_otp_resend_cooldown, 60)
+
+                # Tick down the resend cooldown so the UI can render a live timer.
+                Process.send_after(self(), :email_otp_cooldown_tick, 1000)
+                {:noreply, socket}
+
+              {:error, {:rate_limited, seconds}} ->
+                socket =
+                  socket
+                  |> assign(:email_prefill, email)
+                  |> assign(:email_otp_stage, :enter_code)
+                  |> assign(:email_otp_resend_cooldown, seconds)
+                  |> assign(:email_otp_error, "Please wait #{seconds}s before requesting another code.")
+
+                Process.send_after(self(), :email_otp_cooldown_tick, 1000)
+                {:noreply, socket}
+            end
+        end
+      end
+
+      def handle_event("start_email_login", _params, socket) do
+        {:noreply, put_flash(socket, :error, "Enter your email.")}
+      end
+
+      # User entered the code in the modal. Verify + issue a JWT, then
+      # hand it to the Web3Auth hook via the CUSTOM connector path.
+      def handle_event("verify_email_otp", %{"code" => code}, socket) do
+        email = socket.assigns[:email_prefill]
+        code = String.trim(code || "")
+
+        cond do
+          email in [nil, ""] ->
+            {:noreply, assign(socket, :email_otp_error, "Enter your email first.")}
+
+          String.length(code) < 4 ->
+            {:noreply, assign(socket, :email_otp_error, "Enter the 6-digit code from your email.")}
+
+          true ->
+            case BlocksterV2.Auth.EmailOtpStore.verify_otp(email, code) do
+              {:ok, normalized_email} ->
+                claims = %{
+                  "sub" => normalized_email,
+                  "email" => normalized_email,
+                  "email_verified" => true
+                }
+
+                id_token = BlocksterV2.Auth.Web3AuthSigning.sign_id_token(claims)
+
+                socket =
+                  socket
+                  |> assign(:email_otp_stage, nil)
+                  |> assign(:email_otp_error, nil)
+                  |> assign(:connecting, true)
+                  |> assign(:connecting_provider, "email")
+                  |> push_event("start_web3auth_jwt_login", %{
+                    provider: "email",
+                    id_token: id_token,
+                    verifier_id: "blockster-email",
+                    verifier_id_field: "sub"
+                  })
+
+                {:noreply, socket}
+
+              {:error, :invalid_code} ->
+                {:noreply, assign(socket, :email_otp_error, "Invalid code. Try again.")}
+
+              {:error, :expired} ->
+                {:noreply,
+                 socket
+                 |> assign(:email_otp_stage, :enter_email)
+                 |> assign(:email_otp_error, "Code expired. Request a new one.")}
+
+              {:error, :not_found} ->
+                {:noreply,
+                 socket
+                 |> assign(:email_otp_stage, :enter_email)
+                 |> assign(:email_otp_error, "No code pending. Request a new one.")}
+
+              {:error, {:locked, _seconds}} ->
+                {:noreply,
+                 socket
+                 |> assign(:email_otp_stage, :enter_email)
+                 |> assign(:email_otp_error, "Too many attempts. Try again in a few minutes.")}
+            end
+        end
+      end
+
+      # Go back to the email entry stage (e.g. typo'd email). Keeps the
+      # OTP server-side — it'll expire on its own ttl.
+      def handle_event("email_otp_back", _params, socket) do
+        {:noreply,
+         socket
+         |> assign(:email_otp_stage, :enter_email)
+         |> assign(:email_otp_error, nil)}
+      end
+
+      # Resend code — same path as submitting a new email, with the
+      # rate-limit enforced server-side.
+      def handle_event("resend_email_otp", _params, socket) do
+        email = socket.assigns[:email_prefill]
+
+        if is_binary(email) and email != "" do
+          handle_event("start_email_login", %{"email" => email}, socket)
+        else
+          {:noreply, assign(socket, :email_otp_error, "Enter your email.")}
+        end
+      end
+
+      def handle_info(:email_otp_cooldown_tick, socket) do
+        remaining = (socket.assigns[:email_otp_resend_cooldown] || 0) - 1
+
+        if remaining > 0 do
+          Process.send_after(self(), :email_otp_cooldown_tick, 1000)
+          {:noreply, assign(socket, :email_otp_resend_cooldown, remaining)}
+        else
+          {:noreply, assign(socket, :email_otp_resend_cooldown, 0)}
+        end
+      end
+
+      def handle_event("start_x_login", _params, socket) do
+        socket =
+          socket
+          |> assign(:connecting, true)
+          |> assign(:connecting_provider, "twitter")
+          |> push_event("start_web3auth_login", %{provider: "twitter"})
+
+        {:noreply, socket}
+      end
+
+      def handle_event("start_google_login", _params, socket) do
+        socket =
+          socket
+          |> assign(:connecting, true)
+          |> assign(:connecting_provider, "google")
+          |> push_event("start_web3auth_login", %{provider: "google"})
+
+        {:noreply, socket}
+      end
+
+      def handle_event("start_apple_login", _params, socket) do
+        socket =
+          socket
+          |> assign(:connecting, true)
+          |> assign(:connecting_provider, "apple")
+          |> push_event("start_web3auth_login", %{provider: "apple"})
+
+        {:noreply, socket}
+      end
+
+      def handle_event("start_telegram_login", _params, socket) do
+        # Telegram requires a two-step flow: widget → /api/auth/telegram/verify
+        # returns a Blockster JWT → THEN start_web3auth_login with that JWT.
+        # The modal's Telegram button currently flags the intent; the widget
+        # embed + verification dance lands fully wired in Phase 5.1 (TODO).
+        # For now we show the connecting state and let the user cancel.
+        socket =
+          socket
+          |> assign(:connecting, true)
+          |> assign(:connecting_provider, "telegram")
+          |> push_event("start_telegram_widget", %{})
+
+        {:noreply, socket}
+      end
+
+      # The Web3Auth JS hook sends this back when it has a valid id_token + pubkey.
+      # Forward to the AuthController which validates the JWT and sets the
+      # session cookie. We fetch the result server-side (via a Task) rather
+      # than trusting the client to round-trip HTTP — this keeps the tx
+      # signing flow consistent with the wallet path.
+      def handle_event("web3auth_authenticated", params, socket) do
+        wallet_address = params["wallet_address"]
+        id_token = params["id_token"]
+        provider = params["provider"] || "email"
+
+        cond do
+          not is_binary(wallet_address) or wallet_address == "" ->
+            {:noreply, assign(socket, connecting: false, connecting_provider: nil)
+              |> put_flash(:error, "Web3Auth did not return a wallet address.")}
+
+          not is_binary(id_token) or id_token == "" ->
+            {:noreply, assign(socket, connecting: false, connecting_provider: nil)
+              |> put_flash(:error, "Web3Auth did not return an ID token.")}
+
+          true ->
+            # Stash for server-side session mint via persist_web3auth_session
+            # JS event (mirrors the wallet path's persist_session hook — the
+            # JS hook POSTs to /api/auth/web3auth/session so the session cookie
+            # lands before we route to /onboarding).
+            socket =
+              socket
+              |> assign(:pending_wallet_auth, wallet_address)
+              |> assign(:pending_web3auth_provider, provider)
+              |> push_event("persist_web3auth_session", %{
+                wallet_address: wallet_address,
+                id_token: id_token,
+                provider: provider
+              })
+
+            {:noreply, socket}
+        end
+      end
+
+      # JS hook confirms /api/auth/web3auth/session returned success and set
+      # the session cookie. Now safe to fire :wallet_authenticated (same
+      # downstream path as the wallet flow — onboarding redirect etc.).
+      #
+      # `wallet_address` here is the CANONICAL wallet from the server response
+      # (what the user is actually logged in as). `derived_pubkey` is the
+      # Web3Auth-derived pubkey from the JWT. These differ when the server
+      # matched the user by email into an existing account — in that case
+      # the derived pubkey is orphaned and we route the session through the
+      # canonical one.
+      def handle_event("web3auth_session_persisted", %{"wallet_address" => wallet_address} = params, socket) do
+        is_new_user = Map.get(params, "is_new_user", false) == true
+        derived_pubkey = Map.get(params, "derived_pubkey", wallet_address)
+
+        # Accept if pending matches either the derived pubkey (normal path)
+        # or the canonical wallet (email-collision path).
+        pending = socket.assigns[:pending_wallet_auth]
+
+        if pending == derived_pubkey or pending == wallet_address do
+          send(self(), {:wallet_authenticated, wallet_address, is_new_user})
+
+          {:noreply,
+           socket
+           |> assign(:pending_wallet_auth, nil)
+           |> assign(:pending_web3auth_provider, nil)
+           |> assign(:connecting, false)
+           |> assign(:connecting_provider, nil)
+           |> assign(:show_wallet_selector, false)}
+        else
+          {:noreply, socket}
+        end
+      end
+
+      def handle_event("web3auth_error", %{"error" => error}, socket) do
+        {:noreply,
+         socket
+         |> assign(:connecting, false)
+         |> assign(:connecting_provider, nil)
+         |> put_flash(:error, "Sign-in failed: #{error}")}
+      end
+
+      # Telegram widget payload arrives here after user approves in the
+      # Telegram Login Widget popup. We POST it to /api/auth/telegram/verify
+      # from JS — this handler is the LiveView side of that chain, retained
+      # for future expansion (e.g., Cloudflare tunnel verification status).
+      def handle_event("telegram_widget_payload", %{"payload" => _payload}, socket) do
+        # The JS hook handles the full HTTP roundtrip + eventual connectTo;
+        # we only assign connecting state here so UI reflects it.
+        {:noreply, assign(socket, connecting: true, connecting_provider: "telegram")}
+      end
+
       # ── Disconnect ──
 
       def handle_event("disconnect_wallet", _, socket) do
@@ -219,6 +506,7 @@ defmodule BlocksterV2Web.WalletAuthEvents do
           |> assign(:sol_balance, nil)
           |> assign(:bux_balance, nil)
           |> assign(:connecting, false)
+          |> assign(:connecting_provider, nil)
           |> assign(:auth_challenge, nil)
           |> push_event("request_disconnect", %{})
           |> push_event("clear_session", %{})
@@ -271,12 +559,82 @@ defmodule BlocksterV2Web.WalletAuthEvents do
 
   def valid_pubkey?(_), do: false
 
+  @doc """
+  Loose email validation — good enough to reject obvious garbage before we
+  round-trip to Web3Auth's `EMAIL_PASSWORDLESS` endpoint (which does the
+  authoritative check). Not RFC 5322 compliant; intentionally so.
+  """
+  def valid_email?(email) when is_binary(email) do
+    String.match?(email, ~r/^[^\s@]+@[^\s@]+\.[^\s@]+$/)
+  end
+
+  def valid_email?(_), do: false
+
+  @doc """
+  Build the Web3Auth config map the wallet_selector_modal passes down to the
+  JS hook via data attributes. Reads from env with dev fallbacks. Returns
+  an empty map with `client_id: ""` when `SOCIAL_LOGIN_ENABLED` is off so the
+  modal hides the social section entirely.
+  """
+  def web3auth_config do
+    enabled = String.trim(System.get_env("SOCIAL_LOGIN_ENABLED", "true")) == "true"
+
+    if enabled do
+      %{
+        client_id: clean_env("WEB3AUTH_CLIENT_ID"),
+        rpc_url: clean_env("SOLANA_RPC_URL") |> default_rpc_url(),
+        chain_id: clean_env("WEB3AUTH_CHAIN_ID") |> default_chain_id(),
+        network: clean_env("WEB3AUTH_NETWORK") |> default_network(),
+        telegram_verifier_id: clean_env("WEB3AUTH_TELEGRAM_VERIFIER_ID"),
+        telegram_bot_username: clean_env("TELEGRAM_LOGIN_BOT_USERNAME")
+      }
+    else
+      %{client_id: ""}
+    end
+  end
+
+  defp clean_env(key) do
+    (System.get_env(key) || "")
+    |> String.trim()
+    |> String.trim("\"")
+    |> String.trim("'")
+    |> String.trim()
+  end
+
+  defp default_chain_id(""), do: "0x67"
+  defp default_chain_id(id), do: id
+
+  defp default_network(""), do: "SAPPHIRE_DEVNET"
+  defp default_network(net), do: net
+
+  # Web3Auth requires a concrete RPC URL at init time (Web3Auth.init() constructs
+  # `new URL(rpcTarget)`; empty string throws `Invalid URL`). Dev fallback matches
+  # the QuickNode devnet endpoint used by the settler service and the Phase 0
+  # prototype. In prod, `SOLANA_RPC_URL` MUST be set via fly secrets.
+  defp default_rpc_url(""),
+    do: "https://summer-sleek-shape.solana-devnet.quiknode.pro/92b7f51caa76f2981879528aee40a3e8e58cac60/"
+
+  defp default_rpc_url(url), do: url
+
+  @doc """
+  Returns true when social login should be shown in the UI. Driven by env.
+  """
+  def social_login_enabled? do
+    String.trim(System.get_env("SOCIAL_LOGIN_ENABLED", "true")) == "true"
+  end
+
   def default_assigns do
     [
       detected_wallets: [],
       show_wallet_selector: false,
       connecting: false,
       connecting_wallet_name: nil,
+      connecting_provider: nil,
+      email_prefill: nil,
+      email_otp_stage: nil,
+      email_otp_error: nil,
+      email_otp_resend_cooldown: 0,
+      pending_web3auth_provider: nil,
       auth_challenge: nil,
       wallet_address: nil,
       sol_balance: nil,

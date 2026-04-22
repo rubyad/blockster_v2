@@ -31,6 +31,7 @@ export const SolanaWallet = {
     this.handleEvent("request_sign", (payload) => this._handleSign(payload))
     this.handleEvent("request_disconnect", () => this._handleDisconnect())
     this.handleEvent("persist_session", ({ wallet_address }) => this._persistSession(wallet_address))
+    this.handleEvent("persist_web3auth_session", (payload) => this._persistWeb3AuthSession(payload))
     this.handleEvent("clear_session", () => this._clearSession())
     this.handleEvent("discover_and_connect", () => this._discoverAndConnect())
 
@@ -367,6 +368,65 @@ export const SolanaWallet = {
     } catch (e) {
       this.pushEvent("wallet_error", { error: "Failed to detect wallets" })
     }
+  },
+
+  // Mirror of _persistSession for the Web3Auth path. The SolanaWallet hook
+  // owns this handler (not the Web3Auth hook) so the existing
+  // session_persisted chain in wallet_auth_events stays unified — one
+  // hook responsible for all session cookie writes, no split-brain.
+  async _persistWeb3AuthSession({ wallet_address, id_token, provider }) {
+    let isNewUser = false
+    // When the server matches by email into an existing user (legacy EVM
+    // reclaim, or an active Solana user who linked email earlier), the
+    // session ends up keyed on a DIFFERENT wallet than the Web3Auth-derived
+    // pubkey. The UI + LiveView assigns must use the server's canonical
+    // wallet_address — that's what has the BUX balances, stats, etc.
+    let sessionWallet = wallet_address
+    const csrf = document.querySelector("meta[name='csrf-token']")?.content
+    if (csrf && id_token && wallet_address) {
+      try {
+        const resp = await fetch("/api/auth/web3auth/session", {
+          method: "POST",
+          headers: { "content-type": "application/json", "x-csrf-token": csrf },
+          body: JSON.stringify({ wallet_address, id_token }),
+        })
+        if (resp.ok) {
+          const json = await resp.json()
+          isNewUser = !!json.is_new_user
+          const serverWallet = json?.user?.wallet_address
+          if (typeof serverWallet === "string" && serverWallet !== "") {
+            sessionWallet = serverWallet
+          }
+        } else {
+          const body = await resp.text().catch(() => "")
+          this.pushEvent("web3auth_error", {
+            error: `Server rejected session (${resp.status}): ${body.slice(0, 120)}`,
+          })
+          return
+        }
+      } catch (e) {
+        this.pushEvent("web3auth_error", { error: `Network error: ${e?.message || e}` })
+        return
+      }
+    }
+
+    // Post-merge the server's canonical wallet_address should always match
+    // the Web3Auth-derived pubkey (the reclaim flow rewrites wallet_address
+    // to the new Solana pubkey), so no signer mismatch to worry about.
+    // Defensive check: if somehow they differ, log so it's traceable.
+    if (sessionWallet !== wallet_address) {
+      console.warn(
+        "[Web3Auth] Session wallet (" + sessionWallet + ") differs from derived " +
+          "pubkey (" + wallet_address + "). Using session wallet for UI."
+      )
+    }
+
+    this.pushEvent("web3auth_session_persisted", {
+      wallet_address: sessionWallet,
+      derived_pubkey: wallet_address,
+      is_new_user: isNewUser,
+      provider: provider || "email",
+    })
   },
 
   async _persistSession(walletAddress) {

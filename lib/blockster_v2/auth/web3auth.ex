@@ -109,18 +109,37 @@ defmodule BlocksterV2.Auth.Web3Auth do
   # ---------------------------------------------------------
 
   defp check_audience(%{"aud" => aud}, opts) do
-    expected = opts[:expected_audience] || System.get_env("WEB3AUTH_CLIENT_ID")
+    expected =
+      (opts[:expected_audience] || System.get_env("WEB3AUTH_CLIENT_ID") || "")
+      |> to_string()
+      |> String.trim()
+      |> String.trim("\"")
+      |> String.trim("'")
+      |> String.trim()
+
+    # Clean aud too — Web3Auth occasionally wraps string claims in extra
+    # whitespace that survives the JWT parse.
+    aud_clean =
+      case aud do
+        s when is_binary(s) -> String.trim(s)
+        list when is_list(list) -> Enum.map(list, fn x -> if is_binary(x), do: String.trim(x), else: x end)
+        other -> other
+      end
 
     cond do
-      is_nil(expected) or expected == "" ->
+      expected == "" ->
         Logger.warning("[Web3Auth] WEB3AUTH_CLIENT_ID not configured — accepting any aud")
         :ok
 
-      aud == expected or (is_list(aud) and expected in aud) ->
+      aud_clean == expected or (is_list(aud_clean) and expected in aud_clean) ->
         :ok
 
       true ->
-        {:error, {:audience_mismatch, %{got: aud, expected: expected}}}
+        Logger.warning(
+          "[Web3Auth] audience mismatch — got=#{inspect(aud_clean)} expected=#{inspect(expected)}"
+        )
+
+        {:error, {:audience_mismatch, %{got: aud_clean, expected: expected}}}
     end
   end
 

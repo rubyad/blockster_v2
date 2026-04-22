@@ -1004,3 +1004,322 @@ Admin form (`/admin/banners`) extended with all new templates in dropdown + per-
 - `jet_card` — 720px-wide full version; replaced by `jet_card_compact` (560px) per user preference
 - Banner #39 (green portrait Day-Date), #41 (compact Day-Date), #43+#44 (Lambo homepage banner pre-feedback) — deleted from DB
 - 17 inactive `FateSwap*` legacy image banner rows — deleted
+
+---
+
+## Web3Auth Custom JWT replaces EMAIL_PASSWORDLESS popup (2026-04-21)
+
+**Why**: Web3Auth's `EMAIL_PASSWORDLESS` connector opens a separate popup window running Web3Auth's own captcha + code-entry UI. When the user leaves the popup to grab the code from their inbox, the popup drops behind the main tab. Users never find it, or find it and can't sign in because the code field is stuck in the popup.
+
+**Fix**: own the OTP flow + hand Web3Auth a signed JWT via its `CUSTOM` connector. Same architecture as the existing Telegram path.
+
+**Flow**:
+1. Modal email → `POST /api/auth/web3auth/email_otp/send` → `EmailOtpStore.send_otp/1` (ETS, 60s cooldown, 10-min TTL, 5-attempt lockout) + async Mailer.
+2. Inline code entry → `POST /api/auth/web3auth/email_otp/verify` → `EmailOtpStore.verify_otp/2` + `Web3AuthSigning.sign_id_token(%{sub: email, email: email, email_verified: true})`.
+3. `start_web3auth_jwt_login` pushed to JS hook → `connectTo(AUTH, { authConnection: CUSTOM, authConnectionId: "blockster-email", extraLoginOptions: { id_token, verifierIdField: "sub" } })`.
+4. Web3Auth validates JWT against our JWKS → derives MPC wallet. No popup opens.
+5. `web3auth_authenticated` pushed back → server mints session.
+
+**Dashboard requirement**: add a Custom JWT verifier `blockster-email` (JWKS at our `/.well-known/jwks.json`, verifier ID field `sub`, iss `blockster`, aud `blockster-web3auth`, RS256). Dev uses Cloudflare tunnel because Web3Auth rejects localhost JWKS URLs.
+
+**Google/Apple/X still use Web3Auth's OAuth popup** — OAuth providers require a redirect window, unavoidable. Those popups are quick, not captcha+code.
+
+**Rule**: if a third-party auth SDK handles the credential step in its own popup/iframe, you'll hit the popup-behind-main-window problem. Don't ship it. Every provider that exposes a "custom JWT" connector is preferable when you already run your own auth.
+
+---
+
+## EmailOtpStore lock check falsely triggered by monotonic clock (2026-04-21)
+
+Initially used `System.monotonic_time(:millisecond)` for `created_at_ms`, `expires_at_ms`, `locked_until_ms`. On Erlang/OTP 26 on macOS the monotonic clock starts around `-576460751000` (negative, huge magnitude). With `now = -576460751000` and `locked_until = 0` (the sentinel for "unlocked"), `0 > -576460751000` = `true` → every fresh record looked locked. Tests caught it instantly: `left: {:error, :invalid_code}, right: {:error, {:locked, 576460750}}`.
+
+**Fix**: `System.system_time(:millisecond)` everywhere in this module. Wall-clock ms from Unix epoch, always positive, sentinels like `0` safely mean "unset".
+
+**Rule**: `System.monotonic_time/1` is for measuring DURATIONS only (always non-decreasing, arbitrary origin often negative). For anything that compares against sentinel values or absolute timestamps, use `System.system_time/1`. Don't mix.
+
+---
+
+## Email ownership = account ownership → wallet replacement on social login (2026-04-21)
+
+**Original plan**: plan §5.5 said reject same-email collisions with a clear error pointing to the existing account's sign-in method.
+
+**Reality**: product overruled — every consumer SaaS treats email-plus-OTP as proof of ownership. If you own the email you own the account. We merge; we don't reject.
+
+**Post-merge semantics**:
+- `wallet_address` REPLACED with Web3Auth-derived Solana pubkey
+- `smart_wallet_address` NULLed (was EVM ERC-4337; Solana-native users have it nil)
+- `auth_method` → `"web3auth_email"`
+- `email` promoted from legacy row
+- Legacy BUX snapshot minted to new Solana wallet via settler (`BuxMinter.mint_bux(wallet, amount, user_id, nil, :legacy_migration)`)
+- Legacy row: `is_active: false`, `merged_into_user_id: <new_id>`
+
+**Infrastructure change**: `LegacyMerge.merge_legacy_into!/2` grew to `/3` with an opts list. `skip_reclaimable_check: true` bypasses the `reclaimable_holder?/1` defense-in-depth check that the legacy `EmailVerification.verify_code` path still honors.
+
+**Accepted attack vector**: if an attacker has access to the target's email AND can receive the OTP, they take over the account. This isn't new — every consumer SaaS is vulnerable equally. Hardening (wallet sig from already-linked wallet as 2FA) is v1.1+.
+
+---
+
+## auth_method_for must branch on verifier name for CUSTOM connector (2026-04-21)
+
+Web3Auth reports `authConnection: "custom"` for ANY Custom JWT verifier login — Telegram, email, or any future custom provider. `Accounts.auth_method_for/1` originally mapped `"custom"` directly to `"web3auth_telegram"`, so every email sign-in got misclassified.
+
+**Fix**: for the `"custom"` branch, look at the `verifier` claim. `verifier` containing `"email"` → `"web3auth_email"`, `"telegram"` → `"web3auth_telegram"`. `String.contains?/2` matches both bare names and `aggregateVerifier`-wrapped forms.
+
+**Rule**: when multiple identity providers share a single `authConnection` value, you need a secondary discriminator (usually the verifier name). Don't collapse them in the mapping.
+
+---
+
+## Onboarding skip links must resolve through the user's filtered step list (2026-04-21)
+
+**Symptom**: a Web3Auth email user on the phone step clicked "Skip for now" → got bounced back to welcome. Infinite loop.
+
+**Root cause**: `<.link patch={~p"/onboarding/email"}>` was hardcoded. Web3Auth email users have `email` filtered out of `@steps`. `handle_params` for a step not in `@steps` redirects to welcome.
+
+**Fix**: `next_step_in_flow(current_step, steps)` helper returns the next step in the user's filtered list, or `"complete"`. Each skip link gets a `skip_to` assign computed at render time.
+
+**Rule**: any UI that navigates within a dynamically-filtered list must derive its targets from the list at render time, not from hardcoded assumptions.
+
+---
+
+## Elixir strict vs lax boolean operators in HEEx conditions (2026-04-21)
+
+```heex
+<%= if @show or (@connecting and (@connecting_wallet_name or @connecting_provider)) do %>
+```
+
+Compiled but crashed at runtime: `BadBooleanError: expected a boolean on left-side of "or", got: "Phantom"`. Elixir's `and` / `or` are STRICT boolean operators — strings are truthy in Elixir logic but rejected here.
+
+**Fix**: use `&&` / `||` for truthy/falsy semantics with any type:
+
+```heex
+<%= if @show || (@connecting && (@connecting_wallet_name || @connecting_provider)) do %>
+```
+
+**Rule**: in HEEx / Elixir code where operands could be strings, maps, structs, etc., use `&&` / `||`. Reserve `and` / `or` for guard clauses, Ecto query ops, explicit booleans.
+
+---
+
+## Stale browser bundle after JS hook changes (2026-04-21)
+
+Added `_startJwtLogin` method to `web3auth_hook.js`; browser threw `this._startJwtLogin is not a function`. The method was in both the source and the compiled bundle (verified via grep) — browser cache was serving a pre-change version.
+
+**Fix**: hard-refresh (⌘⇧R) bypasses cache. `mix assets.build` forces an esbuild rerun when the watcher hasn't caught up.
+
+**Rule**: LiveView's hot-reload patches HTML but doesn't re-pull assets. Hard-refresh after adding methods/fields to hook objects is non-negotiable.
+
+---
+
+## Session wallet vs derived pubkey correlation (2026-04-21)
+
+Web3Auth hook pushed `web3auth_session_persisted` with `wallet_address = <JWT-derived pubkey>`. For the email-collision reclaim case the server merged into a different wallet. LiveView's `wallet_authenticated` handle_info looked up user by the derived pubkey, got nil, didn't update the header. UI stayed in "Connect wallet" state despite the session cookie being live.
+
+**Fix**: `_persistWeb3AuthSession` reads the server's canonical `user.wallet_address` from the `/api/auth/web3auth/session` response and pushes THAT through the event. The LiveView handler accepts `pending_wallet_auth` matching either the derived pubkey OR the canonical session wallet.
+
+**Rule**: when a server response can disagree with a client-side computed value, the server wins. Propagate server values through downstream events, not client guesses.
+
+---
+
+## Web3Auth `init()` throws on empty rpcTarget (2026-04-21)
+
+`Web3Auth.init()` calls `new URL(chain.rpcTarget)` on every chain. Empty string throws browser URL construction error. Web3Auth surfaces this as opaque `Please provide a valid rpcTarget in chains for chain 0x67`.
+
+**Fix**: `wallet_auth_events.ex :web3auth_config` falls back to our QuickNode devnet URL when `SOLANA_RPC_URL` is empty. Prod still needs the env var explicitly (the fallback is a dev-only convenience, not prod safety).
+
+**Rule**: when a third-party SDK validates config at init time with opaque errors, add your own eager guard that fails with a readable message first.
+
+---
+
+## `@moduletag :skip` must come AFTER `use ExUnit.Case` (2026-04-21)
+
+Adding `@moduletag :skip` to the top of a test module, BEFORE `use BlocksterV2.DataCase`, compile-errors with:
+
+```
+** (RuntimeError) you must set @tag, @describetag, and @moduletag after the call to "use ExUnit.Case"
+```
+
+ExUnit's `Case` module needs its macro to run first so the tag registry is in place.
+
+**Fix**: put the tag after `use`:
+
+```elixir
+defmodule MyTest do
+  use BlocksterV2.DataCase, async: false
+  @moduletag :skip
+```
+
+**Rule**: test-module setup order matters. `use ... Case` first, then tag attributes, then code.
+
+---
+
+## Web3Auth silent reconnect — you cannot trust `init()` returning (2026-04-21)
+
+**Symptom**: After Web3Auth email OTP sign-in, navigating to `/play` logged `WalletInitializationError: Wallet is not ready yet, Already connecting` OR `JsonRpcError: Method not found` from `provider.request({method: "solana_privateKey"})`. `window.__signer` never installed; user couldn't place a bet despite being signed in at the session level.
+
+**Do not guess**: I initially patched symptoms by adding sleeps / `waitForSigner` retries. User: "no same error, you're just stabbing at things revert that back and figure out what the problem actually is and let me know dont make any code changes." Reverted, then read `node_modules/@web3auth/no-modal/dist/lib.esm/` source.
+
+**Root cause**: Web3Auth's top-level `init()` resolves BEFORE the internal `CONNECTORS_UPDATED` event fires. That event runs `setupConnector` → `connector.init` → `connector.connect` — the actual rehydrate from `storageType: "local"`. So:
+1. `init()` returns; caller thinks ready.
+2. Internal connector status is still `CONNECTING` (async rehydrate in flight).
+3. Caller runs `provider.request({method: "solana_privateKey"})` → the provider is a skeleton at this point → throws `Method not found`.
+4. Fallback runs `connectTo(AUTH, ...)` → hits `checkConnectionRequirements` → throws `Wallet is not ready yet, Already connecting` because status === `CONNECTING`.
+
+The SDK exposes an internal state machine via `getConnector(WALLET_CONNECTORS.AUTH).status` with values `NOT_READY / READY / CONNECTING / CONNECTED / DISCONNECTED / ERRORED`. Only terminal states (not `CONNECTING`) are safe to act on.
+
+**Fix pattern** (`assets/js/hooks/web3auth_hook.js`):
+1. `_waitForConnectorSettle()` — poll `getConnector(AUTH).status` until terminal. Never before that.
+2. Fast path: try `provider.request({method: "solana_privateKey"})`. If rehydrate worked, `__signer` installs with zero user interaction.
+3. Slow path: `POST /api/auth/web3auth/refresh_jwt` to get a fresh id_token (signed by our `Web3AuthSigning`), then `connectTo(AUTH, { authConnection: CUSTOM, authConnectionId: <verifier>, extraLoginOptions: { id_token, verifierIdField: "sub" } })` with retry on "Already connecting" errors.
+
+**Rule**: when an SDK has state that can't be settled synchronously, read its state machine — don't layer sleeps, don't guess "it should be ready by now". Sleeps race; state machines are deterministic.
+
+**Sub-rule**: when a user tells you to stop guessing, **stop guessing**. Open the SDK source, trace the actual control flow, then write the fix.
+
+---
+
+## feePayerMode: "settler" makes Web3Auth bets truly zero-SOL (2026-04-21)
+
+Phase 1 added `rent_payer: settler` to the Anchor program so users don't need to fund PDA rent. But `feePayer` stayed `= player` because Wallet Standard wallets (Phantom, Solflare) reject multi-signer txs where they're not fee_payer — it's a UX invariant those wallets enforce.
+
+Result: Web3Auth users (who sign locally from an exported key, not via a wallet extension) still needed ~0.000005 SOL for the signature fee. A user arriving via email OTP lands on a fresh MPC-derived wallet with 0 SOL — first bet fails with "insufficient funds" before the program even sees the tx.
+
+**Fix**: conditional fee payer by auth method.
+
+- `bankroll-service.ts buildPlaceBetTx` takes `feePayerMode: "player" | "settler"`:
+  - `"settler"` → `tx.feePayer = settler.publicKey`; settler partial-signs both rent_payer AND fee_payer slots.
+  - `"player"` → Phase-1 behavior (player fee_payer, settler rent_payer only).
+- `BuxMinter.fee_payer_mode_for_user/1` returns `"settler"` for `auth_method` starting with `"web3auth_"`, else `"player"`.
+- `CoinFlipLive` calls `BuxMinter.build_place_bet_tx(..., fee_payer_mode: BuxMinter.fee_payer_mode_for_user(current_user))`.
+
+**Why safe for Web3Auth users**: they sign locally — no Wallet Standard invariant to honor. The extra signature cost lands on the settler's operational SOL balance (already funded for Phase 1's rent_payer role).
+
+**Why unsafe as a global default**: Phantom/Solflare/Backpack reject. Always route through `fee_payer_mode_for_user/1`; never default `"settler"` on the settler side.
+
+---
+
+## Zero-SOL pool deposits/withdrawals for Web3Auth users (2026-04-21 late evening)
+
+Same pattern as bets, missed on the first pass. User reported: Web3Auth email wallet with 0 SOL tries to deposit BUX, tx hangs silently. `buildPlaceBetTx` had `feePayerMode` but the four pool builders (`buildDepositSolTx`, `buildDepositBuxTx`, `buildWithdrawSolTx`, `buildWithdrawBuxTx`) still hardcoded `feePayer: player`. With `skipPreflight: true`, the underfunded tx never hits a clean rejection — it enters the mempool, never lands, and `getSignatureStatuses` times out after 60s. UI renders a generic timeout that looks like a hang.
+
+**Fix**: extend the same pattern to all four pool builders + both `pool_hook` Elixir entry points.
+
+- `bankroll-service.ts`: 4 builders now accept `feePayerMode`. Deposit variants additionally swap the pre-ix ATA funder (`createAssociatedTokenAccountInstruction` first arg) to settler when in settler mode — otherwise the 0-SOL user can't open their first bSOL/bBUX ATA and the pre-ix fails before the deposit ix runs.
+- `routes/pool.ts`: `feePayerMode` plumbed through all 4 endpoints; shared `parseFeePayerMode` helper collapses unknown values to `"player"`.
+- `BuxMinter.build_deposit_tx/4` + `build_withdraw_tx/4`: backward-compatible optional opts with `:fee_payer_mode`.
+- `PoolDetailLive` + `PoolLive`: resolve via `fee_payer_mode_for_user(current_user)` and pass through.
+
+**Why no program upgrade** (despite `init_if_needed` with `payer = depositor` on the LP-token ATA): the tx builder pre-creates the ATA in a separate instruction *before* the deposit ix runs. `init_if_needed` then sees the account exists and skips init entirely — the `payer = depositor` constraint never evaluates. Withdraws have no init anywhere.
+
+**Key takeaway**: when adding a cross-cutting UX guarantee ("zero SOL for social users"), enumerate EVERY user-signed tx builder upfront — not just the first one the failing report names. Grep for `feePayer: player` across all services, not just the one you're editing. The coin-flip fix was right on its own terms but incomplete as a product promise.
+
+---
+
+## Coin flip profit display subtracted the stake twice (2026-04-21 very late)
+
+**Symptom**: user bets 10 BUX on "win all 2 flips" (3.96× multiplier), wins → UI says `+ 19.60 BUX` but recent-games table correctly says `+ 29.60 BUX`.
+
+**Cause**: `@current_bet` was doing double duty. At bet-placement it's the real stake; during `:next_flip` it gets doubled (`socket.assigns.current_bet * 2`) to animate the "stake at risk rolls into next flip" effect for `:win_all` mode. The win/loss result banners calculated profit as `@payout - @current_bet`. After flip 1 wins, `current_bet = 20`, so for a 10-stake 39.60-payout win you get `39.60 − 20 = 19.60`.
+
+**Fix**: snapshot the unmodified stake into a new `@placed_stake` assign at bet-placement time (alongside `current_bet: bet_amount`). The four result-UI sites (win banner profit, loss banner amount, "House contributed" sub-line, loss description "Your stake of X") read `@placed_stake`. `current_bet` keeps its role in the active-flip animation (lines 539/544/916/931 — "stake at risk" displays).
+
+**Key takeaway**: when an animation variable shares a name with the canonical value it started from, think hard about every read-site before reusing it for UI that runs AFTER the animation. Either a dedicated snapshot (the fix here) or rename the animation variable (`current_bet` → `stake_at_risk`) — just don't let display code guess which temporal state the variable is in.
+
+---
+
+## Internal code names leak into user-facing text (2026-04-21 very late)
+
+**Symptom**: loss recap on coin flip result page said *"LP holders earn from your loss, just as you would earn from theirs if you held bSOL"* — even when the user had just bet BUX.
+
+**Cause**: two bugs in the same copy block. Internal mint-derivation names (`bSOL`, `bBUX`) — the names by which Anchor / Mnesia / TypeScript reference the LP tokens — leaked into user-facing prose. AND the sentence was hardcoded to "bSOL" regardless of which token was bet.
+
+CLAUDE.md explicitly calls out the convention: *"LP tokens `bSOL` / `bBUX` (displayed as SOL-LP / BUX-LP)."* Mint derivations stay `bSOL`/`bBUX`, UI displays `SOL-LP`/`BUX-LP`.
+
+**Fix**: `<%= @selected_token %>-LP` in the template (renders as `SOL-LP` or `BUX-LP`). Also routed the CTA to the matching vault (`/pool/sol` vs `/pool/bux`), not the index.
+
+**Key takeaway**: before writing UI copy that names a token or asset, grep for where else the same entity is named in user-facing text — you'll find the project's convention. If the convention says the UI name differs from the code name, don't let the code name win just because it's what you were staring at in the editor.
+
+---
+
+## Web3Auth `_silentReconnect` race at mount was producing noisy Uncaught errors (2026-04-21 very late)
+
+**Symptom**: console showed `WalletInitializationError: Wallet is not ready yet, Already connecting` on pool pages. The error IS caught (retry loop + upstream `.catch`), but Chrome logs the first rejection before the async catch handler runs on the microtask queue — looks uncaught to a reader.
+
+**Cause**: `_connectWithRetry` never waited for Web3Auth's connector to settle BEFORE attempt 0. The SDK runs rehydration inside a `CONNECTORS_UPDATED` event listener that keeps the connector in `connecting` state for hundreds of ms after init. Our retry depended on a catch-and-retry inside the loop, so attempt 0 always threw "Already connecting" on cold loads before the loop recovered. Chrome surfaced the first throw loudly.
+
+Additionally: `_refreshViaServerJwt` calls `await this._web3auth.logout()` when there's a stale connected state, then immediately `connectTo`. `logout` resolves before its internal state listeners finish updating — so the next connectTo again races the transition.
+
+**Fix** (`assets/js/hooks/web3auth_hook.js`):
+- `_connectWithRetry`: added `await this._waitForConnectorSettle(2000)` BEFORE the loop, so attempt 0 lands on a terminal state (`ready` / `disconnected` / `connected`).
+- `_refreshViaServerJwt`: added `await this._waitForConnectorSettle(2000)` AFTER the pre-connect `logout()`.
+
+Belt-and-suspenders — either one might suffice in isolation but both defend the entry points.
+
+**Key takeaway**: "caught but noisy" still counts as a bug. A retry loop that catches every attempt 0 failure is working as designed from the code's POV, but the browser console tells a different story. When a known race condition throws loudly enough that Chrome considers it unhandled (even briefly), fix the race — don't just rely on the handler.
+
+---
+
+## Average Cost Basis for pool LP positions (2026-04-21 very late)
+
+Pool detail page had placeholder `—` for Cost Basis and Unrealized P/L forever. Implemented with Average Cost Basis (ACB) accounting — the simplest model that gives intuitive numbers across deposits, partial withdraws, and full-exit-then-redeposit cycles.
+
+**State** stored in new Mnesia `:user_pool_positions` keyed `{user_id, vault_type}`:
+- `total_cost` — running basis in underlying token
+- `total_lp` — locally tracked LP balance (mirrors on-chain)
+- `realized_gain` — lifetime gains from withdrawals
+
+**Deposit** of `amount` at `lp_price`: `total_cost += amount`, `total_lp += amount/lp_price`.
+
+**Withdraw** of `lp_burned` at `lp_price`: proportionally remove cost (`cost_removed = lp_burned × total_cost/total_lp`), accumulate `realized_gain += (lp_burned × lp_price) − cost_removed`, subtract both from totals. Clamp to exact zero on full withdraw (floating-point residuals otherwise leave `total_lp = 1.2e-15`).
+
+**Pre-existing LP holders** (who deposited before this module shipped): `seed_if_missing` on first render sets `total_cost = current_lp × current_lp_price`. Not a true basis — it's a "from here forward" baseline. P/L shows ~0 initially, gets real on the next tx. Pragmatic choice to avoid indefinite dashes.
+
+**Why ACB over FIFO/LIFO**: FIFO/LIFO needs per-lot tracking (each deposit stored with its price, withdrawals eat lots). More accurate for tax reporting, overkill for a glance-at-it in-UI metric. Uniswap/Curve use ACB-style presentation.
+
+**Why `socket.assigns.lp_price` at tx-confirm time** (not on-chain price at landing slot): sub-second divergence between sign time and land time is close enough for a display metric. Reading actual vault state at a specific slot would require an extra settler call per confirmation — not worth the complexity for a display number.
+
+**Files**:
+- `lib/blockster_v2/pool_positions.ex` — new module (get/2, record_deposit/4, record_withdraw/4, seed_if_missing/4, summary/4)
+- `lib/blockster_v2/mnesia_initializer.ex` — new `:user_pool_positions` table schema
+- `lib/blockster_v2_web/live/pool_detail_live.ex` — `tx_confirmed` dispatches, `render/1` seeds + summarizes, 3 format helpers (`format_cost_basis/2`, `format_pnl/2`, `pnl_color/1`)
+
+**Key takeaway**: placeholder dashes in a live UI are worse than nothing — users see a slot they expect to be filled and treat it as broken. If a field can't be computed yet, either hide it entirely or ship the simplest-possible version. ACB with a seeded baseline is a simple-possible that's truthful within one transaction.
+
+---
+
+## Pool page readability: data tiles don't belong on bright gradient hero cards (2026-04-21 very late)
+
+**Symptom**: user couldn't read numbers on the pool cards. Stat tiles used `bg-black/20` (SOL) or `bg-black/[0.12]` (BUX) — barely distinguishable from the bright gradient base. Labels at `text-white/50–60` opacity washed out entirely on `#00FFA3` / `#CAFC00`.
+
+**Fix**: converted all data tiles to `bg-white/95 ring-black/5 shadow-sm` with `text-[#141414]` values + `text-neutral-500` labels. Gradient keeps the hero zone (logo + big LP price + sparkline); data sits on white cards floating over it — same layering pattern Phantom/Backpack/DefiLlama use. Accent profit numbers unified to `text-[#15803d]` (emerald) for clean contrast on white.
+
+**Key takeaway**: translucent tiles + low-opacity text over a high-saturation gradient is a default design choice that reads well in Figma mockups (gradient area has modest color variance) but falls apart in-product when the gradient spans actual screen-scale luminance differences. When the base is bright-and-saturated, data should sit on a high-contrast surface, not a tinted window into the gradient.
+
+---
+
+## Client Solana hooks must use QuickNode, not `api.devnet.solana.com` (2026-04-21)
+
+**Symptom**: pool deposit tx signed and confirmed on-chain, but the UI spun indefinitely. Console showed a cascade of `POST https://api.devnet.solana.com/ 429 (Too Many Requests)` with exponential backoff retries.
+
+**Cause**: `pool_hook.js`, `airdrop_solana.js`, `coin_flip_solana.js` all hardcoded `const DEVNET_RPC = "https://api.devnet.solana.com"`. CLAUDE.md has a critical rule forbidding public RPCs — `signAndConfirm`'s `getSignatureStatuses` poll loop (~800ms cadence) rate-limits to 429 within a handful of ticks.
+
+**Fix**: all four client hooks (including `sol_payment.js` which already did this) now use:
+
+```js
+const RPC_URL =
+  window.__SOLANA_RPC_URL ||
+  "https://summer-sleek-shape.solana-devnet.quiknode.pro/...";
+```
+
+Prod wires `window.__SOLANA_RPC_URL` to the mainnet endpoint.
+
+**Rule**: when adding a critical rule to CLAUDE.md, IMMEDIATELY grep the codebase for the forbidden pattern. The rule is only as good as the sweep that goes with it. Lesson learned the hard way.
+
+---
+
+## Balance broadcasts must fire after Mnesia writes, not rely on the poll (2026-04-21)
+
+User: "BUX balance was updating correctly after a win or loss, it just wasn't updating quickly enough to show the new balance minus the stake."
+
+**Cause**: `EngagementTracker.update_user_solana_bux_balance/3` and `update_user_sol_balance/3` wrote the new balance to Mnesia but didn't broadcast to LiveView subscribers. The header only updated on the next `BuxBalanceHook` poll tick, which could be many seconds away — so placing a bet left the header showing pre-stake balance for an uncomfortably long window.
+
+**Fix**: both functions now call `BlocksterV2Web.BuxBalanceHook.broadcast_token_balances_update(wallet_address, %{bux: ..., sol: ...})` after the dirty_write. The LiveView picks up the broadcast and patches the header in place — sync is instantaneous.
+
+**Rule**: any write to balance state must co-locate with its broadcast. Relying on downstream polls to catch up is a latency footgun users see immediately.

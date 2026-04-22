@@ -1,6 +1,11 @@
 defmodule BlocksterV2.Shop.Phase8Test do
   use BlocksterV2.DataCase, async: false
 
+  # Notifications + fulfillment phase — coupled to the Helio webhook-driven
+  # order state machine that was removed in Phase 13. Skipped; the Solana
+  # SOL-intent watcher has its own coverage.
+  @moduletag :skip
+
   alias BlocksterV2.Cart, as: CartContext
   alias BlocksterV2.Orders
   alias BlocksterV2.Orders.Order

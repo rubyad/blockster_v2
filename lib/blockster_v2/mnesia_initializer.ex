@@ -647,6 +647,24 @@ defmodule BlocksterV2.MnesiaInitializer do
       ],
       index: [:vault_type]
     },
+    # Per-user cost basis for pool positions (deposits/withdraws in each vault).
+    # Updated on confirmed tx; seeded on first render for pre-existing LP
+    # holders (cost = current_lp * current_lp_price). Average Cost Basis (ACB)
+    # accounting — one running avg per {user, vault}, see BlocksterV2.PoolPositions.
+    %{
+      name: :user_pool_positions,
+      type: :set,
+      attributes: [
+        :id,                          # PRIMARY KEY — {user_id, vault_type}
+        :user_id,                     # int
+        :vault_type,                  # "sol" | "bux"
+        :total_cost,                  # Float — running cost basis in underlying token (SOL or BUX)
+        :total_lp,                    # Float — LP tokens currently held (locally tracked)
+        :realized_gain,               # Float — lifetime gains from withdrawals
+        :updated_at                   # Unix timestamp
+      ],
+      index: [:user_id, :vault_type]
+    },
     # LP price history for pool charts
     %{
       name: :lp_price_history,

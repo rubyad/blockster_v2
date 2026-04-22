@@ -276,12 +276,31 @@ defmodule BlocksterV2Web.AuthController do
             })
 
           {:error, reason} ->
+            require Logger
+            Logger.error("[Auth] Web3Auth user create/lookup failed: #{inspect(reason, pretty: true, limit: :infinity)}")
+
+            detail =
+              case reason do
+                %Ecto.Changeset{} = cs ->
+                  errors =
+                    Ecto.Changeset.traverse_errors(cs, fn {msg, opts} ->
+                      Regex.replace(~r"%{(\w+)}", msg, fn _, k ->
+                        opts |> Keyword.get(String.to_existing_atom(k), k) |> to_string()
+                      end)
+                    end)
+
+                  inspect(errors)
+
+                other ->
+                  inspect(other)
+              end
+
             conn
             |> put_status(:unprocessable_entity)
             |> json(%{
               success: false,
               error: "Failed to create or look up user",
-              detail: inspect(reason)
+              detail: detail
             })
         end
 
@@ -299,6 +318,181 @@ defmodule BlocksterV2Web.AuthController do
     conn
     |> put_status(:bad_request)
     |> json(%{success: false, error: "Missing wallet_address or id_token"})
+  end
+
+  @doc """
+  POST /api/auth/web3auth/refresh_jwt
+
+  Silent-reconnect endpoint for the Web3Auth hook. Web3Auth's CUSTOM JWT
+  sessions don't persist through page reloads the way OAuth sessions do —
+  after a reload the JWT is gone and `web3auth.init()` returns
+  `connected: false`. The hook calls this endpoint, which uses the user's
+  already-authenticated session cookie as proof of identity, and issues a
+  fresh JWT for the same `sub` (email / telegram_user_id). Web3Auth's MPC
+  derives the SAME Solana pubkey from (verifier, sub), so the reconnected
+  signer is for the user's canonical wallet.
+
+  Only valid for `auth_method = "web3auth_email" | "web3auth_telegram"`.
+  Wallet Standard users don't need this (their keypair lives in Phantom
+  etc, always available). Web3Auth X/Google/Apple users don't hit this
+  path either — OAuth sessions rehydrate via Web3Auth's own persistence.
+
+  Returns `{id_token, verifier_id, verifier_id_field}` or 401/400.
+  """
+  def refresh_web3auth_jwt(conn, _params) do
+    user = conn.assigns[:current_user]
+
+    cond do
+      is_nil(user) ->
+        conn
+        |> put_status(:unauthorized)
+        |> json(%{success: false, error: "Not signed in"})
+
+      user.auth_method == "web3auth_email" and is_binary(user.email) and user.email != "" ->
+        normalized = String.downcase(String.trim(user.email))
+
+        id_token =
+          BlocksterV2.Auth.Web3AuthSigning.sign_id_token(%{
+            "sub" => normalized,
+            "email" => normalized,
+            "email_verified" => true
+          })
+
+        conn
+        |> put_status(:ok)
+        |> json(%{
+          success: true,
+          id_token: id_token,
+          verifier_id: "blockster-email",
+          verifier_id_field: "sub"
+        })
+
+      user.auth_method == "web3auth_telegram" and is_binary(user.telegram_user_id) and
+          user.telegram_user_id != "" ->
+        id_token =
+          BlocksterV2.Auth.Web3AuthSigning.sign_id_token(%{
+            "sub" => user.telegram_user_id,
+            "telegram_user_id" => user.telegram_user_id,
+            "telegram_username" => user.telegram_username
+          })
+
+        conn
+        |> put_status(:ok)
+        |> json(%{
+          success: true,
+          id_token: id_token,
+          verifier_id: "blockster-telegram",
+          verifier_id_field: "sub"
+        })
+
+      true ->
+        conn
+        |> put_status(:bad_request)
+        |> json(%{success: false, error: "Not a Web3Auth-signed-in user"})
+    end
+  end
+
+  @doc """
+  POST /api/auth/web3auth/email_otp/send
+  Body: `%{"email" => "user@example.com"}`
+
+  Step 1 of the in-app email sign-in flow. Issues a 6-digit OTP to the
+  address, rate-limited to one per 60 seconds. Returns `{ok: true, ttl: 600}`
+  or a rate-limit error. Does NOT reveal whether the email is already tied
+  to an account — the client never learns that from this endpoint.
+
+  After the user enters the code, call `/api/auth/web3auth/email_otp/verify`
+  to receive a Blockster-signed JWT that Web3Auth's Custom JWT connector
+  consumes for MPC wallet derivation.
+  """
+  def email_otp_send(conn, %{"email" => email}) when is_binary(email) do
+    cond do
+      not BlocksterV2Web.WalletAuthEvents.valid_email?(email) ->
+        conn
+        |> put_status(:bad_request)
+        |> json(%{success: false, error: "Invalid email"})
+
+      true ->
+        case BlocksterV2.Auth.EmailOtpStore.send_otp(email) do
+          {:ok, ttl_seconds} ->
+            conn
+            |> put_status(:ok)
+            |> json(%{success: true, ttl: ttl_seconds})
+
+          {:error, {:rate_limited, seconds}} ->
+            conn
+            |> put_status(:too_many_requests)
+            |> json(%{
+              success: false,
+              error: "Please wait before requesting another code",
+              retry_after: seconds
+            })
+        end
+    end
+  end
+
+  def email_otp_send(conn, _) do
+    conn
+    |> put_status(:bad_request)
+    |> json(%{success: false, error: "Missing email"})
+  end
+
+  @doc """
+  POST /api/auth/web3auth/email_otp/verify
+  Body: `%{"email" => "user@example.com", "code" => "123456"}`
+
+  Step 2 — verifies the code and returns a JWT suitable for
+  `connectTo(CUSTOM, { authConnectionId: "blockster-email", extraLoginOptions: { id_token } })`.
+  JWT `sub` = the normalized email; Web3Auth's MPC derivation keys off
+  (verifier_id, sub) so the user always gets the same Solana wallet for
+  the same email.
+  """
+  def email_otp_verify(conn, %{"email" => email, "code" => code})
+      when is_binary(email) and is_binary(code) do
+    case BlocksterV2.Auth.EmailOtpStore.verify_otp(email, code) do
+      {:ok, normalized_email} ->
+        claims = %{
+          "sub" => normalized_email,
+          "email" => normalized_email,
+          "email_verified" => true
+        }
+
+        id_token = BlocksterV2.Auth.Web3AuthSigning.sign_id_token(claims)
+
+        conn
+        |> put_status(:ok)
+        |> json(%{success: true, id_token: id_token, email: normalized_email})
+
+      {:error, :not_found} ->
+        conn
+        |> put_status(:unauthorized)
+        |> json(%{success: false, error: "No code pending — request a new one"})
+
+      {:error, :invalid_code} ->
+        conn
+        |> put_status(:unauthorized)
+        |> json(%{success: false, error: "Invalid code"})
+
+      {:error, :expired} ->
+        conn
+        |> put_status(:unauthorized)
+        |> json(%{success: false, error: "Code expired — request a new one"})
+
+      {:error, {:locked, seconds}} ->
+        conn
+        |> put_status(:too_many_requests)
+        |> json(%{
+          success: false,
+          error: "Too many attempts — try again later",
+          retry_after: seconds
+        })
+    end
+  end
+
+  def email_otp_verify(conn, _) do
+    conn
+    |> put_status(:bad_request)
+    |> json(%{success: false, error: "Missing email or code"})
   end
 
   @doc """

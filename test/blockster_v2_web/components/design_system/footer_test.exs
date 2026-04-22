@@ -15,7 +15,9 @@ defmodule BlocksterV2Web.DesignSystem.FooterTest do
 
       assert html =~ "ds-footer"
       assert html =~ "bg-[#0a0a0a]"
-      assert html =~ "Where the chain meets the model."
+      # Footer tagline was retuned to "All in on Solana." during the
+      # post-migration brand polish (see docs/solana_build_history.md).
+      assert html =~ "All in on Solana."
     end
 
     test "renders the Miami Beach address per D2 / D22" do

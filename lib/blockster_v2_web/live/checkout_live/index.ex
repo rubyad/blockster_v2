@@ -395,16 +395,33 @@ defmodule BlocksterV2Web.CheckoutLive.Index do
       true ->
         wallet = user.wallet_address || ""
 
-        case PaymentIntents.create_for_order(order, wallet) do
-          {:ok, intent} ->
-            assign(socket, :payment_intent, intent)
-
-          {:error, reason} ->
-            Logger.error("[Checkout] intent creation failed: #{inspect(reason)}")
-
+        case PaymentIntents.check_sol_payment_allowed(user, order) do
+          {:error, :web3auth_sol_not_supported} ->
+            # Phase 7 gate: Web3Auth users can't pay in SOL in v1 — settler
+            # has no path to take SOL off them without a wallet-standard
+            # signing UX. Point them at BUX pricing or ask them to connect
+            # a wallet.
             socket
-            |> assign(:sol_payment_status, :failed)
-            |> put_flash(:error, "Could not generate payment address. Please refresh.")
+            |> assign(:sol_payment_status, :gated)
+            |> put_flash(
+              :error,
+              "SOL checkout is wallet-only right now. Pay with BUX, or connect a Solana wallet."
+            )
+
+          :ok ->
+            mode = PaymentIntents.payment_mode_for_user(user)
+
+            case PaymentIntents.create_for_order(order, wallet, payment_mode: mode) do
+              {:ok, intent} ->
+                assign(socket, :payment_intent, intent)
+
+              {:error, reason} ->
+                Logger.error("[Checkout] intent creation failed: #{inspect(reason)}")
+
+                socket
+                |> assign(:sol_payment_status, :failed)
+                |> put_flash(:error, "Could not generate payment address. Please refresh.")
+            end
         end
     end
   end

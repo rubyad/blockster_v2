@@ -17,14 +17,18 @@
  */
 
 import { Connection } from "@solana/web3.js";
-import bs58 from "bs58";
-import { getSigner, pollForConfirmation, decodeBase64Tx } from "./signer.js";
+import { getSigner, signAndConfirm, decodeBase64Tx } from "./signer.js";
 
-const DEVNET_RPC = "https://api.devnet.solana.com";
+// QuickNode RPC — public api.devnet.solana.com rate-limits to 429 within
+// seconds of signAndConfirm's polling loop. Prod should wire
+// window.__SOLANA_RPC_URL to the mainnet endpoint.
+const RPC_URL =
+  window.__SOLANA_RPC_URL ||
+  "https://summer-sleek-shape.solana-devnet.quiknode.pro/92b7f51caa76f2981879528aee40a3e8e58cac60/";
 
 export const PoolHook = {
   mounted() {
-    this.connection = new Connection(DEVNET_RPC, "confirmed");
+    this.connection = new Connection(RPC_URL, "confirmed");
 
     this.handleEvent("sign_deposit", async (params) => {
       await this.signAndSubmit(params.transaction, params.vault_type, "deposit");
@@ -48,14 +52,13 @@ export const PoolHook = {
       }
 
       const txBytes = decodeBase64Tx(base64Tx);
-      // signAndSendTransaction preserves settler partial sigs per Wallet
-      // Standard spec. Avoid signTransaction+sendRawTransaction because
-      // Phantom's signTransaction silently submits in some versions.
-      const { signature } = await signer.signAndSendTransaction(txBytes);
-      const sig = bs58.encode(new Uint8Array(signature));
-
-      console.log(`[PoolHook] ${action} submitted, confirming: ${sig}`);
-      await pollForConfirmation(this.connection, sig);
+      // signAndConfirm routes through the right method for each signer
+      // source: Wallet Standard (Phantom et al) uses signTransaction +
+      // own-submit with duplicate-handling for Phantom's silent-submit
+      // quirk; Web3Auth uses signTransaction + own-submit cleanly. Both
+      // poll for confirmation before resolving. Web3Auth's signer throws
+      // on signAndSendTransaction by design — don't call it directly.
+      const sig = await signAndConfirm(signer, this.connection, txBytes);
       console.log(`[PoolHook] ${action} confirmed: ${sig}`);
 
       this.pushEvent("tx_confirmed", {

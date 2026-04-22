@@ -1,0 +1,1165 @@
+<%!--
+  WalletLive.Index — self-custody panel for Web3Auth social-login users.
+
+  Aesthetic: precision instrument × private banking. Swiss watchmaker details
+  (hairline tick ruler, monospace micro-labels, pulsing second-hand accent,
+  tabular-aligned numerics) paired with bank-vault gravity for the sensitive
+  key-reveal moment. The export reveal flips to a dark card — the page's one
+  moment of cinematic weight.
+
+  Security posture: the actual private-key material is NEVER held in LiveView
+  assigns. The Web3AuthExport JS hook fetches the key on demand, renders it
+  directly into DOM nodes (#export-key-mono), and zeroes it on timeout /
+  unmount. The LiveView only tracks @stage, @export_format, @export_countdown_pct.
+
+  Expected assigns:
+    @current_user           — has auth_method, wallet_address, email
+    @sol_balance            — float
+    @bux_balance            — float
+    @sol_usd_price          — float
+    @stage                  — :idle | :sending | :confirming | :sent | :export_intent | :export_reveal
+    @send_form              — %{to: binary, amount: binary, error: binary | nil}
+    @pending_tx             — %{signature: binary, amount: binary, to: binary} | nil
+    @export_format          — "base58" | "hex" | "qr"
+    @export_countdown_pct   — 0..100 (renders the vault auto-hide bar)
+    @export_intent_accepted — boolean (whether the "I understand" checkbox is ticked)
+    @audit_events           — list of %{type, inserted_at, metadata}
+    @pubkey_qr_svg          — prerendered SVG string (QRCode.render/1 from EQRCode)
+--%>
+
+<div class="ds-wallet-root min-h-screen bg-[#FAFAF9] relative overflow-x-hidden">
+  <BlocksterV2Web.DesignSystem.header
+    current_user={@current_user}
+    active="wallet"
+    bux_balance={Map.get(assigns, :bux_balance, 0)}
+    token_balances={Map.get(assigns, :token_balances, %{})}
+    cart_item_count={Map.get(assigns, :cart_item_count, 0)}
+    unread_notification_count={Map.get(assigns, :unread_notification_count, 0)}
+    notification_dropdown_open={Map.get(assigns, :notification_dropdown_open, false)}
+    recent_notifications={Map.get(assigns, :recent_notifications, [])}
+    search_query={Map.get(assigns, :search_query, "")}
+    search_results={Map.get(assigns, :search_results, [])}
+    show_search_results={Map.get(assigns, :show_search_results, false)}
+    show_search_modal={Map.get(assigns, :show_search_modal, false)}
+    connecting={Map.get(assigns, :connecting, false)}
+    show_why_earn_bux={true}
+    announcement_banner={assigns[:announcement_banner]}
+  />
+
+  <%!-- Dot-grid atmospheric pattern (very subtle) --%>
+  <div
+    class="absolute inset-0 pointer-events-none opacity-[0.35]"
+    style="background-image: radial-gradient(circle at 1px 1px, rgba(20,20,20,0.055) 1px, transparent 0); background-size: 24px 24px;"
+    aria-hidden="true"
+  ></div>
+
+  <%!-- Breadcrumb + live-status strip --%>
+  <div class="relative border-b border-neutral-200/70 bg-white/60 backdrop-blur-sm">
+    <div class="max-w-[1080px] mx-auto px-4 md:px-6 py-3 flex items-center gap-3">
+      <span class="text-[10px] uppercase tracking-[0.18em] font-bold text-neutral-400">
+        Wallet
+      </span>
+      <span class="text-neutral-300 text-xs">/</span>
+      <span class="text-[10px] uppercase tracking-[0.18em] font-bold text-[#141414]">
+        Self-custody
+      </span>
+
+      <div class="ml-auto hidden sm:flex items-center gap-2">
+        <span class="w-1.5 h-1.5 rounded-full bg-[#CAFC00] ds-pulse-dot" aria-hidden="true"></span>
+        <span class="text-[10px] font-mono text-neutral-500 uppercase tracking-[0.14em] tabular-nums">
+          Live · Solana mainnet
+        </span>
+      </div>
+    </div>
+  </div>
+
+  <div class="relative max-w-[1080px] mx-auto px-4 md:px-6 py-10 md:py-16">
+
+    <%!-- Title block ------------------------------------------------------- --%>
+    <div class="mb-10 md:mb-14 max-w-[560px]">
+      <div class="flex items-center gap-2.5 mb-5">
+        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#CAFC00]/10 ring-1 ring-[#CAFC00]/30">
+          <span class="w-1 h-1 rounded-full bg-[#141414]" aria-hidden="true"></span>
+          <span class="text-[10px] uppercase tracking-[0.14em] font-bold text-[#141414] font-mono">
+            <%= display_auth_source(@current_user.auth_method) %>
+          </span>
+        </span>
+      </div>
+
+      <h1
+        class="text-[34px] md:text-[56px] font-bold tracking-tight text-[#141414] leading-[0.95]"
+        style="letter-spacing: -0.03em;"
+      >
+        Your wallet
+      </h1>
+      <p class="mt-4 text-[14px] md:text-[15px] text-neutral-500 leading-relaxed">
+        This Solana wallet was derived from your <%= display_auth_noun(@current_user.auth_method) %>.
+        Receive SOL, withdraw to another address, or export your private key and take full custody.
+      </p>
+    </div>
+
+    <%!-- ══════════════════════════════════════════════════════════════════
+         HERO · Balance + Receive
+         Full-width card. Left column = balance, right = QR + pubkey.
+         Top edge carries a hairline tick ruler to telegraph "measured".
+    ══════════════════════════════════════════════════════════════════ --%>
+    <section
+      class="relative bg-white rounded-[28px] ring-1 ring-black/5 overflow-hidden mb-5 md:mb-6"
+      style="box-shadow: 0 30px 80px -30px rgba(0,0,0,0.12), 0 4px 16px -8px rgba(0,0,0,0.06);"
+      aria-labelledby="balance-heading"
+    >
+      <%!-- Hairline tick ruler at the top --%>
+      <div class="ds-tick-ruler" aria-hidden="true"></div>
+
+      <div class="grid grid-cols-1 md:grid-cols-12 gap-8 md:gap-10 p-5 md:p-10 pt-7 md:pt-12">
+        <%!-- LEFT: balance --%>
+        <div class="md:col-span-7 flex flex-col min-w-0">
+          <div class="flex items-center gap-2 mb-6">
+            <span id="balance-heading" class="text-[10px] uppercase tracking-[0.18em] font-bold text-neutral-400 font-mono">
+              Available balance
+            </span>
+            <span class="text-neutral-300 text-xs">·</span>
+            <span class="text-[10px] font-mono text-neutral-400 tabular-nums tracking-[0.1em]">
+              <%= format_ts_short(@last_balance_fetch_at) %>
+            </span>
+          </div>
+
+          <%!-- The big number. Split into integer + decimals so we can style
+               the decimals as secondary without affecting baseline. --%>
+          <div class="flex items-baseline gap-2.5 md:gap-3 mb-3 flex-wrap">
+            <% {sol_int, sol_dec} = split_sol(@sol_balance) %>
+            <span
+              class="text-[52px] md:text-[84px] font-bold leading-none text-[#141414] tabular-nums"
+              style="font-variant-numeric: tabular-nums; letter-spacing: -0.04em; font-weight: 700;"
+            >
+              <%= sol_int %><span class="text-neutral-300">.<%= sol_dec %></span>
+            </span>
+            <span class="text-[18px] md:text-[28px] font-bold text-neutral-400 tracking-tight pb-1">
+              SOL
+            </span>
+          </div>
+
+          <div class="flex items-center gap-3 text-[14px] text-neutral-500 mb-6">
+            <span class="font-mono tabular-nums">
+              ≈ $<%= format_usd(@sol_balance, @sol_usd_price) %> USD
+            </span>
+            <span class="w-0.5 h-0.5 rounded-full bg-neutral-300" aria-hidden="true"></span>
+            <span class="font-mono tabular-nums">
+              @ $<%= :erlang.float_to_binary(@sol_usd_price * 1.0, decimals: 2) %>/SOL
+            </span>
+          </div>
+
+          <%!-- BUX secondary chip --%>
+          <div class="inline-flex items-center gap-2.5 self-start px-3 py-2 rounded-xl border border-neutral-200 bg-neutral-50/80">
+            <img
+              src="https://ik.imagekit.io/blockster/blockster-icon.png"
+              alt=""
+              class="w-4 h-4 rounded-full"
+              aria-hidden="true"
+            />
+            <span class="text-[13px] font-bold text-[#141414] tabular-nums">
+              <%= format_bux(@bux_balance) %>
+            </span>
+            <span class="text-[10px] uppercase tracking-[0.14em] text-neutral-500 font-mono">BUX</span>
+          </div>
+
+          <%!-- On-chain corner-mark rule (hairline, corner-brackets) --%>
+          <div class="mt-8 md:mt-10 pt-6 border-t border-neutral-100 flex items-start gap-3">
+            <svg class="w-4 h-4 text-neutral-400 shrink-0 mt-0.5" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+              <circle cx="10" cy="10" r="7" stroke="currentColor" stroke-width="1.25"/>
+              <path d="M7 10l2 2 4-4" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <p class="text-[12px] text-neutral-500 leading-relaxed">
+              Balances reflect confirmed on-chain state. Incoming transfers appear within ~15s. BUX is an SPL token — it moves with the wallet when you export.
+            </p>
+          </div>
+        </div>
+
+        <%!-- RIGHT: QR + pubkey --%>
+        <div class="md:col-span-5 flex flex-col min-w-0">
+          <div class="flex items-center justify-between gap-2 mb-5">
+            <span class="text-[10px] uppercase tracking-[0.18em] font-bold text-neutral-400 font-mono">
+              Receive address
+            </span>
+            <span class="inline-flex items-center gap-1.5 text-[9px] uppercase tracking-[0.14em] font-bold text-neutral-400 font-mono">
+              <span class="w-1 h-1 rounded-full bg-neutral-400" aria-hidden="true"></span>
+              Mainnet
+            </span>
+          </div>
+
+          <%!-- QR frame with corner brackets + scan-line animation --%>
+          <div class="relative self-start mb-5">
+            <div class="absolute -inset-2 pointer-events-none" aria-hidden="true">
+              <%!-- Four corner brackets --%>
+              <span class="absolute top-0 left-0 w-3 h-3 border-t border-l border-[#141414]/70"></span>
+              <span class="absolute top-0 right-0 w-3 h-3 border-t border-r border-[#141414]/70"></span>
+              <span class="absolute bottom-0 left-0 w-3 h-3 border-b border-l border-[#141414]/70"></span>
+              <span class="absolute bottom-0 right-0 w-3 h-3 border-b border-r border-[#141414]/70"></span>
+            </div>
+            <div class="relative w-[176px] h-[176px] bg-white rounded-lg ring-1 ring-black/5 p-3 ds-qr-frame overflow-hidden">
+              <div class="w-full h-full text-[#141414]">
+                <%!-- Server-rendered QR SVG. The LiveView mounts with
+                     @pubkey_qr_svg = EQRCode.encode(pubkey) |> EQRCode.svg(...).
+                     It's just an SVG string; we render raw. --%>
+                <%= raw(@pubkey_qr_svg) %>
+              </div>
+              <%!-- Scan-line sweep --%>
+              <div class="ds-scan-line" aria-hidden="true"></div>
+            </div>
+          </div>
+
+          <%!-- Pubkey display — break-all lets it wrap cleanly on mobile;
+               copy button below so the layout never overflows no matter the
+               viewport width. --%>
+          <div class="mb-3">
+            <code class="block w-full text-[11px] md:text-[12px] font-mono text-[#141414] bg-neutral-100 rounded-lg px-3 py-2.5 break-all leading-relaxed">
+              <%= @current_user.wallet_address %>
+            </code>
+          </div>
+
+          <button
+            type="button"
+            id="copy-pubkey"
+            phx-hook="CopyToClipboard"
+            data-copy-text={@current_user.wallet_address}
+            class="self-start inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-[#0a0a0a] text-white text-[11px] font-bold hover:bg-[#1a1a22] active:scale-[0.97] transition-all cursor-pointer mb-4"
+            aria-label="Copy wallet address"
+          >
+            <svg class="w-3.5 h-3.5 copy-icon-default" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+              <rect x="7" y="7" width="9" height="9" rx="1.5" stroke="currentColor" stroke-width="1.5"/>
+              <path d="M13 7V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v7a1 1 0 0 0 1 1h2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+            </svg>
+            <svg class="w-3.5 h-3.5 copy-icon hidden" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+              <path d="M4 10l4 4 8-8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <span class="copy-text">Copy address</span>
+          </button>
+
+          <p class="text-[11px] text-neutral-500 leading-relaxed">
+            Share this address to receive SOL or SPL tokens on Solana. Do not send assets from other chains — they will be lost.
+          </p>
+        </div>
+      </div>
+
+      <%!-- Tiny diagnostic footer line --%>
+      <div class="border-t border-neutral-100 px-6 md:px-10 py-3 flex items-center gap-4 text-[9px] font-mono uppercase tracking-[0.14em] text-neutral-400">
+        <span>ID · <%= String.slice(@current_user.wallet_address, 0..5) %></span>
+        <span class="hidden sm:inline">·</span>
+        <span class="hidden sm:inline">ED25519 · derived · mpc-threshold</span>
+        <span class="ml-auto">REV 01</span>
+      </div>
+    </section>
+
+    <%!-- ══════════════════════════════════════════════════════════════════
+         SPLIT · Send SOL (left, 7) + Export Key (right, 5)
+         Stacks on mobile. Each section is a self-contained LiveView region
+         with its own hook.
+    ══════════════════════════════════════════════════════════════════ --%>
+    <div class="grid grid-cols-1 md:grid-cols-12 gap-5 md:gap-6">
+
+      <%!-- ══════════════════════════════════════════════════════════════
+           SEND SOL CARD
+           Three stages: idle (form) → confirming (review) → sent (success).
+           :sending shows a loading overlay on the form.
+      ══════════════════════════════════════════════════════════════ --%>
+      <section
+        id="send-sol-region"
+        phx-hook="Web3AuthWithdraw"
+        class="md:col-span-7 relative bg-white rounded-[24px] ring-1 ring-black/5 overflow-hidden min-w-0"
+        style="box-shadow: 0 20px 60px -25px rgba(0,0,0,0.1), 0 2px 10px -4px rgba(0,0,0,0.04);"
+        data-sol-usd-price={@sol_usd_price}
+        data-sol-balance={@sol_balance}
+        data-from-pubkey={@current_user.wallet_address}
+        aria-labelledby="send-heading"
+      >
+        <%!-- Card header strip --%>
+        <div class="flex items-center justify-between px-5 md:px-8 pt-6 pb-4 border-b border-neutral-100">
+          <div class="flex items-center gap-3">
+            <div class="w-8 h-8 rounded-lg bg-[#141414] grid place-items-center">
+              <svg class="w-4 h-4 text-white" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                <path d="M3 10h14m0 0l-5-5m5 5l-5 5" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </div>
+            <div>
+              <h2 id="send-heading" class="text-[17px] font-bold text-[#141414] tracking-tight leading-tight">
+                Send SOL
+              </h2>
+              <p class="text-[11px] text-neutral-400 font-mono uppercase tracking-[0.12em]">
+                Outbound transfer
+              </p>
+            </div>
+          </div>
+          <span class="hidden sm:inline-flex items-center gap-1.5 px-2 py-1 rounded-full bg-neutral-100">
+            <span class="w-1 h-1 rounded-full bg-neutral-400" aria-hidden="true"></span>
+            <span class="text-[9px] uppercase tracking-[0.14em] font-bold text-neutral-500 font-mono">Ready</span>
+          </span>
+        </div>
+
+        <%!-- STAGE: idle | sending — form --%>
+        <%= if @stage in [:idle, :sending, :sent] do %>
+          <%= if @stage == :sent and @pending_tx do %>
+            <%!-- ── SENT SUCCESS STATE ── --%>
+            <div class="p-5 md:p-8">
+              <div class="flex flex-col items-center text-center py-4">
+                <div class="relative mb-6">
+                  <div class="w-16 h-16 rounded-full bg-[#CAFC00]/15 ring-4 ring-[#CAFC00]/20 grid place-items-center">
+                    <svg class="w-7 h-7 text-[#141414]" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                      <path d="M5 13l4 4L19 7" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                  </div>
+                  <div class="absolute -inset-1 rounded-full ds-success-ring pointer-events-none"></div>
+                </div>
+                <p class="text-[11px] uppercase tracking-[0.18em] font-bold text-neutral-400 font-mono mb-2">
+                  Confirmed on-chain
+                </p>
+                <div class="text-[28px] font-bold text-[#141414] tabular-nums mb-1" style="letter-spacing: -0.025em;">
+                  <%= @pending_tx.amount %> SOL
+                </div>
+                <div class="text-[13px] text-neutral-500 mb-5">
+                  sent to <span class="font-mono text-[#141414]"><%= truncate_addr(@pending_tx.to) %></span>
+                </div>
+
+                <a
+                  href={solscan_url(@pending_tx.signature)}
+                  target="_blank"
+                  rel="noopener"
+                  class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-neutral-100 hover:bg-neutral-200 text-[11px] font-bold text-[#141414] font-mono uppercase tracking-[0.1em] transition-colors cursor-pointer mb-6"
+                >
+                  View on Solscan
+                  <svg class="w-3 h-3" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+                    <path d="M3 3h6m0 0v6m0-6L3 9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
+                </a>
+
+                <button
+                  type="button"
+                  phx-click="reset_send"
+                  class="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl border border-neutral-200 hover:border-neutral-300 text-[12px] font-bold text-[#141414] transition-colors cursor-pointer"
+                >
+                  Send another
+                  <svg class="w-3 h-3" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+                    <path d="M2 6h8m0 0l-3-3m3 3L7 9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
+                </button>
+              </div>
+            </div>
+          <% else %>
+            <%!-- ── IDLE / SENDING FORM ── --%>
+            <form phx-submit="review_send" class="p-5 md:p-8 space-y-5 relative">
+
+              <%= if @stage == :sending do %>
+                <div class="absolute inset-0 z-10 bg-white/80 backdrop-blur-sm grid place-items-center rounded-b-[24px]">
+                  <div class="flex flex-col items-center gap-3">
+                    <svg class="w-8 h-8 text-[#141414] animate-spin" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                      <circle class="opacity-15" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2.5"/>
+                      <path class="opacity-90" fill="currentColor" d="M4 12a8 8 0 018-8v3a5 5 0 00-5 5H4z"/>
+                    </svg>
+                    <p class="text-[11px] uppercase tracking-[0.18em] font-bold text-[#141414] font-mono">
+                      Awaiting wallet signature
+                    </p>
+                  </div>
+                </div>
+              <% end %>
+
+              <%!-- Destination --%>
+              <div>
+                <label for="send-to" class="flex items-center justify-between mb-2">
+                  <span class="text-[10px] uppercase tracking-[0.18em] font-bold text-neutral-400 font-mono">
+                    Destination
+                  </span>
+                  <button
+                    type="button"
+                    id="paste-address-btn"
+                    phx-hook="PasteFromClipboard"
+                    data-target-id="send-to"
+                    class="text-[10px] uppercase tracking-[0.14em] font-bold text-neutral-500 hover:text-[#141414] transition-colors cursor-pointer"
+                  >
+                    Paste
+                  </button>
+                </label>
+                <div class="flex items-stretch rounded-xl border border-neutral-200 bg-white transition-all duration-150 focus-within:border-[#141414] focus-within:ring-4 focus-within:ring-[#CAFC00]/20">
+                  <div class="pl-3.5 pr-1 grid place-items-center text-neutral-400">
+                    <svg class="w-4 h-4" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                      <path d="M3 10h14m0 0l-5-5m5 5l-5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                  </div>
+                  <input
+                    type="text"
+                    id="send-to"
+                    name="to"
+                    value={@send_form.to}
+                    placeholder="Solana address"
+                    autocomplete="off"
+                    spellcheck="false"
+                    required
+                    class="flex-1 min-w-0 bg-transparent px-2.5 py-3.5 text-[13px] font-mono text-[#141414] placeholder-neutral-400 outline-none border-0 focus:ring-0"
+                  />
+                </div>
+              </div>
+
+              <%!-- Amount --%>
+              <div>
+                <label for="send-amount" class="flex items-center justify-between mb-2">
+                  <span class="text-[10px] uppercase tracking-[0.18em] font-bold text-neutral-400 font-mono">
+                    Amount
+                  </span>
+                  <span class="text-[10px] font-mono text-neutral-500 tabular-nums">
+                    Available: <span id="amount-available" class="text-[#141414] font-bold"><%= format_sol(@sol_balance) %></span> SOL
+                  </span>
+                </label>
+                <div class="flex items-stretch rounded-xl border border-neutral-200 bg-white transition-all duration-150 focus-within:border-[#141414] focus-within:ring-4 focus-within:ring-[#CAFC00]/20">
+                  <input
+                    type="text"
+                    id="send-amount"
+                    name="amount"
+                    inputmode="decimal"
+                    value={@send_form.amount}
+                    placeholder="0.00"
+                    autocomplete="off"
+                    required
+                    phx-change="calc_send_preview"
+                    class="flex-1 min-w-0 bg-transparent pl-4 pr-2 py-3.5 text-[22px] font-bold tabular-nums text-[#141414] placeholder-neutral-300 outline-none border-0 focus:ring-0"
+                    style="letter-spacing: -0.02em;"
+                  />
+                  <div class="flex items-center gap-2 pr-2">
+                    <span id="amount-usd-preview" class="hidden sm:inline text-[11px] font-mono text-neutral-400 tabular-nums px-2">
+                      ≈ $<%= @send_form.usd_preview || "0.00" %>
+                    </span>
+                    <button
+                      type="button"
+                      phx-click="set_send_max"
+                      class="shrink-0 my-1.5 px-2.5 py-1.5 rounded-lg bg-neutral-100 hover:bg-neutral-200 text-[10px] font-bold text-[#141414] uppercase tracking-[0.14em] font-mono transition-colors cursor-pointer"
+                    >
+                      Max
+                    </button>
+                    <span class="shrink-0 my-1.5 px-3 py-1.5 rounded-lg bg-[#141414] text-white text-[11px] font-bold tracking-wide">
+                      SOL
+                    </span>
+                  </div>
+                </div>
+
+                <%!-- Helper line --%>
+                <div class="mt-2.5 flex items-center gap-3 text-[10px] font-mono text-neutral-500 tabular-nums">
+                  <span class="flex items-center gap-1.5">
+                    <span class="w-1 h-1 rounded-full bg-[#CAFC00]" aria-hidden="true"></span>
+                    Fee + rent reserve ≈ 0.00089 SOL
+                  </span>
+                  <%= if @send_form.error do %>
+                    <span class="ml-auto text-[#c0392b]"><%= @send_form.error %></span>
+                  <% end %>
+                </div>
+              </div>
+
+              <%!-- Submit --%>
+              <button
+                type="submit"
+                class="w-full inline-flex items-center justify-center gap-2 px-5 py-4 rounded-xl bg-[#0a0a0a] text-white text-[14px] font-bold hover:bg-[#1a1a22] active:scale-[0.995] transition-all cursor-pointer"
+              >
+                <span>Review transfer</span>
+                <svg class="w-4 h-4" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                  <path d="M3 10h12m0 0l-4-4m4 4l-4 4" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </button>
+            </form>
+          <% end %>
+        <% end %>
+
+        <%!-- STAGE: confirming — review + sign --%>
+        <%= if @stage == :confirming do %>
+          <div class="p-5 md:p-8 ds-slide-in">
+            <div class="mb-4 flex items-center gap-2">
+              <span class="text-[10px] uppercase tracking-[0.18em] font-bold text-[#141414] font-mono">
+                Confirm transfer
+              </span>
+              <span class="text-neutral-300 text-xs">·</span>
+              <span class="text-[10px] uppercase tracking-[0.14em] font-mono text-neutral-400 tabular-nums">
+                Step 2 of 2
+              </span>
+            </div>
+
+            <%!-- Value line --%>
+            <div class="py-5 border-b border-neutral-100">
+              <div class="text-[10px] uppercase tracking-[0.18em] font-bold text-neutral-400 font-mono mb-2">
+                You are sending
+              </div>
+              <div class="flex items-baseline gap-3">
+                <span
+                  class="text-[44px] md:text-[52px] font-bold tabular-nums text-[#141414] leading-none"
+                  style="letter-spacing: -0.03em;"
+                >
+                  <%= @send_form.amount %>
+                </span>
+                <span class="text-[20px] font-bold text-neutral-400">SOL</span>
+              </div>
+              <div class="mt-1 text-[12px] font-mono text-neutral-500 tabular-nums">
+                ≈ $<%= @send_form.usd_preview || "0.00" %> USD
+              </div>
+            </div>
+
+            <%!-- To line — FULL address in 4-char mono groups --%>
+            <div class="py-5 border-b border-neutral-100">
+              <div class="text-[10px] uppercase tracking-[0.18em] font-bold text-neutral-400 font-mono mb-2">
+                Recipient
+              </div>
+              <div class="text-[13px] font-mono leading-relaxed text-[#141414] break-all">
+                <%= format_addr_groups(@send_form.to) %>
+              </div>
+              <div class="mt-2 text-[10px] font-mono text-neutral-400 uppercase tracking-[0.12em]">
+                Verify every character · there is no undo
+              </div>
+            </div>
+
+            <%!-- Warning strip --%>
+            <div class="mt-5 flex items-start gap-3 p-3.5 rounded-xl bg-amber-50/70 border border-amber-200/60">
+              <svg class="w-4 h-4 text-amber-700 shrink-0 mt-0.5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l6.518 11.59c.75 1.334-.213 2.99-1.742 2.99H3.48c-1.53 0-2.492-1.656-1.742-2.99L8.257 3.1zM11 13a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm-1-8a1 1 0 0 0-1 1v3a1 1 0 1 0 2 0V6a1 1 0 0 0-1-1z" clip-rule="evenodd"/>
+              </svg>
+              <div class="text-[11.5px] text-amber-900/90 leading-relaxed">
+                <strong class="font-bold">Transfers are final.</strong> Once signed, this transaction cannot be reversed. Make sure the recipient address is correct and belongs to an account on Solana.
+              </div>
+            </div>
+
+            <%!-- Action row --%>
+            <div class="mt-5 flex items-stretch gap-2">
+              <button
+                type="button"
+                phx-click="cancel_send"
+                class="flex-1 px-5 py-4 rounded-xl border border-neutral-200 hover:border-neutral-400 text-[13px] font-bold text-[#141414] transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                phx-click="confirm_send"
+                class="flex-[1.6] inline-flex items-center justify-center gap-2 px-5 py-4 rounded-xl bg-[#0a0a0a] text-white text-[13px] font-bold hover:bg-[#1a1a22] active:scale-[0.995] transition-all cursor-pointer"
+              >
+                Sign &amp; send
+                <svg class="w-3.5 h-3.5" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                  <path d="M3 10h12m0 0l-4-4m4 4l-4 4" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </button>
+            </div>
+          </div>
+        <% end %>
+
+        <%!-- Card footer — audit note --%>
+        <div class="border-t border-neutral-100 px-5 md:px-8 py-3 flex items-center gap-2 text-[10px] font-mono text-neutral-400 uppercase tracking-[0.12em]">
+          <svg class="w-3 h-3" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+            <rect x="2" y="3" width="8" height="7" rx="1" stroke="currentColor" stroke-width="1"/>
+            <path d="M4 3V2h4v1" stroke="currentColor" stroke-width="1"/>
+          </svg>
+          <span>All transfers are logged server-side</span>
+        </div>
+      </section>
+
+      <%!-- ══════════════════════════════════════════════════════════════
+           EXPORT PRIVATE KEY CARD
+           Three stages: idle (collapsed warning) → intent (expanded with
+           checkbox) → reveal (dark vault with tab toggle + blur-hover key
+           + 30s countdown).
+      ══════════════════════════════════════════════════════════════ --%>
+      <section
+        id="export-key-region"
+        phx-hook="Web3AuthExport"
+        class="md:col-span-5 relative min-w-0"
+        data-stage={@stage}
+        data-countdown-seconds="30"
+        aria-labelledby="export-heading"
+      >
+        <%= cond do %>
+          <% @stage == :export_reveal -> %>
+            <%!-- ── STAGE B · DARK VAULT REVEAL ── --%>
+            <div
+              class="relative bg-[#0a0a0a] text-white rounded-[24px] overflow-hidden ring-1 ring-[#CAFC00]/15"
+              style="box-shadow: 0 30px 80px -25px rgba(202,252,0,0.12), 0 0 0 1px rgba(202,252,0,0.08) inset;"
+            >
+              <%!-- Vault scan lines overlay --%>
+              <div class="absolute inset-0 pointer-events-none ds-vault-scanlines" aria-hidden="true"></div>
+
+              <%!-- Header --%>
+              <div class="relative flex items-center justify-between px-5 md:px-6 pt-5 pb-4 border-b border-white/5">
+                <div class="flex items-center gap-2">
+                  <span class="w-1.5 h-1.5 rounded-full bg-[#CAFC00] ds-pulse-dot" aria-hidden="true"></span>
+                  <span class="text-[10px] uppercase tracking-[0.18em] font-bold text-[#CAFC00] font-mono">
+                    Secure mode
+                  </span>
+                  <span class="text-white/20 text-xs">·</span>
+                  <span class="text-[10px] font-mono text-white/40 tabular-nums uppercase tracking-[0.14em]">
+                    <%= zero_pad_pct(@export_countdown_pct) %>
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  phx-click="hide_export_key"
+                  class="w-8 h-8 rounded-lg bg-white/5 hover:bg-white/10 grid place-items-center transition-colors cursor-pointer"
+                  aria-label="Hide now"
+                >
+                  <svg class="w-3.5 h-3.5 text-white/70" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                    <path d="M6 6l8 8m0-8l-8 8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                  </svg>
+                </button>
+              </div>
+
+              <%!-- Body --%>
+              <div class="relative px-5 md:px-6 py-6">
+                <h2 id="export-heading" class="text-[22px] font-bold tracking-tight leading-tight mb-1" style="letter-spacing: -0.025em;">
+                  Your private key
+                </h2>
+                <p class="text-[12px] text-white/50 leading-relaxed mb-5">
+                  Hover the code below to reveal. Import into Phantom or Solflare via "Import account".
+                </p>
+
+                <%!-- Tab toggle: Base58 / Hex / QR --%>
+                <div class="flex items-center gap-1 p-1 rounded-xl bg-white/5 mb-4" role="tablist">
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={@export_format == "base58"}
+                    phx-click="set_export_format"
+                    phx-value-format="base58"
+                    class={[
+                      "flex-1 px-3 py-2 rounded-lg text-[11px] font-bold uppercase tracking-[0.14em] font-mono transition-colors cursor-pointer",
+                      @export_format == "base58" && "bg-white/10 text-white",
+                      @export_format != "base58" && "text-white/50 hover:text-white/80"
+                    ]}
+                  >
+                    Base58
+                  </button>
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={@export_format == "hex"}
+                    phx-click="set_export_format"
+                    phx-value-format="hex"
+                    class={[
+                      "flex-1 px-3 py-2 rounded-lg text-[11px] font-bold uppercase tracking-[0.14em] font-mono transition-colors cursor-pointer",
+                      @export_format == "hex" && "bg-white/10 text-white",
+                      @export_format != "hex" && "text-white/50 hover:text-white/80"
+                    ]}
+                  >
+                    Hex
+                  </button>
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={@export_format == "qr"}
+                    phx-click="set_export_format"
+                    phx-value-format="qr"
+                    class={[
+                      "flex-1 px-3 py-2 rounded-lg text-[11px] font-bold uppercase tracking-[0.14em] font-mono transition-colors cursor-pointer",
+                      @export_format == "qr" && "bg-white/10 text-white",
+                      @export_format != "qr" && "text-white/50 hover:text-white/80"
+                    ]}
+                  >
+                    QR
+                  </button>
+                </div>
+
+                <%!-- Key display — populated by Web3AuthExport JS hook.
+                     The hook reads data-format from this element (it's updated
+                     on every re-render because of @export_format). The hook
+                     fetches solana_privateKey, encodes it in the requested
+                     format, writes the text into #export-key-mono or builds
+                     a QR into #export-key-qr. Never held on the server.
+
+                     phx-update="ignore" on the inner containers so LV
+                     morphing doesn't wipe the key content the JS hook
+                     wrote. Outer #export-key-display still re-renders so
+                     the format switch works. --%>
+                <div
+                  id="export-key-display"
+                  data-format={@export_format}
+                  class="relative rounded-xl bg-black/60 border border-white/10 overflow-hidden"
+                >
+                  <%= if @export_format == "qr" do %>
+                    <div class="p-4 grid place-items-center">
+                      <div id="export-key-qr" phx-update="ignore" class="w-[160px] h-[160px] bg-white rounded-lg p-2 text-[#141414]">
+                        <%!-- Filled by Web3AuthExport hook --%>
+                      </div>
+                    </div>
+                  <% else %>
+                    <div class="relative">
+                      <pre
+                        id="export-key-mono"
+                        phx-update="ignore"
+                        class="ds-blur-reveal font-mono text-[11px] md:text-[12px] leading-[1.7] text-[#CAFC00] p-4 pr-12 break-all m-0 whitespace-pre-wrap"
+                      ><%!-- Filled by Web3AuthExport hook --%></pre>
+                      <%!-- Overlay hint --%>
+                      <div class="ds-blur-hint pointer-events-none absolute inset-0 grid place-items-center">
+                        <div class="flex items-center gap-2 px-3 py-1.5 rounded-full bg-black/60 border border-white/10">
+                          <svg class="w-3 h-3 text-white/60" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+                            <path d="M6 2.5c1.9 0 3.5 1.6 4 3.5-.5 1.9-2.1 3.5-4 3.5S2.5 7.9 2 6c.5-1.9 2.1-3.5 4-3.5z" stroke="currentColor" stroke-width="1"/>
+                            <circle cx="6" cy="6" r="1.2" stroke="currentColor" stroke-width="1"/>
+                          </svg>
+                          <span class="text-[10px] uppercase tracking-[0.14em] font-bold text-white/70 font-mono">Hover to reveal</span>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        id="copy-private-key"
+                        class="absolute top-3 right-3 w-8 h-8 rounded-lg bg-white/5 hover:bg-white/10 grid place-items-center transition-colors cursor-pointer"
+                        aria-label="Copy private key"
+                      >
+                        <svg class="w-3.5 h-3.5 text-white/70 copy-icon-default" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                          <rect x="7" y="7" width="9" height="9" rx="1.5" stroke="currentColor" stroke-width="1.5"/>
+                          <path d="M13 7V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v7a1 1 0 0 0 1 1h2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                        </svg>
+                        <svg class="w-3.5 h-3.5 text-[#CAFC00] copy-icon hidden" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                          <path d="M4 10l4 4 8-8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                      </button>
+                    </div>
+                  <% end %>
+                </div>
+
+                <%!-- Countdown mechanism --%>
+                <div class="mt-5">
+                  <div class="flex items-center justify-between mb-2">
+                    <span class="text-[10px] uppercase tracking-[0.18em] font-bold text-white/40 font-mono">
+                      Auto-hide
+                    </span>
+                    <span id="export-countdown-label" class="text-[10px] font-mono text-white/60 tabular-nums">
+                      <%= countdown_seconds_remaining(@export_countdown_pct) %>s
+                    </span>
+                  </div>
+                  <div class="relative h-0.5 w-full bg-white/5 rounded-full overflow-hidden">
+                    <div
+                      id="export-countdown-bar"
+                      class="absolute inset-y-0 left-0 bg-[#CAFC00] rounded-full"
+                      style={"width: #{@export_countdown_pct}%; transition: width 0.95s linear;"}
+                    ></div>
+                  </div>
+                </div>
+
+                <%!-- Hide now button --%>
+                <button
+                  type="button"
+                  phx-click="hide_export_key"
+                  class="w-full mt-5 px-4 py-3.5 rounded-xl border border-white/10 hover:bg-white/5 text-[13px] font-bold text-white transition-colors cursor-pointer"
+                >
+                  Hide now
+                </button>
+
+                <%!-- Footer hash --%>
+                <div class="mt-5 pt-4 border-t border-white/5 flex items-center gap-2 text-[9px] font-mono uppercase tracking-[0.14em] text-white/30">
+                  <span class="w-1 h-1 rounded-full bg-[#CAFC00]/50" aria-hidden="true"></span>
+                  <span>Key material · never transmitted</span>
+                  <span class="ml-auto">ED25519</span>
+                </div>
+              </div>
+            </div>
+
+          <% @stage == :export_intent -> %>
+            <%!-- ── STAGE A · INTENT / WARNING ── --%>
+            <div
+              class="relative bg-white rounded-[24px] ring-1 ring-black/5 overflow-hidden"
+              style="box-shadow: 0 20px 60px -25px rgba(0,0,0,0.1), 0 2px 10px -4px rgba(0,0,0,0.04);"
+            >
+              <%!-- Header --%>
+              <div class="flex items-center justify-between px-5 md:px-6 pt-5 pb-4 border-b border-neutral-100">
+                <div class="flex items-center gap-3">
+                  <div class="w-8 h-8 rounded-lg bg-amber-100/80 border border-amber-200/70 grid place-items-center">
+                    <svg class="w-4 h-4 text-amber-700" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                      <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l6.518 11.59c.75 1.334-.213 2.99-1.742 2.99H3.48c-1.53 0-2.492-1.656-1.742-2.99L8.257 3.1zM11 13a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm-1-8a1 1 0 0 0-1 1v3a1 1 0 1 0 2 0V6a1 1 0 0 0-1-1z" clip-rule="evenodd"/>
+                    </svg>
+                  </div>
+                  <div>
+                    <h2 id="export-heading" class="text-[15px] font-bold text-[#141414] tracking-tight leading-tight">
+                      Before you continue
+                    </h2>
+                    <p class="text-[10px] text-neutral-400 font-mono uppercase tracking-[0.12em]">
+                      Confirm you understand
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  phx-click="cancel_export_intent"
+                  class="w-7 h-7 rounded-lg bg-neutral-100 hover:bg-neutral-200 grid place-items-center transition-colors cursor-pointer"
+                  aria-label="Cancel export"
+                >
+                  <svg class="w-3 h-3 text-neutral-600" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                    <path d="M6 6l8 8m0-8l-8 8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                  </svg>
+                </button>
+              </div>
+
+              <%!-- Risk list --%>
+              <div class="px-5 md:px-6 py-5 space-y-3">
+                <%= for {icon, title, detail} <- [
+                  {"key", "This key controls your wallet", "Anyone who sees it can move your SOL, BUX, and any NFTs in this wallet. Treat it like a cash briefcase."},
+                  {"shield", "We cannot help you recover it", "The key is derived client-side from your social login. If you lose it AND lose access to your email/provider, the funds are permanently stuck."},
+                  {"eye", "Never paste it into sites, chats, or support DMs", "Nobody from Blockster will ever ask for your private key. Import it only into trusted wallet apps (Phantom, Solflare, Backpack)."}
+                ] do %>
+                  <div class="flex items-start gap-3 py-2">
+                    <div class="w-7 h-7 rounded-lg bg-neutral-100 grid place-items-center shrink-0 mt-0.5">
+                      <%= case icon do %>
+                        <% "key" -> %>
+                          <svg class="w-3.5 h-3.5 text-[#141414]" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                            <circle cx="7" cy="13" r="3" stroke="currentColor" stroke-width="1.5"/>
+                            <path d="M9 11l7-7m-3 0h3v3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                          </svg>
+                        <% "shield" -> %>
+                          <svg class="w-3.5 h-3.5 text-[#141414]" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                            <path d="M10 3l6 2v5c0 3-2.5 6-6 7-3.5-1-6-4-6-7V5l6-2z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
+                          </svg>
+                        <% "eye" -> %>
+                          <svg class="w-3.5 h-3.5 text-[#141414]" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                            <path d="M2 10c2-4 5-6 8-6s6 2 8 6c-2 4-5 6-8 6s-6-2-8-6z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
+                            <circle cx="10" cy="10" r="2" stroke="currentColor" stroke-width="1.5"/>
+                          </svg>
+                      <% end %>
+                    </div>
+                    <div class="min-w-0">
+                      <div class="text-[13px] font-bold text-[#141414] leading-tight mb-0.5">
+                        <%= title %>
+                      </div>
+                      <div class="text-[12px] text-neutral-500 leading-relaxed">
+                        <%= detail %>
+                      </div>
+                    </div>
+                  </div>
+                <% end %>
+              </div>
+
+              <%!-- Checkbox + continue --%>
+              <div class="border-t border-neutral-100 px-5 md:px-6 py-5">
+                <label class="flex items-start gap-3 cursor-pointer group mb-4">
+                  <input
+                    type="checkbox"
+                    name="intent_accepted"
+                    phx-click="toggle_export_intent_accepted"
+                    checked={@export_intent_accepted}
+                    class="sr-only peer"
+                  />
+                  <span class={[
+                    "mt-0.5 w-5 h-5 rounded-md border-2 shrink-0 grid place-items-center transition-all",
+                    @export_intent_accepted && "border-[#141414] bg-[#141414]",
+                    !@export_intent_accepted && "border-neutral-300 group-hover:border-neutral-500"
+                  ]}>
+                    <%= if @export_intent_accepted do %>
+                      <svg class="w-3 h-3 text-white" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+                        <path d="M2 6l3 3 5-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                      </svg>
+                    <% end %>
+                  </span>
+                  <span class="text-[12.5px] text-[#141414] leading-relaxed">
+                    I understand that my private key controls this wallet and that Blockster cannot help me if I lose or leak it.
+                  </span>
+                </label>
+
+                <button
+                  type="button"
+                  phx-click="start_export_reveal"
+                  disabled={not @export_intent_accepted}
+                  class={[
+                    "w-full inline-flex items-center justify-center gap-2 px-4 py-3.5 rounded-xl text-[13px] font-bold transition-all",
+                    @export_intent_accepted && "bg-[#0a0a0a] text-white hover:bg-[#1a1a22] active:scale-[0.995] cursor-pointer",
+                    !@export_intent_accepted && "bg-neutral-100 text-neutral-400 cursor-not-allowed"
+                  ]}
+                >
+                  <svg class="w-3.5 h-3.5" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                    <path d="M10 13v2M6 9V6a4 4 0 018 0v3" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/>
+                    <rect x="4" y="9" width="12" height="8" rx="1.5" stroke="currentColor" stroke-width="1.75"/>
+                  </svg>
+                  Verify identity &amp; reveal
+                </button>
+
+                <p class="mt-2.5 text-[10px] font-mono text-neutral-400 uppercase tracking-[0.12em] text-center">
+                  You'll be asked to sign in again
+                </p>
+              </div>
+            </div>
+
+          <% true -> %>
+            <%!-- ── IDLE · COLLAPSED CTA ── --%>
+            <div
+              class="relative bg-white rounded-[24px] ring-1 ring-black/5 overflow-hidden h-full"
+              style="box-shadow: 0 20px 60px -25px rgba(0,0,0,0.1), 0 2px 10px -4px rgba(0,0,0,0.04);"
+            >
+              <div class="flex flex-col h-full p-5 md:p-8">
+                <%!-- Header --%>
+                <div class="flex items-center justify-between mb-6">
+                  <div class="flex items-center gap-3">
+                    <div class="w-8 h-8 rounded-lg bg-neutral-100 border border-neutral-200 grid place-items-center">
+                      <svg class="w-4 h-4 text-[#141414]" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                        <rect x="4" y="9" width="12" height="8" rx="1.5" stroke="currentColor" stroke-width="1.75"/>
+                        <path d="M7 9V6a3 3 0 016 0v3" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/>
+                      </svg>
+                    </div>
+                    <div>
+                      <h2 id="export-heading" class="text-[17px] font-bold text-[#141414] tracking-tight leading-tight">
+                        Take full custody
+                      </h2>
+                      <p class="text-[11px] text-neutral-400 font-mono uppercase tracking-[0.12em]">
+                        Export private key
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <%!-- Explanation --%>
+                <p class="text-[13px] text-neutral-600 leading-relaxed mb-5">
+                  Export your private key to import this wallet into Phantom, Solflare, or any other Solana wallet. Once exported you keep sole custody.
+                </p>
+
+                <%!-- Lock visual panel --%>
+                <div class="relative mb-5 rounded-xl bg-gradient-to-br from-neutral-50 to-neutral-100 border border-neutral-200 p-5 overflow-hidden">
+                  <%!-- corner diagnostic --%>
+                  <div class="absolute top-2 right-2 text-[9px] font-mono uppercase tracking-[0.14em] text-neutral-400">
+                    ED25519
+                  </div>
+                  <div class="flex items-center gap-4">
+                    <div class="w-11 h-11 rounded-xl bg-white ring-1 ring-black/5 grid place-items-center">
+                      <svg class="w-5 h-5 text-[#141414]" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                        <rect x="4" y="9" width="12" height="8" rx="1.5" stroke="currentColor" stroke-width="1.5"/>
+                        <path d="M7 9V6a3 3 0 016 0v3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                      </svg>
+                    </div>
+                    <div class="min-w-0">
+                      <div class="text-[11px] font-mono uppercase tracking-[0.14em] text-neutral-500 mb-0.5">
+                        Stored client-side
+                      </div>
+                      <div class="text-[13px] font-bold text-[#141414] font-mono tabular-nums">
+                        MPC · threshold-derived
+                      </div>
+                    </div>
+                  </div>
+                  <%!-- Faint dot grid behind --%>
+                  <div
+                    class="absolute inset-0 pointer-events-none opacity-[0.5]"
+                    style="background-image: radial-gradient(circle at 2px 2px, rgba(20,20,20,0.05) 1px, transparent 0); background-size: 12px 12px;"
+                    aria-hidden="true"
+                  ></div>
+                </div>
+
+                <button
+                  type="button"
+                  phx-click="start_export_intent"
+                  class="w-full inline-flex items-center justify-between px-5 py-4 rounded-xl bg-[#0a0a0a] text-white text-[13px] font-bold hover:bg-[#1a1a22] active:scale-[0.995] transition-all cursor-pointer mt-auto"
+                >
+                  <span class="flex items-center gap-2.5">
+                    <svg class="w-3.5 h-3.5 text-[#CAFC00]" viewBox="0 0 12 12" fill="currentColor" aria-hidden="true">
+                      <circle cx="6" cy="6" r="2.5"/>
+                    </svg>
+                    Export private key
+                  </span>
+                  <svg class="w-3.5 h-3.5" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                    <path d="M3 10h12m0 0l-4-4m4 4l-4 4" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
+                </button>
+              </div>
+
+              <%!-- Footer --%>
+              <div class="border-t border-neutral-100 px-5 md:px-8 py-3 flex items-center gap-2 text-[10px] font-mono text-neutral-400 uppercase tracking-[0.12em]">
+                <svg class="w-3 h-3" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+                  <path d="M2 6l2 2 6-6" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                <span>Export events are audit-logged</span>
+              </div>
+            </div>
+        <% end %>
+      </section>
+    </div>
+
+    <%!-- ══════════════════════════════════════════════════════════════════
+         Activity / audit strip (read-only, last 5 security events)
+    ══════════════════════════════════════════════════════════════════ --%>
+    <%= if @audit_events != [] do %>
+      <div class="mt-10 md:mt-14">
+        <div class="flex items-center justify-between mb-4">
+          <span class="text-[10px] uppercase tracking-[0.18em] font-bold text-neutral-400 font-mono">
+            Recent security events
+          </span>
+          <span class="text-[10px] font-mono text-neutral-400 tabular-nums uppercase tracking-[0.12em]">
+            Last <%= length(@audit_events) %>
+          </span>
+        </div>
+
+        <div class="bg-white rounded-2xl ring-1 ring-black/5 divide-y divide-neutral-100">
+          <%= for event <- @audit_events do %>
+            <% ev_type = audit_field(event, :event_type) %>
+            <% ev_amount = audit_field(event.metadata, "amount") %>
+            <% ev_to = audit_field(event.metadata, "to") %>
+            <div class="flex items-center gap-4 px-4 md:px-5 py-3.5">
+              <div class={[
+                "w-2 h-2 rounded-full shrink-0",
+                ev_type == "withdrawal_confirmed" && "bg-[#22C55E]",
+                ev_type == "withdrawal_initiated" && "bg-[#CAFC00]",
+                ev_type == "key_exported" && "bg-amber-500",
+                ev_type == "withdrawal_failed" && "bg-red-500",
+                ev_type == "export_reauth_completed" && "bg-amber-400"
+              ]} aria-hidden="true"></div>
+              <div class="min-w-0 flex-1">
+                <div class="text-[12.5px] font-bold text-[#141414] leading-tight">
+                  <%= audit_event_label(ev_type) %>
+                </div>
+                <%= if ev_amount do %>
+                  <div class="text-[11px] font-mono text-neutral-500 tabular-nums mt-0.5">
+                    <%= ev_amount %> SOL
+                    <%= if ev_to do %>
+                      → <%= truncate_addr(ev_to) %>
+                    <% end %>
+                  </div>
+                <% end %>
+              </div>
+              <div class="text-[10px] font-mono text-neutral-400 tabular-nums uppercase tracking-[0.12em] shrink-0">
+                <%= format_ts_short(event.inserted_at) %>
+              </div>
+            </div>
+          <% end %>
+        </div>
+      </div>
+    <% end %>
+
+    <%!-- Page footer fine print --%>
+    <div class="mt-10 md:mt-14 pt-6 border-t border-neutral-200 flex flex-col sm:flex-row gap-3 sm:gap-0 items-start sm:items-center justify-between">
+      <div class="text-[11px] text-neutral-400 leading-relaxed max-w-[420px]">
+        Blockster never transmits or stores your private key. All self-custody actions are logged server-side for your security.
+      </div>
+      <div class="flex items-center gap-4 text-[10px] font-mono uppercase tracking-[0.14em] text-neutral-400">
+        <.link navigate={~p"/privacy"} class="hover:text-[#141414] transition-colors">Privacy</.link>
+        <.link navigate={~p"/terms"} class="hover:text-[#141414] transition-colors">Terms</.link>
+      </div>
+    </div>
+  </div>
+</div>
+
+<%!-- ══════════════════════════════════════════════════════════════════
+     Component styles. Kept inline for this page so the aesthetic ships
+     atomically; can migrate to app.css in a follow-up if reused elsewhere.
+══════════════════════════════════════════════════════════════════ --%>
+<style>
+  /* Tick-ruler across hero card top edge — hairline marks every 8px */
+  .ds-tick-ruler {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 6px;
+    background-image:
+      repeating-linear-gradient(
+        to right,
+        transparent 0,
+        transparent 7px,
+        rgba(20, 20, 20, 0.12) 7px,
+        rgba(20, 20, 20, 0.12) 8px
+      ),
+      linear-gradient(
+        to right,
+        transparent,
+        rgba(202, 252, 0, 0.8) 25%,
+        rgba(202, 252, 0, 0.8) 75%,
+        transparent
+      );
+    background-size: 100% 100%, 100% 1px;
+    background-position: 0 0, 0 5px;
+    background-repeat: repeat-x, no-repeat;
+    pointer-events: none;
+  }
+
+  /* Pulsing dot — like a second hand */
+  @keyframes dsPulseDot {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50%      { opacity: 0.45; transform: scale(1.3); }
+  }
+  .ds-pulse-dot {
+    animation: dsPulseDot 1.8s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+
+  /* QR scan-line sweep */
+  @keyframes dsScanLine {
+    0%   { transform: translateY(-100%); opacity: 0; }
+    15%  { opacity: 0.9; }
+    85%  { opacity: 0.9; }
+    100% { transform: translateY(200%); opacity: 0; }
+  }
+  .ds-qr-frame .ds-scan-line {
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: linear-gradient(
+      to right,
+      transparent,
+      rgba(202, 252, 0, 0.7),
+      transparent
+    );
+    box-shadow: 0 0 8px rgba(202, 252, 0, 0.6);
+    animation: dsScanLine 4.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+
+  /* Slide-in transition for send confirmation stage */
+  @keyframes dsSlideIn {
+    from { opacity: 0; transform: translateY(6px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .ds-slide-in {
+    animation: dsSlideIn 180ms ease-out;
+  }
+
+  /* Success ring pulse */
+  @keyframes dsSuccessRing {
+    0%   { opacity: 0; transform: scale(0.9); }
+    50%  { opacity: 1; transform: scale(1.05); }
+    100% { opacity: 0; transform: scale(1.3); }
+  }
+  .ds-success-ring {
+    border: 2px solid rgba(202, 252, 0, 0.55);
+    border-radius: 9999px;
+    animation: dsSuccessRing 1.4s ease-out infinite;
+  }
+
+  /* Dark vault scan-lines — very subtle CRT feel */
+  .ds-vault-scanlines {
+    background: repeating-linear-gradient(
+      to bottom,
+      transparent,
+      transparent 3px,
+      rgba(255, 255, 255, 0.018) 3px,
+      rgba(255, 255, 255, 0.018) 4px
+    );
+  }
+
+  /* Blur-reveal on the private key — user must hover to see characters */
+  .ds-blur-reveal {
+    filter: blur(7px);
+    transition: filter 200ms ease-out;
+    user-select: none;
+  }
+  .ds-blur-reveal:hover,
+  .ds-blur-reveal:focus-within {
+    filter: blur(0);
+    user-select: text;
+  }
+  .ds-blur-reveal:hover + .ds-blur-hint,
+  .ds-blur-reveal:focus-within + .ds-blur-hint {
+    opacity: 0;
+    pointer-events: none;
+  }
+  .ds-blur-hint {
+    transition: opacity 200ms ease-out;
+  }
+
+  /* Max-button pulse animation, triggered via .ds-pulse class added by JS */
+  @keyframes dsAmountPulse {
+    0%   { transform: scale(1); }
+    40%  { transform: scale(1.03); color: #141414; }
+    100% { transform: scale(1); }
+  }
+  .ds-amount-pulse {
+    animation: dsAmountPulse 340ms cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+
+  /* Countdown bar — transition handled inline, but ensure smooth */
+  #export-countdown-bar {
+    box-shadow: 0 0 6px rgba(202, 252, 0, 0.55);
+  }
+
+  /* Mobile refinements */
+  @media (max-width: 767px) {
+    .ds-wallet-root h1 {
+      font-size: 36px;
+    }
+  }
+</style>

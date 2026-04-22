@@ -13,7 +13,7 @@ const router = Router();
  */
 router.post("/build-place-bet", async (req: Request, res: Response) => {
   try {
-    const { wallet, gameId, nonce, amount, difficulty, vaultType } = req.body;
+    const { wallet, gameId, nonce, amount, difficulty, vaultType, feePayerMode } = req.body;
 
     if (!wallet || gameId === undefined || nonce === undefined || !amount || difficulty === undefined || !vaultType) {
       return res.status(400).json({ error: "Missing required fields" });
@@ -27,16 +27,32 @@ router.post("/build-place-bet", async (req: Request, res: Response) => {
       return res.status(400).json({ error: "difficulty must be 0-8" });
     }
 
+    // Optional feePayerMode — "player" (default) or "settler" (Web3Auth users).
+    // Anything else defaults to "player" for safety (no accidental zero-SOL
+    // relaxation for unknown callers).
+    const mode: "player" | "settler" =
+      feePayerMode === "settler" ? "settler" : "player";
+
     const tx = await buildPlaceBetTx(
       wallet,
       gameId,
       nonce,
       amount,
       difficulty,
-      vaultType as "sol" | "bux"
+      vaultType as "sol" | "bux",
+      mode
     );
 
-    res.json({ transaction: tx, wallet, gameId, nonce, amount, difficulty, vaultType });
+    res.json({
+      transaction: tx,
+      wallet,
+      gameId,
+      nonce,
+      amount,
+      difficulty,
+      vaultType,
+      feePayerMode: mode,
+    });
   } catch (err: any) {
     console.error("Build tx error:", err.message);
     res.status(500).json({ error: err.message });

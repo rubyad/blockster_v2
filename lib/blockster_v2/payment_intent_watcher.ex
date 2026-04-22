@@ -11,10 +11,18 @@ defmodule BlocksterV2.PaymentIntentWatcher do
   use GenServer
   require Logger
 
-  alias BlocksterV2.{PaymentIntents, SettlerClient}
+  alias BlocksterV2.{PaymentIntents, Repo, SettlerClient}
   alias BlocksterV2.Orders.PaymentIntent
 
-  @poll_interval_ms :timer.seconds(10)
+  import Ecto.Query
+
+  # SOL payment intents have a 15-min TTL, and users stick around on the
+  # checkout page while they wait for confirmation — 30s polling gives ~30
+  # chances to catch a funding event per intent, more than enough. The
+  # watcher also short-circuits below when zero intents are open, so idle
+  # periods cost one cheap existence query per tick instead of two full
+  # table scans.
+  @poll_interval_ms :timer.seconds(30)
 
   # ── Public API ──────────────────────────────────────────────────────────────
 
@@ -59,11 +67,21 @@ defmodule BlocksterV2.PaymentIntentWatcher do
 
   @doc false
   def tick_once do
-    check_pending()
-    sweep_funded()
+    # Short-circuit when there's nothing to do — one cheap `EXISTS` query
+    # instead of two full-table SELECTs. In steady state (no active shop
+    # checkouts) the watcher's DB footprint is a single LIMIT 1 query per
+    # tick.
+    if any_open_intents?() do
+      check_pending()
+      sweep_funded()
+    end
   rescue
     e ->
       Logger.error("[PaymentIntentWatcher] tick failed: #{Exception.message(e)}")
+  end
+
+  defp any_open_intents? do
+    Repo.exists?(from i in PaymentIntent, where: i.status in ["pending", "funded"])
   end
 
   defp check_pending do

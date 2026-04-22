@@ -21,6 +21,7 @@ defmodule BlocksterV2.Orders.PaymentIntent do
   @foreign_key_type :binary_id
 
   @statuses ~w(pending funded swept expired failed)
+  @payment_modes ~w(manual wallet_sign)
 
   schema "order_payment_intents" do
     belongs_to :order, Order
@@ -30,6 +31,7 @@ defmodule BlocksterV2.Orders.PaymentIntent do
     field :quoted_usd, :decimal
     field :quoted_sol_usd_rate, :decimal
     field :status, :string, default: "pending"
+    field :payment_mode, :string, default: "manual"
     field :funded_tx_sig, :string
     field :funded_lamports, :integer
     field :funded_at, :utc_datetime
@@ -50,7 +52,8 @@ defmodule BlocksterV2.Orders.PaymentIntent do
       :expected_lamports,
       :quoted_usd,
       :quoted_sol_usd_rate,
-      :expires_at
+      :expires_at,
+      :payment_mode
     ])
     |> validate_required([
       :order_id,
@@ -61,6 +64,7 @@ defmodule BlocksterV2.Orders.PaymentIntent do
       :quoted_sol_usd_rate,
       :expires_at
     ])
+    |> validate_inclusion(:payment_mode, @payment_modes)
     |> validate_number(:expected_lamports, greater_than: 0)
     |> unique_constraint(:order_id)
     |> unique_constraint(:pubkey)
@@ -85,4 +89,5 @@ defmodule BlocksterV2.Orders.PaymentIntent do
   end
 
   def statuses, do: @statuses
+  def payment_modes, do: @payment_modes
 end

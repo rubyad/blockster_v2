@@ -397,9 +397,17 @@ defmodule BlocksterV2.BuxMinter do
   @doc """
   Builds an unsigned deposit transaction for user signing.
   vault_type: "sol" or "bux"
+  opts:
+    * `:fee_payer_mode` — `"player"` (default) or `"settler"`. Web3Auth
+      users pass `"settler"` so the settler covers the priority fee AND
+      funds the LP-token ATA creation; the depositor can hold zero SOL.
+      Wallet Standard users must stay on `"player"` because
+      Phantom/Solflare/Backpack reject multi-signer txs where the
+      connected wallet isn't the fee_payer.
   Returns {:ok, base64_tx} or {:error, reason}
   """
-  def build_deposit_tx(wallet_address, amount, vault_type) when vault_type in ["sol", "bux"] do
+  def build_deposit_tx(wallet_address, amount, vault_type, opts \\ [])
+      when vault_type in ["sol", "bux"] do
     settler_url = get_settler_url()
     api_secret = get_api_secret()
 
@@ -407,7 +415,13 @@ defmodule BlocksterV2.BuxMinter do
       {:error, :not_configured}
     else
       endpoint = if vault_type == "sol", do: "build-deposit-sol", else: "build-deposit-bux"
-      payload = %{wallet: wallet_address, amount: amount}
+
+      payload = %{
+        wallet: wallet_address,
+        amount: amount,
+        feePayerMode: normalize_fee_payer_mode(opts)
+      }
+
       headers = auth_headers(api_secret)
 
       case http_post("#{settler_url}/#{endpoint}", Jason.encode!(payload), headers) do
@@ -427,14 +441,34 @@ defmodule BlocksterV2.BuxMinter do
     end
   end
 
+  defp normalize_fee_payer_mode(opts) do
+    case Keyword.get(opts, :fee_payer_mode, "player") do
+      "settler" -> "settler"
+      :settler -> "settler"
+      _ -> "player"
+    end
+  end
+
   @doc """
   Builds an unsigned place_bet transaction for user signing.
   vault_type: "sol" or "bux"
+  fee_payer_mode (opts): `"player"` (default) or `"settler"`. Web3Auth
+    social users pass `"settler"` so the settler covers the ~5000-lamport
+    priority fee; the user can bet with zero SOL. Wallet Standard users
+    must stay on `"player"` because Phantom/Solflare/Backpack reject
+    multi-signer txs where the connected wallet isn't the fee_payer.
   Returns {:ok, base64_tx} or {:error, reason}
   """
-  def build_place_bet_tx(wallet_address, game_id, nonce, amount, difficulty, vault_type) do
+  def build_place_bet_tx(wallet_address, game_id, nonce, amount, difficulty, vault_type, opts \\ []) do
     settler_url = get_settler_url()
     api_secret = get_api_secret()
+
+    fee_payer_mode =
+      case Keyword.get(opts, :fee_payer_mode, "player") do
+        "settler" -> "settler"
+        :settler -> "settler"
+        _ -> "player"
+      end
 
     if is_nil(api_secret) or api_secret == "" do
       {:error, :not_configured}
@@ -445,7 +479,8 @@ defmodule BlocksterV2.BuxMinter do
         nonce: nonce,
         amount: amount,
         difficulty: difficulty,
-        vaultType: vault_type
+        vaultType: vault_type,
+        feePayerMode: fee_payer_mode
       }
       headers = auth_headers(api_secret)
 
@@ -465,6 +500,16 @@ defmodule BlocksterV2.BuxMinter do
       end
     end
   end
+
+  @doc """
+  Maps a user's `auth_method` to the fee_payer_mode for bet txs.
+  Web3Auth users → "settler" (zero-SOL UX); everyone else → "player".
+  """
+  def fee_payer_mode_for_user(%{auth_method: auth})
+      when auth in ["web3auth_email", "web3auth_x", "web3auth_telegram"],
+      do: "settler"
+
+  def fee_payer_mode_for_user(_), do: "player"
 
   @doc """
   Builds an unsigned reclaim_expired transaction for user signing.
@@ -501,9 +546,13 @@ defmodule BlocksterV2.BuxMinter do
   @doc """
   Builds an unsigned withdraw transaction for user signing.
   vault_type: "sol" or "bux"
+  opts:
+    * `:fee_payer_mode` — `"player"` (default) or `"settler"`. See
+      `build_deposit_tx/4` for the rationale and Wallet-Standard caveat.
   Returns {:ok, base64_tx} or {:error, reason}
   """
-  def build_withdraw_tx(wallet_address, lp_amount, vault_type) when vault_type in ["sol", "bux"] do
+  def build_withdraw_tx(wallet_address, lp_amount, vault_type, opts \\ [])
+      when vault_type in ["sol", "bux"] do
     settler_url = get_settler_url()
     api_secret = get_api_secret()
 
@@ -511,7 +560,13 @@ defmodule BlocksterV2.BuxMinter do
       {:error, :not_configured}
     else
       endpoint = if vault_type == "sol", do: "build-withdraw-sol", else: "build-withdraw-bux"
-      payload = %{wallet: wallet_address, lpAmount: lp_amount}
+
+      payload = %{
+        wallet: wallet_address,
+        lpAmount: lp_amount,
+        feePayerMode: normalize_fee_payer_mode(opts)
+      }
+
       headers = auth_headers(api_secret)
 
       case http_post("#{settler_url}/#{endpoint}", Jason.encode!(payload), headers) do

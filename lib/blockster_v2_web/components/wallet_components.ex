@@ -114,6 +114,13 @@ defmodule BlocksterV2Web.WalletComponents do
   attr :detected_wallets, :list, default: []
   attr :connecting, :boolean, default: false
   attr :connecting_wallet_name, :any, default: nil
+  attr :connecting_provider, :any, default: nil
+  attr :social_login_enabled, :boolean, default: true
+  attr :email_prefill, :any, default: nil
+  attr :email_otp_stage, :any, default: nil
+  attr :email_otp_error, :any, default: nil
+  attr :email_otp_resend_cooldown, :integer, default: 0
+  attr :web3auth_config, :map, default: %{}
 
   def wallet_selector_modal(assigns) do
     detected_names =
@@ -139,8 +146,26 @@ defmodule BlocksterV2Web.WalletComponents do
       |> assign(:connecting_wallet, connecting_wallet)
 
     ~H"""
-    <%!-- Modal visible when: wallet selector is open OR connecting to a wallet --%>
-    <%= if @show or (@connecting and @connecting_wallet_name) do %>
+    <%!-- Web3Auth hook mount point — lazy-loads the SDK on first login attempt.
+         Receives config via data attributes; handles start_web3auth_login +
+         request_disconnect events from LiveView; pushes web3auth_authenticated
+         back with { wallet_address, id_token, verifier, ... }. --%>
+    <%= if @social_login_enabled and Map.get(@web3auth_config, :client_id, "") != "" do %>
+      <div
+        id="web3auth-root"
+        phx-hook="Web3Auth"
+        data-client-id={@web3auth_config[:client_id]}
+        data-rpc-url={@web3auth_config[:rpc_url]}
+        data-chain-id={@web3auth_config[:chain_id]}
+        data-network={@web3auth_config[:network]}
+        data-telegram-verifier-id={@web3auth_config[:telegram_verifier_id]}
+        data-telegram-bot-username={@web3auth_config[:telegram_bot_username]}
+        class="hidden"
+      ></div>
+    <% end %>
+
+    <%!-- Modal visible when: wallet selector open OR connecting to wallet OR connecting to web3auth --%>
+    <%= if @show || (@connecting && (@connecting_wallet_name || @connecting_provider)) do %>
       <%!-- Backdrop --%>
       <div
         id="wallet-modal-backdrop"
@@ -153,212 +178,446 @@ defmodule BlocksterV2Web.WalletComponents do
           style="background-image: radial-gradient(circle at 30% 30%, rgba(202, 252, 0, 0.06) 1.5px, transparent 1.5px); background-size: 28px 28px;"
         ></div>
 
-        <%= if @connecting and @connecting_wallet do %>
-          <%!-- ── STATE 2: Connecting ── --%>
-          <div
-            phx-click-away="hide_wallet_selector"
-            class="relative w-full max-w-[440px] bg-white rounded-3xl overflow-hidden ring-1 ring-black/5"
-            style="box-shadow: 0 30px 80px -15px rgba(0,0,0,0.4); animation: walletSlideUp 200ms ease-out;"
-          >
-            <%!-- Top bar: Close only (no Back — can't cancel a pending wallet popup) --%>
-            <div class="flex items-center justify-end px-6 pt-6 pb-2">
-              <button
-                phx-click="hide_wallet_selector"
-                class="w-8 h-8 rounded-full bg-neutral-100 hover:bg-neutral-200 grid place-items-center transition-colors cursor-pointer"
-                aria-label="Close"
-              >
-                <svg class="w-3.5 h-3.5 text-neutral-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-              </button>
-            </div>
-
-            <%!-- Big wallet badge with spinning ring --%>
-            <div class="px-6 pt-6 pb-4 flex flex-col items-center text-center">
-              <div class="relative mb-5">
-                <div class={"w-20 h-20 rounded-2xl grid place-items-center ring-1 ring-white/40 bg-gradient-to-br #{@connecting_wallet.gradient} #{@connecting_wallet.shadow_lg}"}>
-                  <.wallet_icon_large name={@connecting_wallet.name} />
-                </div>
-                <%!-- Spinning lime ring --%>
-                <svg class="absolute -inset-2 w-24 h-24 text-[#CAFC00] animate-spin" style="animation-duration: 0.9s;" viewBox="0 0 100 100" fill="none">
-                  <circle cx="50" cy="50" r="46" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-dasharray="60 220" stroke-dashoffset="0"/>
-                </svg>
+        <%= cond do %>
+          <% @connecting and @connecting_wallet -> %>
+            <%!-- ── STATE B: Connecting to wallet ── --%>
+            <div
+              phx-click-away="hide_wallet_selector"
+              class="relative w-full max-w-[440px] bg-white rounded-3xl overflow-hidden ring-1 ring-black/5"
+              style="box-shadow: 0 30px 80px -15px rgba(0,0,0,0.4); animation: walletSlideUp 200ms ease-out;"
+            >
+              <div class="flex items-center justify-end px-6 pt-6 pb-2">
+                <button
+                  phx-click="hide_wallet_selector"
+                  class="w-8 h-8 rounded-full bg-neutral-100 hover:bg-neutral-200 grid place-items-center transition-colors cursor-pointer"
+                  aria-label="Close"
+                >
+                  <svg class="w-3.5 h-3.5 text-neutral-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </button>
               </div>
-              <h2 class="text-[24px] font-bold tracking-tight text-[#141414] leading-[1.1] mb-2" style="letter-spacing: -0.022em;">
-                Opening <%= @connecting_wallet.name %>
-              </h2>
-              <p class="text-[13px] text-neutral-500 font-medium leading-relaxed max-w-[300px]">
-                Approve the connection in your <%= @connecting_wallet.name %> popup. We'll bring you back here once you sign.
-              </p>
-            </div>
 
-            <%!-- Progress shimmer strip --%>
-            <div class="px-6 pt-2 pb-1">
-              <div class="h-1 rounded-full bg-neutral-100 overflow-hidden">
-                <div class="h-full w-full rounded-full wallet-progress-shimmer"></div>
-              </div>
-            </div>
-
-            <%!-- Status steps --%>
-            <div class="px-6 py-5">
-              <div class="space-y-3 text-[12px] font-medium">
-                <%!-- Step 1: Wallet detected (done) --%>
-                <div class="flex items-center gap-3">
-                  <div class="w-5 h-5 rounded-full bg-[#22C55E] grid place-items-center shrink-0">
-                    <svg class="w-3 h-3 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+              <div class="px-6 pt-6 pb-4 flex flex-col items-center text-center">
+                <div class="relative mb-5">
+                  <div class={"w-20 h-20 rounded-2xl grid place-items-center ring-1 ring-white/40 bg-gradient-to-br #{@connecting_wallet.gradient} #{@connecting_wallet.shadow_lg}"}>
+                    <.wallet_icon_large name={@connecting_wallet.name} />
                   </div>
-                  <span class="text-[#141414]">Wallet detected</span>
-                  <span class="ml-auto text-[10px] font-mono text-neutral-400">0.2s</span>
+                  <svg class="absolute -inset-2 w-24 h-24 text-[#CAFC00] animate-spin" style="animation-duration: 0.9s;" viewBox="0 0 100 100" fill="none">
+                    <circle cx="50" cy="50" r="46" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-dasharray="60 220" stroke-dashoffset="0"/>
+                  </svg>
                 </div>
-                <%!-- Step 2: Awaiting signature (in progress) --%>
-                <div class="flex items-center gap-3">
-                  <div class="w-5 h-5 rounded-full bg-[#CAFC00] grid place-items-center shrink-0">
-                    <div class="w-2 h-2 rounded-full bg-black wallet-pulse-dot"></div>
-                  </div>
-                  <span class="text-[#141414] font-bold">Awaiting signature…</span>
-                  <span class="ml-auto text-[10px] font-mono text-neutral-400">live</span>
-                </div>
-                <%!-- Step 3: Verify and sign in (pending) --%>
-                <div class="flex items-center gap-3 opacity-50">
-                  <div class="w-5 h-5 rounded-full border-2 border-dashed border-neutral-300 shrink-0"></div>
-                  <span class="text-neutral-500">Verify and sign in</span>
+                <h2 class="text-[24px] font-bold tracking-tight text-[#141414] leading-[1.1] mb-2" style="letter-spacing: -0.022em;">
+                  Opening <%= @connecting_wallet.name %>
+                </h2>
+                <p class="text-[13px] text-neutral-500 font-medium leading-relaxed max-w-[300px]">
+                  Approve the connection in your <%= @connecting_wallet.name %> popup. We'll bring you back here once you sign.
+                </p>
+              </div>
+
+              <div class="px-6 pt-2 pb-1">
+                <div class="h-1 rounded-full bg-neutral-100 overflow-hidden">
+                  <div class="h-full w-full rounded-full wallet-progress-shimmer"></div>
                 </div>
               </div>
-            </div>
 
-            <%!-- Bottom padding --%>
-            <div class="pb-6"></div>
-          </div>
-        <% else %>
-          <%!-- ── STATE 1: Wallet Selection ── --%>
-          <div
-            phx-click-away="hide_wallet_selector"
-            class="relative w-full max-w-[440px] bg-white rounded-3xl overflow-hidden ring-1 ring-black/5"
-            style="box-shadow: 0 30px 80px -15px rgba(0,0,0,0.4); animation: walletSlideUp 200ms ease-out;"
-          >
-            <%!-- Top bar: Blockster icon + SIGN IN + Close --%>
-            <div class="flex items-center justify-between px-6 pt-6 pb-2">
-              <div class="flex items-center gap-2">
-                <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="" class="w-6 h-6 rounded-md" />
-                <span class="text-[11px] uppercase tracking-[0.16em] text-neutral-500 font-bold">Sign in</span>
-              </div>
-              <button
-                phx-click="hide_wallet_selector"
-                class="w-8 h-8 rounded-full bg-neutral-100 hover:bg-neutral-200 grid place-items-center transition-colors cursor-pointer"
-                aria-label="Close"
-              >
-                <svg class="w-3.5 h-3.5 text-neutral-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-              </button>
-            </div>
-
-            <%!-- Title --%>
-            <div class="px-6 pb-5">
-              <h2 class="text-[26px] font-bold tracking-tight text-[#141414] leading-[1.1] mb-2" style="letter-spacing: -0.022em;">
-                Connect a Solana wallet
-              </h2>
-              <p class="text-[13px] text-neutral-500 font-medium leading-relaxed">
-                Pick the wallet you want to use to sign in. Blockster never sees your seed phrase or private keys.
-              </p>
-            </div>
-
-            <%!-- Mobile: Wallet Standard isn't exposed in Safari/Chrome, so
-                 skip detection and jump directly into the wallet's in-app
-                 browser via universal-link deep links. One button per wallet
-                 that publishes a `browse_url`. --%>
-            <div class="md:hidden px-4 pb-3">
-              <p class="text-[11px] text-neutral-500 font-medium mb-3 px-1">
-                Open this page inside your wallet's in-app browser to connect.
-              </p>
-              <div class="space-y-2">
-                <%= for wallet <- @wallets, wallet.browse_url do %>
-                  <button
-                    type="button"
-                    id={"open-in-wallet-#{String.downcase(wallet.name)}"}
-                    phx-hook="OpenInWallet"
-                    data-browse-url={wallet.browse_url}
-                    class="w-full flex items-center gap-3 p-3 rounded-2xl border border-neutral-200 hover:border-black/[0.12] bg-white transition-colors cursor-pointer"
-                  >
-                    <div class={"w-10 h-10 rounded-xl shrink-0 grid place-items-center ring-1 ring-white/30 bg-gradient-to-br #{wallet.gradient} #{wallet.shadow}"}>
-                      <.wallet_icon_small name={wallet.name} />
+              <div class="px-6 py-5">
+                <div class="space-y-3 text-[12px] font-medium">
+                  <div class="flex items-center gap-3">
+                    <div class="w-5 h-5 rounded-full bg-[#22C55E] grid place-items-center shrink-0">
+                      <svg class="w-3 h-3 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
                     </div>
-                    <div class="flex-1 text-left min-w-0">
-                      <div class="text-[13px] font-bold text-[#141414]">Open in {wallet.name}</div>
-                      <div class="text-[11px] text-neutral-500 truncate">{wallet.tagline}</div>
+                    <span class="text-[#141414]">Wallet detected</span>
+                    <span class="ml-auto text-[10px] font-mono text-neutral-400">0.2s</span>
+                  </div>
+                  <div class="flex items-center gap-3">
+                    <div class="w-5 h-5 rounded-full bg-[#CAFC00] grid place-items-center shrink-0">
+                      <div class="w-2 h-2 rounded-full bg-black wallet-pulse-dot"></div>
                     </div>
-                    <svg class="w-4 h-4 text-neutral-400 shrink-0" viewBox="0 0 20 20" fill="none">
-                      <path d="M3 10h12m0 0l-4-4m4 4l-4 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                    </svg>
-                  </button>
-                <% end %>
+                    <span class="text-[#141414] font-bold">Awaiting signature…</span>
+                    <span class="ml-auto text-[10px] font-mono text-neutral-400">live</span>
+                  </div>
+                  <div class="flex items-center gap-3 opacity-50">
+                    <div class="w-5 h-5 rounded-full border-2 border-dashed border-neutral-300 shrink-0"></div>
+                    <span class="text-neutral-500">Verify and sign in</span>
+                  </div>
+                </div>
               </div>
+
+              <div class="pb-6"></div>
             </div>
 
-            <%!-- Desktop wallet rows: detection-based, Wallet Standard gated --%>
-            <div class="hidden md:block px-4 pb-2 space-y-2">
-              <%= for wallet <- @wallets do %>
-                <div class={"w-full flex items-center gap-4 p-3 rounded-2xl border bg-white text-left transition-all duration-150 " <> if(wallet.detected, do: "border-neutral-200 hover:bg-[#fafaf9] hover:border-black/[0.12] hover:-translate-y-px cursor-pointer", else: "border-neutral-200 opacity-60")}>
-                  <%!-- Brand badge --%>
-                  <div class={"w-12 h-12 rounded-xl shrink-0 grid place-items-center ring-1 ring-white/30 bg-gradient-to-br #{wallet.gradient} #{wallet.shadow}"}>
-                    <.wallet_icon_small name={wallet.name} />
-                  </div>
+          <% @connecting and @connecting_provider -> %>
+            <%!-- ── STATE C: Connecting to Web3Auth provider ── --%>
+            <div
+              phx-click-away="hide_wallet_selector"
+              class="relative w-full max-w-[440px] bg-white rounded-3xl overflow-hidden ring-1 ring-black/5"
+              style="box-shadow: 0 30px 80px -15px rgba(0,0,0,0.4); animation: walletSlideUp 200ms ease-out;"
+            >
+              <div class="flex items-center justify-end px-6 pt-6 pb-2">
+                <button
+                  phx-click="hide_wallet_selector"
+                  class="w-8 h-8 rounded-full bg-neutral-100 hover:bg-neutral-200 grid place-items-center transition-colors cursor-pointer"
+                  aria-label="Close"
+                >
+                  <svg class="w-3.5 h-3.5 text-neutral-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </button>
+              </div>
 
-                  <%!-- Name + status --%>
-                  <div class="flex-1 min-w-0">
-                    <div class="flex items-center gap-2">
-                      <span class="font-bold text-[15px] text-[#141414]"><%= wallet.name %></span>
-                      <%= if wallet.detected do %>
-                        <span class="inline-flex items-center gap-1 bg-[#22C55E]/10 text-[#15803d] border border-[#22C55E]/25 px-1.5 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider">
-                          <span class="w-1 h-1 rounded-full bg-[#22C55E]"></span>
-                          Detected
+              <div class="px-6 pt-6 pb-4 flex flex-col items-center text-center">
+                <div class="relative mb-5">
+                  <div class={"w-20 h-20 rounded-2xl grid place-items-center ring-1 ring-white/40 " <> provider_badge_class(@connecting_provider)}>
+                    <.provider_icon_large provider={@connecting_provider} />
+                  </div>
+                  <svg class="absolute -inset-2 w-24 h-24 text-[#CAFC00] animate-spin" style="animation-duration: 0.9s;" viewBox="0 0 100 100" fill="none">
+                    <circle cx="50" cy="50" r="46" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-dasharray="60 220" stroke-dashoffset="0"/>
+                  </svg>
+                </div>
+                <h2 class="text-[24px] font-bold tracking-tight text-[#141414] leading-[1.1] mb-2" style="letter-spacing: -0.022em;">
+                  Opening <%= provider_display_name(@connecting_provider) %>
+                </h2>
+                <p class="text-[13px] text-neutral-500 font-medium leading-relaxed max-w-[300px]">
+                  A popup will open — sign in there and we'll pop back here.
+                </p>
+              </div>
+
+              <div class="px-6 pt-2 pb-1">
+                <div class="h-1 rounded-full bg-neutral-100 overflow-hidden">
+                  <div class="h-full w-full rounded-full wallet-progress-shimmer"></div>
+                </div>
+              </div>
+
+              <div class="px-6 py-5">
+                <div class="space-y-3 text-[12px] font-medium">
+                  <div class="flex items-center gap-3">
+                    <div class="w-5 h-5 rounded-full bg-[#22C55E] grid place-items-center shrink-0">
+                      <svg class="w-3 h-3 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                    </div>
+                    <span class="text-[#141414]">Popup launched</span>
+                    <span class="ml-auto text-[10px] font-mono text-neutral-400">0.1s</span>
+                  </div>
+                  <div class="flex items-center gap-3">
+                    <div class="w-5 h-5 rounded-full bg-[#CAFC00] grid place-items-center shrink-0">
+                      <div class="w-2 h-2 rounded-full bg-black wallet-pulse-dot"></div>
+                    </div>
+                    <span class="text-[#141414] font-bold">Awaiting credentials…</span>
+                    <span class="ml-auto text-[10px] font-mono text-neutral-400">live</span>
+                  </div>
+                  <div class="flex items-center gap-3 opacity-50">
+                    <div class="w-5 h-5 rounded-full border-2 border-dashed border-neutral-300 shrink-0"></div>
+                    <span class="text-neutral-500">Verify and sign in</span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="pb-6"></div>
+            </div>
+
+          <% true -> %>
+            <%!-- ── STATE A: Selection (social + wallet) ── --%>
+            <div
+              phx-click-away="hide_wallet_selector"
+              class="relative w-full max-w-[440px] bg-white rounded-3xl overflow-hidden ring-1 ring-black/5"
+              style="box-shadow: 0 30px 80px -15px rgba(0,0,0,0.4); animation: walletSlideUp 200ms ease-out;"
+            >
+              <%!-- Top bar --%>
+              <div class="flex items-center justify-between px-6 pt-6 pb-2">
+                <div class="flex items-center gap-2">
+                  <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="" class="w-6 h-6 rounded-md" />
+                  <span class="text-[11px] uppercase tracking-[0.16em] text-neutral-500 font-bold">Sign in</span>
+                </div>
+                <button
+                  phx-click="hide_wallet_selector"
+                  class="w-8 h-8 rounded-full bg-neutral-100 hover:bg-neutral-200 grid place-items-center transition-colors cursor-pointer"
+                  aria-label="Close"
+                >
+                  <svg class="w-3.5 h-3.5 text-neutral-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </button>
+              </div>
+
+              <%!-- Title --%>
+              <div class="px-6 pb-5">
+                <h2 class="text-[26px] font-bold tracking-tight text-[#141414] leading-[1.1] mb-2" style="letter-spacing: -0.022em;">
+                  <%= if @social_login_enabled, do: "Sign in to Blockster", else: "Connect a Solana wallet" %>
+                </h2>
+                <p class="text-[13px] text-neutral-500 font-medium leading-relaxed">
+                  <%= if @social_login_enabled do %>
+                    Email for one-click betting, or connect your wallet.
+                  <% else %>
+                    Pick the wallet you want to use to sign in. Blockster never sees your seed phrase or private keys.
+                  <% end %>
+                </p>
+              </div>
+
+              <%= if @social_login_enabled do %>
+                <%= if @email_otp_stage == :enter_code do %>
+                  <%!-- Email OTP — inline, two-step: email collected,
+                       now awaiting code. No popup, user stays in our modal. --%>
+                  <div class="px-6 pb-3">
+                    <div class="flex items-center justify-between mb-3">
+                      <div class="min-w-0 flex-1">
+                        <div class="text-[10px] uppercase tracking-[0.14em] text-neutral-500 font-bold mb-0.5">
+                          Check your inbox
+                        </div>
+                        <div class="text-[12.5px] text-[#141414] font-medium truncate" title={@email_prefill}>
+                          Code sent to {@email_prefill}
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        phx-click="email_otp_back"
+                        class="ml-3 shrink-0 inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10.5px] text-neutral-500 hover:text-[#141414] bg-neutral-100 hover:bg-neutral-200 transition-colors cursor-pointer"
+                        aria-label="Change email"
+                      >
+                        <svg class="w-3 h-3" viewBox="0 0 20 20" fill="none">
+                          <path d="M17 10H5m0 0l4-4m-4 4l4 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                        Change
+                      </button>
+                    </div>
+                    <form phx-submit="verify_email_otp" class="group">
+                      <div class="flex items-stretch rounded-2xl border border-neutral-200 bg-white transition-all duration-150 group-focus-within:border-[#141414] group-focus-within:ring-4 group-focus-within:ring-[#CAFC00]/20">
+                        <div class="pl-4 pr-1 grid place-items-center text-neutral-400 group-focus-within:text-[#141414] transition-colors">
+                          <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+                            <rect x="3" y="11" width="18" height="10" rx="2"/>
+                            <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                          </svg>
+                        </div>
+                        <input
+                          type="text"
+                          inputmode="numeric"
+                          pattern="[0-9]*"
+                          name="code"
+                          placeholder="6-digit code"
+                          autocomplete="one-time-code"
+                          autofocus
+                          maxlength="6"
+                          required
+                          class="flex-1 min-w-0 bg-transparent px-2.5 py-3.5 text-[14px] text-[#141414] placeholder-neutral-400 outline-none border-0 focus:ring-0 font-mono tracking-[0.22em]"
+                        />
+                        <button
+                          type="submit"
+                          class="shrink-0 my-1 mr-1 px-3.5 inline-flex items-center gap-1.5 rounded-xl bg-[#0a0a0a] text-white text-[12px] font-bold hover:bg-[#1a1a22] active:scale-[0.98] transition-all cursor-pointer"
+                        >
+                          Sign in
+                          <svg class="w-3 h-3" viewBox="0 0 20 20" fill="none">
+                            <path d="M3 10h12m0 0l-4-4m4 4l-4 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                          </svg>
+                        </button>
+                      </div>
+                      <%= if @email_otp_error do %>
+                        <p class="mt-2 pl-1 text-[10.5px] text-[#c0392b] font-mono flex items-center gap-1.5">
+                          <span class="w-1 h-1 rounded-full bg-[#c0392b] inline-block"></span>
+                          <%= @email_otp_error %>
+                        </p>
+                      <% else %>
+                        <p class="mt-2 pl-1 text-[10.5px] text-neutral-500 font-mono flex items-center gap-1.5">
+                          <span class="w-1 h-1 rounded-full bg-[#CAFC00] inline-block"></span>
+                          Expires in 10 minutes · check spam if you don't see it
+                        </p>
+                      <% end %>
+                    </form>
+                    <div class="mt-2 flex items-center justify-between px-1">
+                      <%= if @email_otp_resend_cooldown > 0 do %>
+                        <span class="text-[10.5px] text-neutral-400 font-mono">
+                          Resend in {@email_otp_resend_cooldown}s
                         </span>
                       <% else %>
-                        <span class="inline-flex items-center gap-1 bg-neutral-100 text-neutral-600 border border-neutral-200 px-1.5 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider">
-                          Install
-                        </span>
+                        <button
+                          type="button"
+                          phx-click="resend_email_otp"
+                          class="text-[10.5px] text-neutral-600 hover:text-[#141414] underline underline-offset-2 font-medium cursor-pointer"
+                        >
+                          Resend code
+                        </button>
                       <% end %>
                     </div>
-                    <div class="text-[11px] text-neutral-500 font-medium mt-0.5"><%= wallet.tagline %></div>
                   </div>
+                <% else %>
+                  <%!-- Email form: input + flush dark Continue button --%>
+                  <div class="px-6 pb-3">
+                    <form phx-submit="start_email_login" class="group">
+                      <div class="flex items-stretch rounded-2xl border border-neutral-200 bg-white transition-all duration-150 group-focus-within:border-[#141414] group-focus-within:ring-4 group-focus-within:ring-[#CAFC00]/20">
+                        <div class="pl-4 pr-1 grid place-items-center text-neutral-400 group-focus-within:text-[#141414] transition-colors">
+                          <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+                            <rect x="3" y="5" width="18" height="14" rx="2"/>
+                            <path d="M3 7l9 6 9-6"/>
+                          </svg>
+                        </div>
+                        <input
+                          type="email"
+                          name="email"
+                          value={@email_prefill}
+                          placeholder="you@email.com"
+                          autocomplete="email"
+                          required
+                          class="flex-1 min-w-0 bg-transparent px-2.5 py-3.5 text-[14px] text-[#141414] placeholder-neutral-400 outline-none border-0 focus:ring-0"
+                        />
+                        <button
+                          type="submit"
+                          class="shrink-0 my-1 mr-1 px-3.5 inline-flex items-center gap-1.5 rounded-xl bg-[#0a0a0a] text-white text-[12px] font-bold hover:bg-[#1a1a22] active:scale-[0.98] transition-all cursor-pointer"
+                        >
+                          Continue
+                          <svg class="w-3 h-3" viewBox="0 0 20 20" fill="none">
+                            <path d="M3 10h12m0 0l-4-4m4 4l-4 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                          </svg>
+                        </button>
+                      </div>
+                      <%= if @email_otp_error do %>
+                        <p class="mt-2 pl-1 text-[10.5px] text-[#c0392b] font-mono flex items-center gap-1.5">
+                          <span class="w-1 h-1 rounded-full bg-[#c0392b] inline-block"></span>
+                          <%= @email_otp_error %>
+                        </p>
+                      <% else %>
+                        <p class="mt-2 pl-1 text-[10.5px] text-neutral-500 font-mono flex items-center gap-1.5">
+                          <span class="w-1 h-1 rounded-full bg-[#CAFC00] inline-block"></span>
+                          We'll send a one-time code. No password, no SOL needed.
+                        </p>
+                      <% end %>
+                    </form>
+                  </div>
+                <% end %>
 
-                  <%!-- Action --%>
-                  <%= if wallet.detected do %>
+                <%!-- Social tiles: 2x2 mobile, 4-col desktop --%>
+                <div class="px-6 pb-4">
+                  <div class="grid grid-cols-2 md:grid-cols-4 gap-2">
                     <button
-                      phx-click="select_wallet"
-                      phx-value-name={wallet.name}
-                      class="inline-flex items-center gap-1 bg-[#0a0a0a] text-white px-3.5 py-1.5 rounded-full text-[11px] font-bold hover:bg-[#1a1a22] transition-colors cursor-pointer"
+                      type="button"
+                      phx-click="start_x_login"
+                      class="flex flex-col items-center justify-center gap-1.5 px-2 py-3 rounded-2xl border border-neutral-200 bg-white hover:border-[#141414] hover:bg-neutral-50 active:scale-[0.98] transition-all cursor-pointer"
+                      aria-label="Continue with X"
                     >
-                      Connect
-                      <svg class="w-3 h-3" viewBox="0 0 20 20" fill="none"><path d="M3 10h12m0 0l-4-4m4 4l-4 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                      <.provider_icon_small provider="twitter" />
+                      <span class="text-[11px] font-bold text-[#141414]">X</span>
                     </button>
-                  <% else %>
-                    <a
-                      href={wallet.url}
-                      target="_blank"
-                      rel="noopener"
-                      class="inline-flex items-center gap-1 bg-white border border-neutral-200 text-[#141414] px-3.5 py-1.5 rounded-full text-[11px] font-bold hover:border-[#141414] transition-colors"
+                    <button
+                      type="button"
+                      phx-click="start_google_login"
+                      class="flex flex-col items-center justify-center gap-1.5 px-2 py-3 rounded-2xl border border-neutral-200 bg-white hover:border-[#141414] hover:bg-neutral-50 active:scale-[0.98] transition-all cursor-pointer"
+                      aria-label="Continue with Google"
                     >
-                      Get
-                      <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-                    </a>
-                  <% end %>
+                      <.provider_icon_small provider="google" />
+                      <span class="text-[11px] font-bold text-[#141414]">Google</span>
+                    </button>
+                    <button
+                      type="button"
+                      phx-click="start_apple_login"
+                      class="flex flex-col items-center justify-center gap-1.5 px-2 py-3 rounded-2xl border border-neutral-200 bg-white hover:border-[#141414] hover:bg-neutral-50 active:scale-[0.98] transition-all cursor-pointer"
+                      aria-label="Continue with Apple"
+                    >
+                      <.provider_icon_small provider="apple" />
+                      <span class="text-[11px] font-bold text-[#141414]">Apple</span>
+                    </button>
+                    <button
+                      type="button"
+                      phx-click="start_telegram_login"
+                      class="flex flex-col items-center justify-center gap-1.5 px-2 py-3 rounded-2xl border border-neutral-200 bg-white hover:border-[#141414] hover:bg-neutral-50 active:scale-[0.98] transition-all cursor-pointer"
+                      aria-label="Continue with Telegram"
+                    >
+                      <.provider_icon_small provider="telegram" />
+                      <span class="text-[11px] font-bold text-[#141414]">Telegram</span>
+                    </button>
+                  </div>
+                </div>
+
+                <%!-- Divider --%>
+                <div class="px-6 pb-3">
+                  <div class="relative flex items-center">
+                    <div class="flex-grow border-t border-neutral-200"></div>
+                    <span class="mx-3 text-[10px] uppercase tracking-[0.14em] text-neutral-400 font-bold">or connect a wallet</span>
+                    <div class="flex-grow border-t border-neutral-200"></div>
+                  </div>
                 </div>
               <% end %>
-            </div>
 
-            <%!-- Footer --%>
-            <div class="px-6 pt-5 pb-6 mt-2 border-t border-neutral-100">
-              <div class="flex items-start gap-3 mb-4">
-                <div class="w-7 h-7 rounded-full bg-[#CAFC00]/15 border border-[#CAFC00]/30 grid place-items-center shrink-0 mt-0.5">
-                  <svg class="w-3.5 h-3.5 text-[#141414]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
-                </div>
-                <div class="text-[11px] text-neutral-600 font-medium leading-relaxed">
-                  <a href="https://phantom.com" target="_blank" rel="noopener" class="font-bold text-[#141414] hover:underline">What's a wallet?</a>
-                  <span class="text-neutral-500"> — A Solana wallet is your account on the network. Blockster uses it to sign in and pay you BUX. Free, takes a minute.</span>
+              <%!-- Mobile: deeplinks into wallet in-app browsers --%>
+              <div class="md:hidden px-4 pb-3">
+                <%= if !@social_login_enabled do %>
+                  <p class="text-[11px] text-neutral-500 font-medium mb-3 px-1">
+                    Open this page inside your wallet's in-app browser to connect.
+                  </p>
+                <% end %>
+                <div class="space-y-2">
+                  <%= for wallet <- @wallets, wallet.browse_url do %>
+                    <button
+                      type="button"
+                      id={"open-in-wallet-#{String.downcase(wallet.name)}"}
+                      phx-hook="OpenInWallet"
+                      data-browse-url={wallet.browse_url}
+                      class="w-full flex items-center gap-3 p-3 rounded-2xl border border-neutral-200 hover:border-black/[0.12] bg-white transition-colors cursor-pointer"
+                    >
+                      <div class={"w-10 h-10 rounded-xl shrink-0 grid place-items-center ring-1 ring-white/30 bg-gradient-to-br #{wallet.gradient} #{wallet.shadow}"}>
+                        <.wallet_icon_small name={wallet.name} />
+                      </div>
+                      <div class="flex-1 text-left min-w-0">
+                        <div class="text-[13px] font-bold text-[#141414]">Open in {wallet.name}</div>
+                        <div class="text-[11px] text-neutral-500 truncate">{wallet.tagline}</div>
+                      </div>
+                      <svg class="w-4 h-4 text-neutral-400 shrink-0" viewBox="0 0 20 20" fill="none">
+                        <path d="M3 10h12m0 0l-4-4m4 4l-4 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                      </svg>
+                    </button>
+                  <% end %>
                 </div>
               </div>
-              <div class="text-[10px] text-neutral-400 font-medium leading-relaxed">
-                By connecting, you agree to Blockster's <a href="/terms" class="underline hover:text-neutral-700">Terms</a> and <a href="/privacy" class="underline hover:text-neutral-700">Privacy Policy</a>. We never see your seed phrase or private keys.
+
+              <%!-- Desktop wallet rows --%>
+              <div class="hidden md:block px-4 pb-2 space-y-2">
+                <%= for wallet <- @wallets do %>
+                  <div class={"w-full flex items-center gap-4 p-3 rounded-2xl border bg-white text-left transition-all duration-150 " <> if(wallet.detected, do: "border-neutral-200 hover:bg-[#fafaf9] hover:border-black/[0.12] hover:-translate-y-px cursor-pointer", else: "border-neutral-200 opacity-60")}>
+                    <div class={"w-12 h-12 rounded-xl shrink-0 grid place-items-center ring-1 ring-white/30 bg-gradient-to-br #{wallet.gradient} #{wallet.shadow}"}>
+                      <.wallet_icon_small name={wallet.name} />
+                    </div>
+                    <div class="flex-1 min-w-0">
+                      <div class="flex items-center gap-2">
+                        <span class="font-bold text-[15px] text-[#141414]"><%= wallet.name %></span>
+                        <%= if wallet.detected do %>
+                          <span class="inline-flex items-center gap-1 bg-[#22C55E]/10 text-[#15803d] border border-[#22C55E]/25 px-1.5 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider">
+                            <span class="w-1 h-1 rounded-full bg-[#22C55E]"></span>
+                            Detected
+                          </span>
+                        <% else %>
+                          <span class="inline-flex items-center gap-1 bg-neutral-100 text-neutral-600 border border-neutral-200 px-1.5 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider">
+                            Install
+                          </span>
+                        <% end %>
+                      </div>
+                      <div class="text-[11px] text-neutral-500 font-medium mt-0.5"><%= wallet.tagline %></div>
+                    </div>
+                    <%= if wallet.detected do %>
+                      <button
+                        phx-click="select_wallet"
+                        phx-value-name={wallet.name}
+                        class="inline-flex items-center gap-1 bg-[#0a0a0a] text-white px-3.5 py-1.5 rounded-full text-[11px] font-bold hover:bg-[#1a1a22] transition-colors cursor-pointer"
+                      >
+                        Connect
+                        <svg class="w-3 h-3" viewBox="0 0 20 20" fill="none"><path d="M3 10h12m0 0l-4-4m4 4l-4 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                      </button>
+                    <% else %>
+                      <a
+                        href={wallet.url}
+                        target="_blank"
+                        rel="noopener"
+                        class="inline-flex items-center gap-1 bg-white border border-neutral-200 text-[#141414] px-3.5 py-1.5 rounded-full text-[11px] font-bold hover:border-[#141414] transition-colors"
+                      >
+                        Get
+                        <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                      </a>
+                    <% end %>
+                  </div>
+                <% end %>
+              </div>
+
+              <%!-- Footer: condensed trust line --%>
+              <div class="px-6 pt-5 pb-6 mt-2 border-t border-neutral-100">
+                <div class="flex items-start gap-2.5">
+                  <div class="w-5 h-5 rounded-full bg-[#CAFC00]/15 border border-[#CAFC00]/30 grid place-items-center shrink-0 mt-px">
+                    <svg class="w-2.5 h-2.5 text-[#141414]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="9"/></svg>
+                  </div>
+                  <div class="text-[10.5px] text-neutral-500 font-medium leading-relaxed">
+                    Blockster never sees your seed phrase or private keys. By continuing you agree to our <a href="/terms" class="underline hover:text-[#141414] transition-colors">Terms</a> and <a href="/privacy" class="underline hover:text-[#141414] transition-colors">Privacy</a>.
+                  </div>
+                </div>
               </div>
             </div>
-          </div>
         <% end %>
       </div>
     <% end %>
@@ -457,6 +716,127 @@ defmodule BlocksterV2Web.WalletComponents do
     <span class="text-3xl font-bold text-white/80"><%= String.first(@name) %></span>
     """
   end
+
+  # ── Web3Auth Provider Icons (small, for social tile grid) ────
+
+  defp provider_icon_small(%{provider: "twitter"} = assigns) do
+    ~H"""
+    <svg class="w-5 h-5 text-[#141414]" viewBox="0 0 24 24" fill="currentColor">
+      <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+    </svg>
+    """
+  end
+
+  defp provider_icon_small(%{provider: "google"} = assigns) do
+    ~H"""
+    <svg class="w-5 h-5" viewBox="0 0 24 24">
+      <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+      <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+      <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+      <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+    </svg>
+    """
+  end
+
+  defp provider_icon_small(%{provider: "apple"} = assigns) do
+    ~H"""
+    <svg class="w-5 h-5 text-[#141414]" viewBox="0 0 24 24" fill="currentColor">
+      <path d="M17.05 20.28c-.98.95-2.05.8-3.08.35-1.09-.46-2.09-.48-3.24 0-1.44.62-2.2.44-3.06-.35C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z"/>
+    </svg>
+    """
+  end
+
+  defp provider_icon_small(%{provider: "telegram"} = assigns) do
+    ~H"""
+    <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none">
+      <circle cx="12" cy="12" r="11" fill="#229ED9"/>
+      <path d="M5.5 11.5l12.4-4.8c.6-.2 1.1.1.9.9l-2.1 9.9c-.1.5-.5.7-1 .4l-2.9-2.1-1.4 1.3c-.2.2-.3.3-.6.3l.2-3.2 5.8-5.2c.3-.2-.1-.3-.4-.1L9.2 12.6l-3.1-1c-.7-.2-.7-.7.4-1.1z" fill="white"/>
+    </svg>
+    """
+  end
+
+  defp provider_icon_small(assigns) do
+    ~H"""
+    <span class="text-sm font-bold text-[#141414]">?</span>
+    """
+  end
+
+  # ── Web3Auth Provider Icons (large, for State C hero badge) ──
+
+  defp provider_icon_large(%{provider: "email"} = assigns) do
+    ~H"""
+    <svg class="w-10 h-10 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="3" y="5" width="18" height="14" rx="2"/>
+      <path d="M3 7l9 6 9-6"/>
+    </svg>
+    """
+  end
+
+  defp provider_icon_large(%{provider: "twitter"} = assigns) do
+    ~H"""
+    <svg class="w-10 h-10 text-white" viewBox="0 0 24 24" fill="currentColor">
+      <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+    </svg>
+    """
+  end
+
+  defp provider_icon_large(%{provider: "google"} = assigns) do
+    ~H"""
+    <svg class="w-10 h-10" viewBox="0 0 24 24">
+      <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+      <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+      <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+      <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+    </svg>
+    """
+  end
+
+  defp provider_icon_large(%{provider: "apple"} = assigns) do
+    ~H"""
+    <svg class="w-10 h-10 text-white" viewBox="0 0 24 24" fill="currentColor">
+      <path d="M17.05 20.28c-.98.95-2.05.8-3.08.35-1.09-.46-2.09-.48-3.24 0-1.44.62-2.2.44-3.06-.35C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z"/>
+    </svg>
+    """
+  end
+
+  defp provider_icon_large(%{provider: "telegram"} = assigns) do
+    ~H"""
+    <svg class="w-12 h-12" viewBox="0 0 24 24" fill="none">
+      <path d="M5.5 11.5l12.4-4.8c.6-.2 1.1.1.9.9l-2.1 9.9c-.1.5-.5.7-1 .4l-2.9-2.1-1.4 1.3c-.2.2-.3.3-.6.3l.2-3.2 5.8-5.2c.3-.2-.1-.3-.4-.1L9.2 12.6l-3.1-1c-.7-.2-.7-.7.4-1.1z" fill="white"/>
+    </svg>
+    """
+  end
+
+  defp provider_icon_large(assigns) do
+    ~H"""
+    <span class="text-4xl font-bold text-white/80">?</span>
+    """
+  end
+
+  defp provider_badge_class("email"),
+    do: "bg-gradient-to-br from-neutral-800 to-neutral-900 shadow-[0_8px_24px_rgba(20,20,20,0.35)]"
+
+  defp provider_badge_class("twitter"),
+    do: "bg-gradient-to-br from-[#141414] to-[#0a0a0a] shadow-[0_8px_24px_rgba(0,0,0,0.4)]"
+
+  defp provider_badge_class("google"),
+    do: "bg-white shadow-[0_8px_24px_rgba(66,133,244,0.25)] ring-1 ring-neutral-200"
+
+  defp provider_badge_class("apple"),
+    do: "bg-gradient-to-br from-black to-[#1a1a1a] shadow-[0_8px_24px_rgba(0,0,0,0.4)]"
+
+  defp provider_badge_class("telegram"),
+    do: "bg-gradient-to-br from-[#37BBE4] to-[#1C93D1] shadow-[0_8px_24px_rgba(34,158,217,0.4)]"
+
+  defp provider_badge_class(_),
+    do: "bg-gradient-to-br from-neutral-700 to-neutral-800"
+
+  defp provider_display_name("email"), do: "email sign-in"
+  defp provider_display_name("twitter"), do: "X"
+  defp provider_display_name("google"), do: "Google"
+  defp provider_display_name("apple"), do: "Apple"
+  defp provider_display_name("telegram"), do: "Telegram"
+  defp provider_display_name(_), do: "sign-in"
 
   # ── Helpers ─────────────────────────────────────────────────
 

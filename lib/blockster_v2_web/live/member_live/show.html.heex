@@ -1003,9 +1003,9 @@
             <div class="px-6 py-4 flex items-center justify-between gap-3">
               <div>
                 <div class="text-[10px] uppercase tracking-[0.14em] text-neutral-500 mb-0.5">Authentication method</div>
-                <div class="text-[14px] text-[#141414]">Solana wallet</div>
+                <div class="text-[14px] text-[#141414]">{auth_method_primary_label(@member.auth_method)}</div>
               </div>
-              <span class="text-[11px] text-neutral-400">Wallet Standard</span>
+              <span class="text-[11px] text-neutral-400">{auth_method_secondary_label(@member.auth_method)}</span>
             </div>
 
             <%!-- Member since --%>

@@ -497,8 +497,8 @@ defmodule BlocksterV2Web.PoolIndexLive do
                 <%!-- Top: identity + live indicator --%>
                 <div class="flex items-start justify-between mb-10">
                   <div class="flex items-center gap-3">
-                    <div class="w-14 h-14 rounded-2xl bg-black/25 backdrop-blur grid place-items-center ring-1 ring-white/25 shadow-2xl">
-                      <span class="text-white font-bold text-[14px]">SOL</span>
+                    <div class="w-14 h-14 rounded-2xl bg-black grid place-items-center ring-1 ring-white/25 shadow-2xl overflow-hidden">
+                      <img src="https://ik.imagekit.io/blockster/solana-sol-logo.png" alt="SOL" class="w-9 h-9 rounded-full" />
                     </div>
                     <div>
                       <div class="text-[10px] uppercase tracking-[0.16em] text-white/70 font-bold mb-0.5">Vault</div>
@@ -544,54 +544,54 @@ defmodule BlocksterV2Web.PoolIndexLive do
 
                 <%!-- Stats grid (2x2) --%>
                 <div class="grid grid-cols-2 gap-3 mb-6">
-                  <div class="bg-black/20 backdrop-blur rounded-xl p-3 ring-1 ring-white/10">
-                    <div class="text-[9px] uppercase tracking-[0.12em] text-white/55 mb-1">TVL</div>
-                    <div class="font-mono font-bold text-[16px] text-white tabular-nums">
+                  <div class="bg-white/95 backdrop-blur rounded-xl p-3 ring-1 ring-black/5 shadow-sm">
+                    <div class="text-[9px] uppercase tracking-[0.12em] text-neutral-500 mb-1">TVL</div>
+                    <div class="font-mono font-bold text-[16px] text-[#141414] tabular-nums">
                       {fmt_sol(vault_total_balance(@pool_stats, "sol"))} SOL
                     </div>
-                    <div class="text-[10px] text-white/50 font-mono">
+                    <div class="text-[10px] text-neutral-500 font-mono">
                       ≈ ${fmt_bux_compact(vault_total_balance(@pool_stats, "sol") * 160.0)}
                     </div>
                   </div>
-                  <div class="bg-black/20 backdrop-blur rounded-xl p-3 ring-1 ring-white/10">
-                    <div class="text-[9px] uppercase tracking-[0.12em] text-white/55 mb-1">Supply</div>
-                    <div class="font-mono font-bold text-[16px] text-white tabular-nums">
+                  <div class="bg-white/95 backdrop-blur rounded-xl p-3 ring-1 ring-black/5 shadow-sm">
+                    <div class="text-[9px] uppercase tracking-[0.12em] text-neutral-500 mb-1">Supply</div>
+                    <div class="font-mono font-bold text-[16px] text-[#141414] tabular-nums">
                       {fmt_sol(vault_lp_supply(@pool_stats, "sol"))}
                     </div>
-                    <div class="text-[10px] text-white/50 font-mono">SOL-LP</div>
+                    <div class="text-[10px] text-neutral-500 font-mono">SOL-LP</div>
                   </div>
-                  <div class="bg-black/20 backdrop-blur rounded-xl p-3 ring-1 ring-white/10">
-                    <div class="text-[9px] uppercase tracking-[0.12em] text-white/55 mb-1">Volume</div>
-                    <div class="font-mono font-bold text-[16px] text-white tabular-nums">
+                  <div class="bg-white/95 backdrop-blur rounded-xl p-3 ring-1 ring-black/5 shadow-sm">
+                    <div class="text-[9px] uppercase tracking-[0.12em] text-neutral-500 mb-1">Volume</div>
+                    <div class="font-mono font-bold text-[16px] text-[#141414] tabular-nums">
                       {fmt_sol(vault_total_volume(@pool_stats, "sol"))} SOL
                     </div>
-                    <div class="text-[10px] text-white/50 font-mono">
+                    <div class="text-[10px] text-neutral-500 font-mono">
                       {vault_total_bets(@pool_stats, "sol")} bets
                     </div>
                   </div>
-                  <div class="bg-black/20 backdrop-blur rounded-xl p-3 ring-1 ring-white/10">
-                    <div class="text-[9px] uppercase tracking-[0.12em] text-white/55 mb-1">Profit</div>
-                    <div class="font-mono font-bold text-[16px] text-[#CAFC00] tabular-nums">
+                  <div class="bg-white/95 backdrop-blur rounded-xl p-3 ring-1 ring-black/5 shadow-sm">
+                    <div class="text-[9px] uppercase tracking-[0.12em] text-neutral-500 mb-1">Profit</div>
+                    <div class="font-mono font-bold text-[16px] text-[#15803d] tabular-nums">
                       {fmt_house_profit_sol(@pool_stats)} SOL
                     </div>
-                    <div class="text-[10px] text-white/50 font-mono">house edge 1%</div>
+                    <div class="text-[10px] text-neutral-500 font-mono">house edge 1%</div>
                   </div>
                 </div>
 
                 <%!-- Your position --%>
-                <div class="bg-white/10 backdrop-blur rounded-xl p-4 ring-1 ring-white/15 mb-5">
+                <div class="bg-white/95 backdrop-blur rounded-xl p-4 ring-1 ring-black/5 shadow-sm mb-5">
                   <div class="flex items-center justify-between mb-1">
-                    <div class="text-[9px] uppercase tracking-[0.12em] text-white/65 font-bold">Your position</div>
-                    <div class="text-[9px] font-mono text-white/55">
+                    <div class="text-[9px] uppercase tracking-[0.12em] text-neutral-500 font-bold">Your position</div>
+                    <div class="text-[9px] font-mono text-neutral-500">
                       {if(@sol_pool_share > 0, do: :erlang.float_to_binary(@sol_pool_share / 1.0, decimals: 2) <> "% pool share", else: "— pool share")}
                     </div>
                   </div>
                   <div class="flex items-baseline gap-2">
-                    <span class="font-mono font-bold text-[22px] text-white leading-none tabular-nums">
+                    <span class="font-mono font-bold text-[22px] text-[#141414] leading-none tabular-nums">
                       {fmt_sol(@user_sol_lp)}
                     </span>
-                    <span class="text-[11px] text-white/70">SOL-LP</span>
-                    <span class="text-[11px] font-mono text-white/55 ml-auto">
+                    <span class="text-[11px] text-neutral-500">SOL-LP</span>
+                    <span class="text-[11px] font-mono text-neutral-500 ml-auto">
                       {if(@user_sol_lp > 0, do: "deposited", else: "no deposits yet")}
                     </span>
                   </div>
@@ -665,53 +665,53 @@ defmodule BlocksterV2Web.PoolIndexLive do
                 </div>
 
                 <div class="grid grid-cols-2 gap-3 mb-6">
-                  <div class="bg-black/[0.12] backdrop-blur rounded-xl p-3 ring-1 ring-black/15">
-                    <div class="text-[9px] uppercase tracking-[0.12em] text-black/60 mb-1">TVL</div>
-                    <div class="font-mono font-bold text-[16px] text-black tabular-nums">
+                  <div class="bg-white/95 backdrop-blur rounded-xl p-3 ring-1 ring-black/5 shadow-sm">
+                    <div class="text-[9px] uppercase tracking-[0.12em] text-neutral-500 mb-1">TVL</div>
+                    <div class="font-mono font-bold text-[16px] text-[#141414] tabular-nums">
                       {fmt_bux_compact(vault_total_balance(@pool_stats, "bux"))} BUX
                     </div>
-                    <div class="text-[10px] text-black/55 font-mono">
+                    <div class="text-[10px] text-neutral-500 font-mono">
                       ≈ ${fmt_bux_compact(vault_total_balance(@pool_stats, "bux") * 0.01)}
                     </div>
                   </div>
-                  <div class="bg-black/[0.12] backdrop-blur rounded-xl p-3 ring-1 ring-black/15">
-                    <div class="text-[9px] uppercase tracking-[0.12em] text-black/60 mb-1">Supply</div>
-                    <div class="font-mono font-bold text-[16px] text-black tabular-nums">
+                  <div class="bg-white/95 backdrop-blur rounded-xl p-3 ring-1 ring-black/5 shadow-sm">
+                    <div class="text-[9px] uppercase tracking-[0.12em] text-neutral-500 mb-1">Supply</div>
+                    <div class="font-mono font-bold text-[16px] text-[#141414] tabular-nums">
                       {fmt_bux_compact(vault_lp_supply(@pool_stats, "bux"))}
                     </div>
-                    <div class="text-[10px] text-black/55 font-mono">BUX-LP</div>
+                    <div class="text-[10px] text-neutral-500 font-mono">BUX-LP</div>
                   </div>
-                  <div class="bg-black/[0.12] backdrop-blur rounded-xl p-3 ring-1 ring-black/15">
-                    <div class="text-[9px] uppercase tracking-[0.12em] text-black/60 mb-1">Volume</div>
-                    <div class="font-mono font-bold text-[16px] text-black tabular-nums">
+                  <div class="bg-white/95 backdrop-blur rounded-xl p-3 ring-1 ring-black/5 shadow-sm">
+                    <div class="text-[9px] uppercase tracking-[0.12em] text-neutral-500 mb-1">Volume</div>
+                    <div class="font-mono font-bold text-[16px] text-[#141414] tabular-nums">
                       {fmt_bux_compact(vault_total_volume(@pool_stats, "bux"))} BUX
                     </div>
-                    <div class="text-[10px] text-black/55 font-mono">
+                    <div class="text-[10px] text-neutral-500 font-mono">
                       {vault_total_bets(@pool_stats, "bux")} bets
                     </div>
                   </div>
-                  <div class="bg-black/[0.12] backdrop-blur rounded-xl p-3 ring-1 ring-black/15">
-                    <div class="text-[9px] uppercase tracking-[0.12em] text-black/60 mb-1">Profit</div>
-                    <div class="font-mono font-bold text-[16px] text-[#0a0a0a] tabular-nums">
+                  <div class="bg-white/95 backdrop-blur rounded-xl p-3 ring-1 ring-black/5 shadow-sm">
+                    <div class="text-[9px] uppercase tracking-[0.12em] text-neutral-500 mb-1">Profit</div>
+                    <div class="font-mono font-bold text-[16px] text-[#15803d] tabular-nums">
                       + {fmt_bux_compact(vault_house_profit(@pool_stats, "bux"))} BUX
                     </div>
-                    <div class="text-[10px] text-black/55 font-mono">house edge 1%</div>
+                    <div class="text-[10px] text-neutral-500 font-mono">house edge 1%</div>
                   </div>
                 </div>
 
-                <div class="bg-black/15 backdrop-blur rounded-xl p-4 ring-1 ring-black/15 mb-5">
+                <div class="bg-white/95 backdrop-blur rounded-xl p-4 ring-1 ring-black/5 shadow-sm mb-5">
                   <div class="flex items-center justify-between mb-1">
-                    <div class="text-[9px] uppercase tracking-[0.12em] text-black/70 font-bold">Your position</div>
-                    <div class="text-[9px] font-mono text-black/55">
+                    <div class="text-[9px] uppercase tracking-[0.12em] text-neutral-500 font-bold">Your position</div>
+                    <div class="text-[9px] font-mono text-neutral-500">
                       {if(@bux_pool_share > 0, do: :erlang.float_to_binary(@bux_pool_share / 1.0, decimals: 2) <> "% pool share", else: "— pool share")}
                     </div>
                   </div>
                   <div class="flex items-baseline gap-2">
-                    <span class="font-mono font-bold text-[22px] text-black leading-none tabular-nums">
+                    <span class="font-mono font-bold text-[22px] text-[#141414] leading-none tabular-nums">
                       {fmt_bux_compact(@user_bux_lp)}
                     </span>
-                    <span class="text-[11px] text-black/60">BUX-LP</span>
-                    <span class="text-[11px] font-mono text-black/55 ml-auto italic">
+                    <span class="text-[11px] text-neutral-500">BUX-LP</span>
+                    <span class="text-[11px] font-mono text-neutral-500 ml-auto italic">
                       {if(@user_bux_lp > 0, do: "deposited", else: "no deposits yet")}
                     </span>
                   </div>

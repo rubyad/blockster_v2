@@ -37,6 +37,13 @@
   show={assigns[:show_wallet_selector] || false}
   connecting={assigns[:connecting] || false}
   connecting_wallet_name={assigns[:connecting_wallet_name]}
+  connecting_provider={assigns[:connecting_provider]}
+  email_prefill={assigns[:email_prefill]}
+  email_otp_stage={assigns[:email_otp_stage]}
+  email_otp_error={assigns[:email_otp_error]}
+  email_otp_resend_cooldown={assigns[:email_otp_resend_cooldown] || 0}
+  social_login_enabled={BlocksterV2Web.WalletAuthEvents.social_login_enabled?()}
+  web3auth_config={BlocksterV2Web.WalletAuthEvents.web3auth_config()}
 />
 
 <%!-- Toast Notification (same as app.html.heex — slides in from right, auto-dismisses) --%>

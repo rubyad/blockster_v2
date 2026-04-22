@@ -18,14 +18,17 @@
  */
 
 import { Connection } from "@solana/web3.js";
-import bs58 from "bs58";
-import { getSigner, decodeBase64Tx } from "./signer.js";
+import { getSigner, signAndConfirm, decodeBase64Tx } from "./signer.js";
 
-const DEVNET_RPC = "https://api.devnet.solana.com";
+// QuickNode RPC — public api.devnet.solana.com rate-limits on signAndConfirm
+// polling. Prod wires window.__SOLANA_RPC_URL to the mainnet endpoint.
+const RPC_URL =
+  window.__SOLANA_RPC_URL ||
+  "https://summer-sleek-shape.solana-devnet.quiknode.pro/92b7f51caa76f2981879528aee40a3e8e58cac60/";
 
 export const AirdropSolanaHook = {
   mounted() {
-    this.connection = new Connection(DEVNET_RPC, "confirmed");
+    this.connection = new Connection(RPC_URL, "confirmed");
 
     this.handleEvent("sign_airdrop_deposit", async (params) => {
       await this.signAndSubmit(params.transaction, "deposit", {
@@ -53,9 +56,10 @@ export const AirdropSolanaHook = {
       }
 
       const txBytes = decodeBase64Tx(base64Tx);
-      // signAndSendTransaction preserves settler partial sigs per spec.
-      const { signature } = await signer.signAndSendTransaction(txBytes);
-      const sig = bs58.encode(new Uint8Array(signature));
+      // signAndConfirm routes Wallet Standard → signAndSendTransaction
+      // and Web3Auth → signTransaction + own-submit. Both poll for
+      // confirmation. Preserves settler partial sigs either way.
+      const sig = await signAndConfirm(signer, this.connection, txBytes);
 
       if (action === "deposit") {
         this.pushEvent("airdrop_deposit_confirmed", {

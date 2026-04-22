@@ -79,6 +79,7 @@ defmodule BlocksterV2Web.CoinFlipLive do
         |> assign(selected_difficulty: 1)
         |> assign(bet_amount: default_bet_amount(balances, "SOL"))
         |> assign(current_bet: default_bet_amount(balances, "SOL"))
+        |> assign(placed_stake: default_bet_amount(balances, "SOL"))
         |> assign(house_balance: 0.0)
         |> assign(max_bet: 0.0)
         |> assign(predictions: [nil])
@@ -134,6 +135,7 @@ defmodule BlocksterV2Web.CoinFlipLive do
         |> assign(selected_difficulty: 1)
         |> assign(bet_amount: default_bet_amount(balances, "SOL"))
         |> assign(current_bet: default_bet_amount(balances, "SOL"))
+        |> assign(placed_stake: default_bet_amount(balances, "SOL"))
         |> assign(house_balance: 0.0)
         |> assign(max_bet: 0.0)
         |> assign(predictions: [nil])
@@ -196,7 +198,7 @@ defmodule BlocksterV2Web.CoinFlipLive do
         connecting={Map.get(assigns, :connecting, false)}
         show_why_earn_bux={true}
   announcement_banner={assigns[:announcement_banner]}
-        display_token="SOL"
+        display_token={assigns[:header_token] || assigns[:selected_token] || "SOL"}
       />
 
       <main class="max-w-[1280px] mx-auto px-6">
@@ -689,7 +691,7 @@ defmodule BlocksterV2Web.CoinFlipLive do
                   <div class="bg-gradient-to-r from-[#22C55E]/12 via-[#CAFC00]/15 to-[#22C55E]/12 border-b border-[#22C55E]/25 px-6 py-6 text-center">
                     <div class="text-[10px] font-bold uppercase tracking-[0.18em] text-[#15803d] mb-2">You Won</div>
                     <div class="font-mono font-bold text-[56px] md:text-[64px] text-[#15803d] leading-none tracking-tight">
-                      + <%= format_balance(@payout - @current_bet) %> <%= @selected_token %>
+                      + <%= format_balance(@payout - @placed_stake) %> <%= @selected_token %>
                     </div>
                     <div class="text-[12px] text-[#15803d]/70 mt-2">
                       Total payout <%= format_balance(@payout) %> <%= @selected_token %> · <%= get_multiplier(@selected_difficulty) %>× multiplier
@@ -699,7 +701,7 @@ defmodule BlocksterV2Web.CoinFlipLive do
                   <div class="bg-gradient-to-r from-[#EF4444]/8 to-[#EF4444]/8 border-b border-[#EF4444]/20 px-6 py-6 text-center">
                     <div class="text-[10px] font-bold uppercase tracking-[0.18em] text-[#7f1d1d] mb-2">No win this time</div>
                     <div class="font-mono font-bold text-[40px] md:text-[48px] text-[#7f1d1d] leading-none tracking-tight">
-                      − <%= format_balance(@current_bet) %> <%= @selected_token %>
+                      − <%= format_balance(@placed_stake) %> <%= @selected_token %>
                     </div>
                     <div class="text-[12px] text-[#7f1d1d]/70 mt-2">Stake returned to bankroll</div>
                   </div>
@@ -995,14 +997,20 @@ defmodule BlocksterV2Web.CoinFlipLive do
                     <% end %>
                     <div class="mt-4 pt-4 border-t border-neutral-100">
                       <div class="text-[10px] uppercase tracking-[0.14em] text-neutral-500 mb-2">House contributed</div>
-                      <div class="font-mono font-bold text-[14px] text-[#141414]">+ <%= format_balance(@payout - @current_bet) %> <%= @selected_token %> <span class="text-[10px] text-neutral-500">to your balance</span></div>
+                      <div class="font-mono font-bold text-[14px] text-[#141414]">+ <%= format_balance(@payout - @placed_stake) %> <%= @selected_token %> <span class="text-[10px] text-neutral-500">to your balance</span></div>
                     </div>
                   <% else %>
+                    <% lp_token = "#{@selected_token}-LP" %>
+                    <% pool_path = if @selected_token == "SOL", do: ~p"/pool/sol", else: ~p"/pool/bux" %>
                     <p class="text-[12px] text-neutral-600 leading-[1.55]">
-                      Your stake of <strong class="text-[#141414]"><%= format_balance(@current_bet) %> <%= @selected_token %></strong> was added to the bankroll. LP holders earn from your loss, just as you would earn from theirs if you held bSOL.
+                      Your <strong class="text-[#141414]"><%= format_balance(@placed_stake) %> <%= @selected_token %></strong> stake went to the <%= @selected_token %> bankroll. Every <strong class="text-[#141414]"><%= lp_token %></strong> holder just earned a share — flip the table by providing liquidity yourself.
                     </p>
-                    <.link navigate={~p"/pool"} class="inline-flex items-center gap-2 text-[11px] font-bold text-[#7D00FF] hover:text-[#5A00B8] transition-colors mt-3">
-                      Become an LP →
+                    <div class="mt-4 pt-4 border-t border-neutral-100">
+                      <div class="text-[10px] uppercase tracking-[0.14em] text-neutral-500 mb-2">Bankroll received</div>
+                      <div class="font-mono font-bold text-[14px] text-[#141414]">+ <%= format_balance(@placed_stake) %> <%= @selected_token %></div>
+                    </div>
+                    <.link navigate={pool_path} class="inline-flex items-center gap-2 text-[11px] font-bold text-[#7D00FF] hover:text-[#5A00B8] transition-colors mt-3 cursor-pointer">
+                      Provide <%= @selected_token %> liquidity →
                     </.link>
                   <% end %>
                 </div>
@@ -1325,15 +1333,26 @@ defmodule BlocksterV2Web.CoinFlipLive do
               nonce = socket.assigns.onchain_nonce
               vault_type_str = Atom.to_string(vault_type)
               diff_index = difficulty_to_diff_index(difficulty)
+              fee_payer_mode =
+                BlocksterV2.BuxMinter.fee_payer_mode_for_user(socket.assigns.current_user)
 
               socket =
                 socket
-                |> assign(current_bet: bet_amount, results: result.results,
+                |> assign(current_bet: bet_amount, placed_stake: bet_amount,
+                          results: result.results,
                           won: result.won, payout: result.payout, game_state: :flipping,
                           current_flip: 1, flip_id: 1, bet_confirmed: false,
                           flip_start_time: System.monotonic_time(:millisecond), error_message: nil)
                 |> start_async(:build_bet_tx, fn ->
-                  BlocksterV2.BuxMinter.build_place_bet_tx(wallet_address, 1, nonce, bet_amount, diff_index, vault_type_str)
+                  BlocksterV2.BuxMinter.build_place_bet_tx(
+                    wallet_address,
+                    1,
+                    nonce,
+                    bet_amount,
+                    diff_index,
+                    vault_type_str,
+                    fee_payer_mode: fee_payer_mode
+                  )
                 end)
 
               {:noreply, socket}

@@ -229,24 +229,44 @@ defmodule BlocksterV2.Accounts do
   """
   def get_or_create_user_by_web3auth(%{} = claims) do
     pubkey = claims[:solana_pubkey] || claims["solana_pubkey"]
+    email = claims[:email] || claims["email"]
+
+    existing_by_wallet = if is_binary(pubkey) and pubkey != "", do: get_user_by_wallet_address(pubkey)
+
+    existing_by_email =
+      if is_nil(existing_by_wallet) and is_binary(email) and email != "" do
+        get_active_user_by_email(email)
+      end
 
     cond do
       is_nil(pubkey) or pubkey == "" ->
         {:error, :missing_solana_pubkey}
 
-      existing = get_user_by_wallet_address(pubkey) ->
-        # Backfill social fields if the user record predates the Web3Auth
-        # session (e.g. they previously logged in via plain wallet connect).
-        case maybe_update_web3auth_fields(existing, claims) do
-          {:ok, user} ->
-            case create_session(user.id) do
-              {:ok, session} -> {:ok, user, session, false}
-              error -> error
-            end
+      not is_nil(existing_by_wallet) ->
+        # Matched the Web3Auth-derived pubkey directly — normal returning
+        # social-login user.
+        login_existing(existing_by_wallet, claims)
 
-          error ->
-            error
-        end
+      not is_nil(existing_by_email) ->
+        # Email collision — any account that owns this email (legacy EVM,
+        # deactivated, or active Solana wallet) is subsumed into a new
+        # Web3Auth-primary user. Email ownership IS account ownership:
+        # in production every existing user is a pre-Solana EVM holder,
+        # so the merge simply moves their identity + BUX onto the new
+        # Web3Auth-derived Solana wallet. For the rare case of an active
+        # Solana wallet user signing in by email, same thing happens
+        # (LegacyMerge runs with skip_reclaimable_check: true).
+        #
+        # The merge:
+        #   * deactivates the old row (frees email/username/slug)
+        #   * mints legacy BUX to the new Solana wallet via settler
+        #   * transfers username, X, Telegram, phone, content, referrals,
+        #     fingerprints
+        #   * promotes pending_email → email on the new row
+        # Result: wallet_address = Web3Auth pubkey, smart_wallet_address = nil,
+        # auth_method = "web3auth_email". The old EVM or Phantom wallet is
+        # no longer the primary — all on-chain ops flow through Web3Auth.
+        reclaim_legacy_via_web3auth(pubkey, claims, existing_by_email)
 
       true ->
         case create_user_from_web3auth(pubkey, claims) do
@@ -260,6 +280,105 @@ defmodule BlocksterV2.Accounts do
             error
         end
     end
+  end
+
+  # Build a new Solana user with pending_email (not email — we need the merge
+  # to free the legacy row's email slot first) and then run LegacyMerge to
+  # pull everything across.
+  defp reclaim_legacy_via_web3auth(pubkey, claims, legacy_user) do
+    email = claims[:email] || claims["email"]
+
+    require Logger
+
+    Logger.info(
+      "[Accounts] Reclaiming legacy user ##{legacy_user.id} via Web3Auth social login " <>
+        "(email=#{email}, new_wallet=#{pubkey})"
+    )
+
+    # Put email into pending_email on the new row so the insert doesn't
+    # collide with the legacy row that still owns `email`.
+    reclaim_claims = Map.put(claims, :email, nil) |> Map.put("email", nil)
+
+    with {:ok, new_user} <- create_user_from_web3auth_for_reclaim(pubkey, reclaim_claims, email),
+         {:ok, %{user: merged_user}} <-
+           BlocksterV2.Migration.LegacyMerge.merge_legacy_into!(
+             new_user,
+             legacy_user,
+             skip_reclaimable_check: true
+           ),
+         {:ok, session} <- create_session(merged_user.id) do
+      # Returning user reclaiming their account — NOT a new user, so the
+      # LiveView skips onboarding entirely and lands them on `/`. They
+      # already have username, phone, X, Telegram, etc. carried over from
+      # the merged row.
+      {:ok, merged_user, session, false}
+    else
+      {:error, reason} = error ->
+        Logger.error(
+          "[Accounts] Legacy reclaim failed for pubkey=#{pubkey} legacy_id=#{legacy_user.id}: " <>
+            inspect(reason)
+        )
+
+        error
+    end
+  end
+
+  defp create_user_from_web3auth_for_reclaim(pubkey, claims, pending_email) do
+    auth_method = auth_method_for(claims)
+
+    base_attrs = %{
+      wallet_address: pubkey,
+      auth_method: auth_method,
+      username: "user_#{String.slice(pubkey, 0..5)}",
+      web3auth_verifier: claims[:verifier] || claims["verifier"],
+      social_avatar_url: claims[:profile_image] || claims["profile_image"],
+      pending_email: pending_email,
+      x_user_id: claims[:x_user_id] || claims["x_user_id"],
+      telegram_user_id: claims[:telegram_user_id] || claims["telegram_user_id"],
+      telegram_username: claims[:telegram_username] || claims["telegram_username"]
+    }
+
+    base_attrs
+    |> Map.reject(fn {_, v} -> is_nil(v) end)
+    |> User.web3auth_registration_changeset()
+    |> Repo.insert()
+    |> case do
+      {:ok, user} ->
+        BlocksterV2.Notifications.create_preferences(user.id)
+
+        try do
+          BlocksterV2.Workers.WelcomeSeriesWorker.enqueue_series(user.id)
+        rescue
+          _ -> :ok
+        end
+
+        create_user_betting_stats(user.id, user.wallet_address)
+        {:ok, user}
+
+      error ->
+        error
+    end
+  end
+
+  defp login_existing(user, claims) do
+    with {:ok, updated} <- maybe_update_web3auth_fields(user, claims),
+         {:ok, session} <- create_session(updated.id) do
+      {:ok, updated, session, false}
+    end
+  end
+
+  # Look up a user by normalized email, skipping soft-deactivated legacy
+  # rows (which are reclaim targets, not current account owners).
+  defp get_active_user_by_email(email) do
+    normalized = email |> String.trim() |> String.downcase()
+
+    Repo.one(
+      from u in User,
+        where: fragment("LOWER(?)", u.email) == ^normalized,
+        where: is_nil(u.merged_into_user_id),
+        where: u.is_active == true,
+        limit: 1
+    )
   end
 
   # Build a user row from Web3Auth claims.
@@ -326,14 +445,29 @@ defmodule BlocksterV2.Accounts do
   defp maybe_put(map, key, value, _existing), do: Map.put(map, key, value)
 
   # Map Web3Auth's authConnection claim to our auth_method enum.
+  # Custom JWT paths need a secondary lookup — both Telegram and email run
+  # through `authConnection: "custom"` — so we branch on the verifier name
+  # assigned in the Web3Auth dashboard (blockster-email vs blockster-telegram).
   defp auth_method_for(claims) do
     case claims[:auth_connection] || claims["auth_connection"] do
       "email_passwordless" -> "web3auth_email"
       "google" -> "web3auth_email"
       "apple" -> "web3auth_email"
       "twitter" -> "web3auth_x"
-      "custom" -> "web3auth_telegram"
+      "custom" -> custom_auth_method_for(claims)
       _ -> "web3auth_email"
+    end
+  end
+
+  defp custom_auth_method_for(claims) do
+    verifier =
+      claims[:verifier] || claims["verifier"] ||
+        claims[:aggregate_verifier] || claims["aggregateVerifier"] || ""
+
+    cond do
+      String.contains?(verifier, "telegram") -> "web3auth_telegram"
+      String.contains?(verifier, "email") -> "web3auth_email"
+      true -> "web3auth_email"
     end
   end
 

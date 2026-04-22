@@ -1184,6 +1184,25 @@ defmodule BlocksterV2Web.MemberLive.Show do
   end
   def truncate_wallet(wallet), do: wallet
 
+  # ── Auth method display (Phase 8) ──
+  # Surface the user's sign-in origin in the settings "Account details" row
+  # so Web3Auth users see how they signed up (email/X/Telegram) and understand
+  # which connected identity is the primary one (can't be removed).
+
+  def auth_method_primary_label("wallet"), do: "Solana wallet"
+  def auth_method_primary_label("email"), do: "Legacy email"
+  def auth_method_primary_label("web3auth_email"), do: "Email (Web3Auth)"
+  def auth_method_primary_label("web3auth_x"), do: "X (Web3Auth)"
+  def auth_method_primary_label("web3auth_telegram"), do: "Telegram (Web3Auth)"
+  def auth_method_primary_label(_), do: "—"
+
+  def auth_method_secondary_label("wallet"), do: "Wallet Standard"
+  def auth_method_secondary_label("email"), do: "Thirdweb (legacy)"
+  def auth_method_secondary_label("web3auth_email"), do: "MPC embedded wallet"
+  def auth_method_secondary_label("web3auth_x"), do: "MPC embedded wallet"
+  def auth_method_secondary_label("web3auth_telegram"), do: "MPC embedded wallet"
+  def auth_method_secondary_label(_), do: ""
+
   def earning_type_label(:signup), do: "Signup"
   def earning_type_label(:phone_verified), do: "Phone Verified"
   def earning_type_label(:bux_bet_loss), do: "BUX Bet"

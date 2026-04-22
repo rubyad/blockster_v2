@@ -2,8 +2,12 @@ defmodule BlocksterV2Web.PoolLiveTest do
   @moduledoc """
   Legacy pool_live tests — redirected to pool_index_live_test.exs and pool_detail_live_test.exs.
   This file is kept for backward compatibility; tests now target the new split routes.
+  The old combined `/pool` UI's copy ("Enter Pool", "Deposit SOL", etc.)
+  no longer exists. Skipped — index + detail tests cover the new pages.
   """
   use BlocksterV2Web.LiveCase, async: false
+
+  @moduletag :skip
 
   alias BlocksterV2.{Repo}
   alias BlocksterV2.Accounts.User

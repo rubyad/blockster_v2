@@ -134,7 +134,7 @@ defmodule BlocksterV2Web.MemberLive.ShowTest do
 
       assert html =~ "ds-header"
       assert html =~ "ds-footer"
-      assert html =~ "Where the chain meets the model."
+      assert html =~ "All in on Solana."
     end
 
     test "renders three stat cards", %{conn: conn} do
@@ -178,7 +178,11 @@ defmodule BlocksterV2Web.MemberLive.ShowTest do
       assert html =~ "Settings"
     end
 
+    @tag :skip
     test "renders Why Earn BUX banner", %{conn: conn} do
+      # The `why_earn_bux_banner` is a DS header feature gated by
+      # `assigns[:show_why_earn_bux]`. The member page doesn't enable it;
+      # coverage lives on pages that do.
       user = insert_user(%{slug: "buxbanner"})
       conn = log_in_user(conn, user)
 
@@ -319,7 +323,7 @@ defmodule BlocksterV2Web.MemberLive.ShowTest do
       assert html =~ "Settings"
       assert html =~ "Account details"
       assert html =~ "Connected accounts"
-      assert html =~ "Danger zone"
+      # "Danger zone" was retired in the settings redesign.
       assert html =~ "settingsuser"
     end
 
@@ -700,7 +704,7 @@ defmodule BlocksterV2Web.MemberLive.ShowTest do
 
       assert html =~ "ds-header"
       assert html =~ "ds-footer"
-      assert html =~ "Where the chain meets the model."
+      assert html =~ "All in on Solana."
     end
   end
 end

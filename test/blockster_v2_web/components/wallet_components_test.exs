@@ -21,6 +21,7 @@ defmodule BlocksterV2Web.WalletComponentsTest do
         />
         """)
 
+      refute html =~ "Sign in to Blockster"
       refute html =~ "Connect a Solana wallet"
       refute html =~ "wallet-modal-backdrop"
     end
@@ -39,7 +40,27 @@ defmodule BlocksterV2Web.WalletComponentsTest do
         """)
 
       assert html =~ "wallet-modal-backdrop"
+      # Default modal (social enabled) shows "Sign in to Blockster"; with social
+      # disabled it falls back to the original wallet-only copy.
+      assert html =~ "Sign in to Blockster"
+    end
+
+    test "falls back to wallet-only copy when social login is disabled" do
+      assigns = %{}
+
+      html =
+        rendered_to_string(~H"""
+        <WalletComponents.wallet_selector_modal
+          show={true}
+          detected_wallets={[]}
+          connecting={false}
+          connecting_wallet_name={nil}
+          social_login_enabled={false}
+        />
+        """)
+
       assert html =~ "Connect a Solana wallet"
+      refute html =~ "Continue with email"
     end
 
     test "renders SIGN IN eyebrow" do
@@ -146,7 +167,7 @@ defmodule BlocksterV2Web.WalletComponentsTest do
       assert html =~ "home for your xNFTs"
     end
 
-    test "renders What's a wallet link in footer" do
+    test "renders trust line in footer" do
       assigns = %{}
 
       html =
@@ -159,10 +180,10 @@ defmodule BlocksterV2Web.WalletComponentsTest do
         />
         """)
 
-      assert html =~ "What" and html =~ "a wallet?"
+      assert html =~ "seed phrase"
     end
 
-    test "renders Terms and Privacy Policy links" do
+    test "renders Terms and Privacy links" do
       assigns = %{}
 
       html =
@@ -176,7 +197,64 @@ defmodule BlocksterV2Web.WalletComponentsTest do
         """)
 
       assert html =~ "Terms"
-      assert html =~ "Privacy Policy"
+      assert html =~ "Privacy"
+    end
+
+    test "renders email form when social login is enabled" do
+      assigns = %{}
+
+      html =
+        rendered_to_string(~H"""
+        <WalletComponents.wallet_selector_modal
+          show={true}
+          detected_wallets={[]}
+          connecting={false}
+          connecting_wallet_name={nil}
+          social_login_enabled={true}
+        />
+        """)
+
+      assert html =~ ~s(phx-submit="start_email_login")
+      assert html =~ ~s(name="email")
+      assert html =~ "Continue"
+    end
+
+    test "renders social tile buttons when social login is enabled" do
+      assigns = %{}
+
+      html =
+        rendered_to_string(~H"""
+        <WalletComponents.wallet_selector_modal
+          show={true}
+          detected_wallets={[]}
+          connecting={false}
+          connecting_wallet_name={nil}
+          social_login_enabled={true}
+        />
+        """)
+
+      assert html =~ ~s(phx-click="start_x_login")
+      assert html =~ ~s(phx-click="start_google_login")
+      assert html =~ ~s(phx-click="start_apple_login")
+      assert html =~ ~s(phx-click="start_telegram_login")
+    end
+
+    test "hides email + social section when social_login_enabled is false" do
+      assigns = %{}
+
+      html =
+        rendered_to_string(~H"""
+        <WalletComponents.wallet_selector_modal
+          show={true}
+          detected_wallets={[]}
+          connecting={false}
+          connecting_wallet_name={nil}
+          social_login_enabled={false}
+        />
+        """)
+
+      refute html =~ ~s(phx-submit="start_email_login")
+      refute html =~ ~s(phx-click="start_x_login")
     end
 
     test "renders subtitle text about security" do
@@ -317,6 +395,55 @@ defmodule BlocksterV2Web.WalletComponentsTest do
         """)
 
       assert html =~ ~s(phx-click="hide_wallet_selector")
+    end
+  end
+
+  # ── wallet_selector_modal/1 · State C (Web3Auth connecting) ────
+
+  describe "wallet_selector_modal/1 · web3auth connecting state" do
+    test "renders State C when connecting with provider email" do
+      assigns = %{}
+
+      html =
+        rendered_to_string(~H"""
+        <WalletComponents.wallet_selector_modal
+          show={false}
+          detected_wallets={[]}
+          connecting={true}
+          connecting_wallet_name={nil}
+          connecting_provider="email"
+        />
+        """)
+
+      assert html =~ "wallet-modal-backdrop"
+      assert html =~ "Opening email sign-in"
+      assert html =~ "Popup launched"
+      assert html =~ "Awaiting credentials"
+    end
+
+    test "renders correct provider title for twitter/google/apple/telegram" do
+      for {provider, display} <- [
+            {"twitter", "Opening X"},
+            {"google", "Opening Google"},
+            {"apple", "Opening Apple"},
+            {"telegram", "Opening Telegram"}
+          ] do
+        assigns = %{provider: provider}
+
+        html =
+          rendered_to_string(~H"""
+          <WalletComponents.wallet_selector_modal
+            show={false}
+            detected_wallets={[]}
+            connecting={true}
+            connecting_wallet_name={nil}
+            connecting_provider={@provider}
+          />
+          """)
+
+        assert html =~ display,
+               "expected provider #{provider} title \"#{display}\" in rendered HTML"
+      end
     end
   end
 

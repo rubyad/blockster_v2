@@ -4,7 +4,7 @@ Complete step-by-step instructions to deploy Blockster V2 on Solana mainnet.
 
 **Prerequisites**: All code changes are on `feat/solana-migration` branch and tested on devnet.
 
-**Last substantive update**: 2026-04-20 — incorporated Phase 1 rent_payer on-chain upgrade, Phase 4 multi-signer tx builders, Phase 0–4 Web3Auth social login infrastructure, hourly promo deactivation. Phase 5–10 social login rollout additions (client ID, RSA signing key, feature-flag rollout) are pre-documented with `<TBD>` placeholders where operators fill in at deploy time. See [docs/solana_build_history.md](solana_build_history.md) + [docs/social_login_plan.md](social_login_plan.md) Appendix C for the session-level narrative.
+**Last substantive update**: 2026-04-21 — Phase 0–10 Web3Auth social login shipped (see `docs/solana_build_history.md` 2026-04-20 + 2026-04-21 entries). Email sign-in now runs through an in-app OTP flow (NOT Web3Auth's `EMAIL_PASSWORDLESS` popup) that issues a JWT consumed by Web3Auth's `CUSTOM` connector — requires a second dashboard verifier named `blockster-email`. Email-ownership-is-account-ownership design: any sign-in where the email matches an existing user merges that account into the new Web3Auth-derived Solana wallet (legacy BUX minted to new wallet via settler). Onboarding simplified — single "Get started" CTA, `migrate_email` step retired. Two env flags gate rollout: `SOCIAL_LOGIN_ENABLED` (default off, flip when ready) + `WEB3AUTH_SOL_CHECKOUT_ENABLED` (default off, v1 keeps SOL shop checkout wallet-only). See [docs/social_login_plan.md](social_login_plan.md) Appendices D + E for the session narratives.
 
 ---
 
@@ -353,7 +353,7 @@ Sweep tx fees (~5000 lamports each) are paid by `MINT_AUTHORITY_KEYPAIR`, which 
 `contracts/blockster-settler/src/services/bankroll-service.ts` builds every `place_bet_*`, `reclaim_expired`, and `settle_bet` tx with the settler pre-included as a signer (for `place_bet_*`) or account slot (for `reclaim_expired` / `settle_bet`). The settler partial-signs before returning base64 to the client. Implications for operators:
 
 - `MINT_AUTHORITY_KEYPAIR` is actively signing every bet placement, not just settlement. No behavioral change — settler was already on-line per-bet for commitment submission; partial-signing is additional but on the same keypair.
-- **DO NOT modify** `feePayer` in `buildPlaceBetTx` to be the settler for Wallet Standard (Phantom / Solflare / Backpack) users. Those wallets reject sign requests where the connected wallet isn't the fee payer ("Unexpected error" with no useful explanation). `feePayer = player` is required. Web3Auth-sourced sessions (Phase 5+) CAN use `feePayer = settler` because Web3Auth signs locally from an exported key with no wallet-approval invariants. Phase 5 introduces per-signer-source branching.
+- **DO NOT modify** `feePayer` to be the settler for Wallet Standard (Phantom / Solflare / Backpack) users in ANY tx builder — `buildPlaceBetTx`, the four pool builders (`buildDepositSolTx`, `buildDepositBuxTx`, `buildWithdrawSolTx`, `buildWithdrawBuxTx`), or any future user-signed builder. Those wallets reject sign requests where the connected wallet isn't the fee payer ("Unexpected error" with no useful explanation). `feePayer = player` is required for them. Web3Auth-sourced sessions CAN use `feePayer = settler` because Web3Auth signs locally from an exported key with no wallet-approval invariants. Branching is centralized in `BuxMinter.fee_payer_mode_for_user/1` on the Elixir side + `parseFeePayerMode` helpers on the settler routes that safe-default unknown values to `"player"`. Never default `"settler"` server-side.
 - Rust struct field order for `place_bet_sol/bux` / `reclaim_expired` / `settle_bet` is canonical. The TS keys array must match exactly. If you add a field in Rust, update the TS at the same index or Anchor fails with `Custom(3007) AccountOwnedByWrongProgram` — positional reads trip the ownership check.
 
 ### Deploy Settler
@@ -405,20 +405,73 @@ The `BLOCKSTER_SETTLER_SECRET` must match the `SETTLER_API_SECRET` set on the se
 ```bash
 flyctl secrets set \
   WEB3AUTH_CLIENT_ID="<PROD_WEB3AUTH_CLIENT_ID>" \
+  WEB3AUTH_NETWORK="SAPPHIRE_MAINNET" \
+  WEB3AUTH_CHAIN_ID="0x65" \
   WEB3AUTH_TELEGRAM_VERIFIER_ID="blockster-telegram" \
   WEB3AUTH_JWT_SIGNING_KEY_PATH="/data/web3auth/signing_key.json" \
   BLOCKSTER_V2_BOT_TOKEN="<TELEGRAM_BOT_TOKEN>" \
   SOCIAL_LOGIN_ENABLED="false" \
+  WEB3AUTH_SOL_CHECKOUT_ENABLED="false" \
   --stage --app blockster-v2
 ```
 
-`WEB3AUTH_CLIENT_ID` comes from the Web3Auth dashboard — create a **separate Sapphire Mainnet** project for production (DO NOT reuse the Sapphire Devnet project). Whitelist `https://blockster.com` as the authorized origin. Set up the same four Connections (Email Passwordless, Google, Apple, Twitter) + the Telegram Custom JWT verifier. Full setup procedure: [docs/web3auth_integration.md](web3auth_integration.md) §7.
+`WEB3AUTH_CLIENT_ID` comes from the Web3Auth dashboard — create a **separate Sapphire Mainnet** project for production (DO NOT reuse the Sapphire Devnet project). Whitelist `https://blockster.com` as the authorized origin. Set up the same four social Connections (Email Passwordless — left on but unused, keep enabled in case of fallback; Google; Apple; Twitter) PLUS two Custom JWT verifiers described below.
 
-`WEB3AUTH_JWT_SIGNING_KEY_PATH` points at a Fly-mounted RSA private key file that the backend uses to sign Telegram Custom JWTs. The dev path (`priv/web3auth_keys/signing_key.json`, boot-generated) is NOT safe for prod — see "Provision the Web3Auth JWT signing key" below.
+`WEB3AUTH_NETWORK=SAPPHIRE_MAINNET` + `WEB3AUTH_CHAIN_ID=0x65` tell the client-side hook to point at mainnet. Devnet was `SAPPHIRE_DEVNET` + `0x67` — these are ws-embed-specific IDs, not the `0x1`/`0x2`/`0x3` from Web3Auth's public Solana docs. See `docs/web3auth_integration.md` §1.
+
+`WEB3AUTH_JWT_SIGNING_KEY_PATH` points at a Fly-mounted RSA private key file that the backend uses to sign JWTs for BOTH Custom JWT verifiers (email OTP + Telegram widget). The dev path (`priv/web3auth_keys/signing_key.json`, boot-generated) is NOT safe for prod — see "Provision the Web3Auth JWT signing key" below.
 
 `BLOCKSTER_V2_BOT_TOKEN` is the existing Telegram bot token (already used for account-connect + group-join detection). The `POST /api/auth/telegram/verify` endpoint uses it to HMAC-verify Telegram Login Widget payloads before issuing a Blockster JWT.
 
 `SOCIAL_LOGIN_ENABLED=false` is the kill switch — with this off the sign-in modal only shows Phantom/Solflare/Backpack (current behavior). Phase 10 is where this flips via the staged rollout procedure.
+
+`WEB3AUTH_SOL_CHECKOUT_ENABLED=false` gates SOL-priced shop checkout to Wallet Standard users only in v1. When off, Web3Auth users attempting to check out with SOL-priced items see a flash pointing them at BUX pricing or wallet connect. Flip to `true` in v1.1+ after the `wallet_sign` payment mode (already wired in `PaymentIntents`, gated by this env) has been exercised on devnet.
+
+### Two Custom JWT verifiers must exist in the Web3Auth dashboard
+
+Both point at OUR JWKS (`https://blockster.com/.well-known/jwks.json`). The dashboard needs two separate verifier entries so the MPC wallet derivation namespace stays distinct per identity type (email vs Telegram).
+
+**Verifier 1 — `blockster-email`** (powers in-app email OTP sign-in):
+
+| Field | Value |
+|---|---|
+| Auth Connection ID | `blockster-email` |
+| JWKS Endpoint | `https://blockster.com/.well-known/jwks.json` |
+| JWT user identifier | `sub` |
+| Validations | `iss` = `blockster`, `aud` = `blockster-web3auth` |
+| Algorithm | `RS256` |
+| Case Sensitive User Identifier | ON (we lowercase the email server-side before signing, so all subs are lowercase regardless) |
+
+**Verifier 2 — `blockster-telegram`** (powers the Telegram Login Widget path):
+
+| Field | Value |
+|---|---|
+| Auth Connection ID | `blockster-telegram` |
+| JWKS Endpoint | `https://blockster.com/.well-known/jwks.json` (same URL as above) |
+| JWT user identifier | `sub` |
+| Validations | `iss` = `blockster`, `aud` = `blockster-web3auth` |
+| Algorithm | `RS256` |
+| Case Sensitive User Identifier | ON |
+
+Generate sample JWTs for the dashboard's paste-a-JWT-token validation step by running in IEx on the target environment:
+
+```elixir
+# Sample for blockster-email verifier
+BlocksterV2.Auth.Web3AuthSigning.sign_id_token(%{
+  "sub" => "sample@blockster.com",
+  "email" => "sample@blockster.com",
+  "email_verified" => true
+})
+
+# Sample for blockster-telegram verifier
+BlocksterV2.Auth.Web3AuthSigning.sign_id_token(%{
+  "sub" => "123456789",
+  "telegram_user_id" => "123456789",
+  "telegram_username" => "sample_user"
+})
+```
+
+Paste the output into the dashboard's JWT field; the dropdown should populate with claims including `sub` — pick it. Generated tokens are 10-minute TTL.
 
 ### Provision the Web3Auth JWT signing key
 
@@ -480,8 +533,12 @@ Then register the PUBLIC key half with Web3Auth's dashboard (JWKS URL = `https:/
 | `PAYMENT_INTENT_SEED` | settler | 32-byte hex — HKDF master seed for shop checkout ephemeral keypairs |
 | `SOL_TREASURY_ADDRESS` | settler | Solana pubkey that receives swept shop revenue |
 | `WEB3AUTH_CLIENT_ID` | main app | Web3Auth Sapphire Mainnet project client ID |
-| `WEB3AUTH_TELEGRAM_VERIFIER_ID` | main app | Web3Auth Custom JWT verifier name (usually `blockster-telegram`) |
-| `WEB3AUTH_JWT_SIGNING_KEY_PATH` | main app | Path to mounted RSA private key file (e.g. `/data/web3auth/signing_key.json`) |
+| `WEB3AUTH_NETWORK` | main app | `SAPPHIRE_MAINNET` (dev: `SAPPHIRE_DEVNET`) |
+| `WEB3AUTH_CHAIN_ID` | main app | `0x65` Solana mainnet (devnet: `0x67`) — ws-embed convention, NOT the docs' `0x1`/`0x2`/`0x3` |
+| `WEB3AUTH_TELEGRAM_VERIFIER_ID` | main app | Telegram Custom JWT verifier name (usually `blockster-telegram`) |
+| `WEB3AUTH_JWT_SIGNING_KEY_PATH` | main app | Path to mounted RSA private key file (e.g. `/data/web3auth/signing_key.json`). Signs BOTH the `blockster-email` and `blockster-telegram` JWTs |
+| `SOCIAL_LOGIN_ENABLED` | main app | Master kill-switch for the social-login UI. `false` hides the email form + social tiles |
+| `WEB3AUTH_SOL_CHECKOUT_ENABLED` | main app | Gate for SOL-priced shop checkout for Web3Auth users. `false` in v1 — they're pushed to BUX or to wallet connect |
 | `BLOCKSTER_V2_BOT_TOKEN` | main app | Telegram bot token for HMAC verification of Login Widget payloads |
 | `SOCIAL_LOGIN_ENABLED` | main app | Feature flag — `false` keeps social login UI hidden |
 | `HOURLY_PROMO_ENABLED` | main app | `false` — keeps the Telegram promo scheduler off |
@@ -716,14 +773,20 @@ Social login ships behind `SOCIAL_LOGIN_ENABLED`. After the Phase 5–10 session
 
 ### Pre-flight checklist before enabling
 
-- [ ] Web3Auth Sapphire Mainnet project created, client ID matches `WEB3AUTH_CLIENT_ID` secret.
-- [ ] `https://blockster.com` whitelisted in the Web3Auth dashboard.
-- [ ] All four Connections enabled in the dashboard: Email Passwordless, Google, Apple, Twitter (X).
-- [ ] Telegram Custom JWT verifier registered with `JWKS URL = https://blockster.com/.well-known/jwks.json`, `aud = blockster-web3auth`, `iss = blockster`, algorithm `RS256`, verifier ID field `sub`. Name should match `WEB3AUTH_TELEGRAM_VERIFIER_ID`.
-- [ ] RSA signing key mounted at `/data/web3auth/signing_key.json` on the production volume.
-- [ ] `curl https://blockster.com/.well-known/jwks.json` returns a valid JWKS with one RSA key.
-- [ ] `curl -X POST https://blockster.com/api/auth/telegram/verify -H 'content-type: application/json' -d '{...}'` handles at least one known-good Telegram payload end-to-end (can test with a dev-only payload first).
-- [ ] A manual Web3Auth email signup flow on staging completes: modal → email OTP → pubkey returned → user row created → session cookie set → onboarding lands.
+- [ ] Web3Auth Sapphire **Mainnet** project created (not devnet), client ID matches `WEB3AUTH_CLIENT_ID` secret.
+- [ ] `WEB3AUTH_NETWORK=SAPPHIRE_MAINNET` and `WEB3AUTH_CHAIN_ID=0x65` staged (0x65 = Solana mainnet in ws-embed's chain ID convention — NOT `0x1`).
+- [ ] `https://blockster.com` whitelisted as an authorized origin in the Web3Auth dashboard.
+- [ ] OAuth Connections enabled: Google, Apple, Twitter (X). Email Passwordless kept on as an unused fallback — production email flow runs through the `blockster-email` Custom JWT verifier instead.
+- [ ] **Custom JWT verifier `blockster-email` registered**: JWKS URL `https://blockster.com/.well-known/jwks.json`, verifier ID field `sub`, aud `blockster-web3auth`, iss `blockster`, alg `RS256`. See the two-verifier table in Step 7 (Web3Auth secrets) above.
+- [ ] **Custom JWT verifier `blockster-telegram` registered** (same JWKS / aud / iss / alg), name matches `WEB3AUTH_TELEGRAM_VERIFIER_ID`.
+- [ ] RSA signing key mounted at `/data/web3auth/signing_key.json` on the production volume. `mix run /tmp/gen_web3auth_key.exs` output placed there.
+- [ ] `curl https://blockster.com/.well-known/jwks.json` returns a valid JWKS with one RSA key (matches the `kid` on the mounted signing key).
+- [ ] `POST /api/auth/web3auth/email_otp/send` accepts a valid email and returns `{"success": true, "ttl": 600}`.
+- [ ] `POST /api/auth/web3auth/email_otp/verify` returns `{"success": true, "id_token": "eyJ..."}` when given the emailed code.
+- [ ] `POST /api/auth/telegram/verify` handles at least one known-good widget payload end-to-end.
+- [ ] A manual Web3Auth email signup flow on staging completes: modal → email input → receive OTP → enter code in modal (no popup!) → Web3Auth MPC derives pubkey → user row created → session cookie set → onboarding lands.
+- [ ] A legacy EVM user email sign-in on staging completes the reclaim merge: legacy user row deactivated, legacy BUX minted to new Solana wallet via settler, username/X/Telegram/phone transferred, returning user lands on `/` (onboarding skipped).
+- [ ] `WEB3AUTH_SOL_CHECKOUT_ENABLED` stays `false` for v1 — confirm SOL-priced shop items block Web3Auth users with a clear flash message pointing them at BUX pricing.
 
 ### Staged rollout
 

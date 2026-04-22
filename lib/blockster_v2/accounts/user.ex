@@ -135,6 +135,7 @@ defmodule BlocksterV2.Accounts.User do
     |> cast(attrs, [
       :wallet_address,
       :email,
+      :pending_email,
       :username,
       :avatar_url,
       :social_avatar_url,

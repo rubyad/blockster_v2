@@ -31,14 +31,18 @@ import {
   signAndConfirm,
 } from "./hooks/signer.js";
 
-const DEVNET_RPC = "https://api.devnet.solana.com";
+// QuickNode RPC — public api.devnet.solana.com rate-limits on signAndConfirm
+// polling. Prod wires window.__SOLANA_RPC_URL to the mainnet endpoint.
+const RPC_URL =
+  window.__SOLANA_RPC_URL ||
+  "https://summer-sleek-shape.solana-devnet.quiknode.pro/92b7f51caa76f2981879528aee40a3e8e58cac60/";
 
 export const CoinFlipSolana = {
   mounted() {
     this.gameId = this.el.dataset.gameId;
     this.commitmentHash = this.el.dataset.commitmentHash;
     this.betConfirmed = false;
-    this.connection = new Connection(DEVNET_RPC, "confirmed");
+    this.connection = new Connection(RPC_URL, "confirmed");
 
     // Listen for unsigned tx from LiveView
     this.handleEvent("sign_place_bet", async (params) => {

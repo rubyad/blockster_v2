@@ -30,7 +30,8 @@ defmodule BlocksterV2.Application do
       {DNSCluster, query: Application.get_env(:blockster_v2, :dns_cluster_query) || :ignore},
       {Phoenix.PubSub, name: BlocksterV2.PubSub},
       BlocksterV2.Auth.NonceStore,
-      BlocksterV2.Auth.Web3AuthSigning
+      BlocksterV2.Auth.Web3AuthSigning,
+      BlocksterV2.Auth.EmailOtpStore
     ] ++ libcluster_child
 
     # GenServers that should not start in test mode

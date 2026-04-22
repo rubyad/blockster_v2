@@ -286,6 +286,8 @@ defmodule BlocksterV2Web.WidgetComponentsTest do
   end
 
   describe "widget_or_ad/1 — raises for widgets landing in Phase 6+" do
+    # CoinFlip (cf_*) widget types shipped in later waves; exclude them from
+    # the "not yet implemented" list alongside the RogueTrader/FateSwap ones.
     @phase_6_plus Banner.valid_widget_types() --
                     [
                       "rt_skyscraper",
@@ -301,7 +303,13 @@ defmodule BlocksterV2Web.WidgetComponentsTest do
                       "fs_hero_portrait",
                       "fs_hero_landscape",
                       "fs_square_compact",
-                      "fs_sidebar_tile"
+                      "fs_sidebar_tile",
+                      "cf_sidebar_tile",
+                      "cf_portrait",
+                      "cf_sidebar_demo",
+                      "cf_inline_landscape",
+                      "cf_portrait_demo",
+                      "cf_inline_landscape_demo"
                     ]
 
     for widget_type <- @phase_6_plus do
