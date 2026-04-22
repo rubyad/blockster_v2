@@ -316,10 +316,11 @@ defmodule BlocksterV2Web.WalletLive.Index do
   def format_sol(_), do: "0.0000"
 
   # BUX with two decimal places and a thousands separator. On-chain raw units
-  # are converted upstream — balance here is already a float in whole BUX.
+  # are converted upstream — balance here can be integer or float; coerce to
+  # float first since :erlang.float_to_binary/2 rejects integers.
   def format_bux(balance) when is_number(balance) do
     {int, dec} =
-      balance
+      (balance * 1.0)
       |> :erlang.float_to_binary(decimals: 2)
       |> String.split(".", parts: 2)
       |> case do

@@ -340,6 +340,18 @@ defmodule BlocksterV2Web.WalletLive.IndexTest do
       assert Index.split_sol(2.4587) == {"2", "4587"}
       assert Index.split_sol(0.0001) == {"0", "0001"}
       assert Index.split_sol(nil) == {"0", "0000"}
+      # Integer input shouldn't crash (PubSub sometimes sends integer 0)
+      assert Index.split_sol(0) == {"0", "0000"}
+      assert Index.split_sol(5) == {"5", "0000"}
+    end
+
+    test "format_bux handles both integer and float inputs" do
+      # Regression: PubSub :bux_balance_updated sometimes sends integer 0,
+      # not 0.0. :erlang.float_to_binary rejects integers — coerce first.
+      assert Index.format_bux(0) == "0.00"
+      assert Index.format_bux(0.0) == "0.00"
+      assert Index.format_bux(1234) == "1,234.00"
+      assert Index.format_bux(1234.56) == "1,234.56"
     end
 
     test "format_addr_groups chunks into 4-char groups" do
