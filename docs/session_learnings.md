@@ -7,6 +7,11 @@ For active reference material, see the main [CLAUDE.md](../CLAUDE.md).
 ---
 
 ## Table of Contents
+- [Pool cost-basis bug — `|> assign(…)` inside render/1 does NOT touch the socket](#pool-cost-basis-bug--assign--inside-render1-does-not-touch-the-socket-2026-04-22)
+- [CF-01 InvalidServerSeed — on-chain commitment race, NOT Mnesia overwrite](#cf-01-invalidserverseed-on-chain-commitment-race-not-mnesia-seed-overwrite-2026-04-22)
+- [Migrations aren't on the `mix test` compile path — extract logic to `lib/`](#migrations-arent-on-the-mix-test-compile-path--extract-logic-to-lib-2026-04-22)
+- [Test-assertion gotchas from Phase 1 + 2](#test-assertion-gotchas-from-phase-1--2)
+- [Mnesia index idempotency via runtime add_table_index](#mnesia-index-idempotency-via-runtime-add_table_index-2026-04-22)
 - [Tailwind Typography img Margins Hijacked a Widget Header — Check Computed Styles First](#tailwind-typography-img-margins-hijacked-a-widget-header--check-computed-styles-first-apr-2026)
 - [Coin Flip Widgets: Copy Mocks Verbatim — Never Rebuild From Scratch](#coin-flip-widgets-copy-mocks-verbatim--never-rebuild-from-scratch-apr-2026)
 - [Notification.@valid_types Silent Validation Failure Swallowed Reward Records](#notificationvalid_types-silent-validation-failure-swallowed-reward-records-apr-2026)
@@ -1323,3 +1328,89 @@ User: "BUX balance was updating correctly after a win or loss, it just wasn't up
 **Fix**: both functions now call `BlocksterV2Web.BuxBalanceHook.broadcast_token_balances_update(wallet_address, %{bux: ..., sol: ...})` after the dirty_write. The LiveView picks up the broadcast and patches the header in place — sync is instantaneous.
 
 **Rule**: any write to balance state must co-locate with its broadcast. Relying on downstream polls to catch up is a latency footgun users see immediately.
+
+---
+
+## Pool cost-basis bug: `|> assign(…)` inside `render/1` does NOT touch the socket (2026-04-22)
+
+**Symptom**: partial pool withdraw showed a phantom "unrealized loss" — Cost basis stayed at the full original deposit while Current value shrank to the remaining LP's worth. Audit screenshot: `Cost basis: 1.0008, Current value: 0.4887, Unrealized P/L: − 0.5121` after a 50% withdraw that actually returned 0.51 SOL to wallet.
+
+**What I assumed first**: the ACB math in `PoolPositions.record_withdraw/4` was wrong. Spent time reading the math. Math was correct.
+
+**Actual cause**: `record_withdraw` was never being called. `tx_confirmed/3` had a guard `if is_number(lp_price) and lp_price > 0`, reading from `socket.assigns[:lp_price]`. That assign was ALWAYS nil at event time.
+
+Why nil: `pool_detail_live.ex render/1` computed `lp_price` from `assigns.pool_stats` and wrote `|> assign(lp_price: lp_price)` inside the function-component assigns pipeline. That `assign` updates the LOCAL assigns map passed to the `~H` template — it does NOT reach `socket.assigns` outside of render. So the guard in `handle_event("tx_confirmed", …)` read nil, silently skipped the `record_withdraw` call, and Mnesia's cost-basis row never updated. LP balance refresh happened normally on the next tick, so the render produced "full cost / half the LP / phantom loss".
+
+**Fix** (`af403b1`): one line. `handle_async(:fetch_pool_stats, {:ok, {:ok, stats}}, socket)` now also assigns `lp_price` to the socket. render/1 still recomputes locally (kept for early-mount tolerance). tx_confirmed now sees a real number.
+
+**Rule**: function-component `|> assign(…)` inside `render/1` is a LOCAL map mutation, not a socket assign. Before setting anything there, ask "does any handler outside render read this from socket.assigns?" If yes, the assign has to live somewhere the socket actually carries — a mount, a handle_event, a handle_info, or a handle_async.
+
+---
+
+## CF-01 InvalidServerSeed: on-chain commitment race, NOT Mnesia seed overwrite (2026-04-22)
+
+**Symptom**: rapid coin flip bets intermittently failed settlement with Anchor error `InvalidServerSeed (0x178a)`. Bet SOL stuck in the bankroll until the 5-min reclaim window fired; `CoinFlipBetSettler` spammed `0x178a` retries every 60s forever.
+
+**What the audit hypothesised**: Mnesia's `:coin_flip_games` table getting overwritten when two bets fired close together — two rows for the same `{user_id, nonce}` key with different seeds, settler reads the wrong one.
+
+**What was actually happening**: `:coin_flip_games` is keyed by a unique `game_id` per call — rows can't clobber. The race lives on the on-chain program:
+
+- `submit_commitment.rs:59` stores the commitment hash in `player_state.pending_commitment`. This is a **single field per player**, not per-nonce.
+- `place_bet_sol.rs:144` copies `bet_order.commitment_hash = player_state.pending_commitment` and clears the field to zero at line 152.
+- Trigger: two `submit_commitment(player, nonce_N, …)` calls before the first `place_bet(player, nonce_N)` lands on-chain. The second commit SILENTLY overwrites the first's hash. The original user's place_bet then stamps the NEW commit into its bet_order. Settler submits `settle_bet(seed_for_first_commit)` against a bet_order now containing `hash(second_seed)` → `InvalidServerSeed`.
+- Practical triggers: multi-tab `/play`, mid-signing reconnect, rapid reclaim-then-new-bet. A single-tab single-flow user doesn't hit it. A multi-tab user does.
+
+**Fix strategy** (PR 2a, commits `3036481` → `31f54aa` + settler `fa6551a`):
+1. Program stays untouched (audit Don't-do list: no program upgrade for CF-01).
+2. **Settler-side** pre-submit guard fetches the bet_order from chain, computes `SHA256(server_seed)`, and returns structured HTTP 409 `commitment_mismatch` if it doesn't match. Catches the mismatch before burning a tx fee.
+3. **Elixir-side** recovery: when settler returns 409, look up a SIBLING game in Mnesia whose stored commitment_hash matches what's on chain, and resettle with THAT game's seed. New `:commitment_hash` index on `:coin_flip_games`. If no matching seed exists locally, park the bet as `:manual_review` — the background settler stops retrying, the UI surfaces a "needs manual review" CTA, and PR 2b's dead-letter queue handles admin surfacing.
+
+**Lesson** — don't trust audit root-cause hypotheses at face value. Read the on-chain code. The Mnesia theory was tempting (table names line up), but 30 minutes with `place_bet_sol.rs` made the race obvious. If the prescribed fix still works against the real cause (it does — SHA256 lookup is commitment-content-addressed regardless of which race produced the mismatch), ship it; if not, escalate to the user.
+
+**Additional rule from this session**: when a `-0x178a` error fires repeatedly in a settler loop, the bet fee is unrecoverable until the 5-min reclaim window — users see "retrying forever" but the money is actually gone for that duration. Any terminal-class classifier (see PR 2b SettlerRetry) MUST dead-letter fast; the retry loop was amplifying the impact, not fixing it.
+
+---
+
+## Migrations aren't on the `mix test` compile path — extract logic to `lib/` (2026-04-22)
+
+**Symptom**: `apply(BlocksterV2.Repo.Migrations.BackfillWinnerSolanaAddresses, :up, [])` inside a test raised `UndefinedFunctionError: function … is undefined (module … is not available)`. `mix compile` succeeded; `mix ecto.migrate` found the module; `mix test` did not.
+
+**Cause**: migration files in `priv/repo/migrations/` are loaded by Ecto only when `mix ecto.migrate` runs. They're NOT added to the `mix compile` path. So any test that tries to invoke a migration module directly fails to find it.
+
+**Fix**: extract migration logic into `lib/blockster_v2/airdrop/winner_address_backfill.ex` (a regular compile-path module). Migration wrapper becomes:
+
+```elixir
+defmodule BlocksterV2.Repo.Migrations.BackfillWinnerSolanaAddresses do
+  use Ecto.Migration
+
+  def up, do: BlocksterV2.Airdrop.WinnerAddressBackfill.run(repo())
+  def down, do: :ok
+end
+```
+
+Tests call `WinnerAddressBackfill.run(Repo)` directly; behaviour is identical in prod and test.
+
+**Rule**: any data migration worth testing has its logic in `lib/`, not in the migration file. The migration wrapper is five lines. Testability is non-optional for data migrations — they mutate and can't be rolled back cleanly; unit coverage is the last line of defence.
+
+---
+
+## Test-assertion gotchas from Phase 1 + 2
+
+Three patterns that cost debug cycles and should never cost them again:
+
+1. **HEEx `disabled={true}` renders the bare `disabled` attribute**, not `disabled="disabled"`. `html =~ ~s(disabled="disabled")` always fails. Assert on the companion `cursor-not-allowed` class or tooltip copy instead — OR use `element("button[disabled]")` in a LiveView test.
+2. **IEEE-754 slop: `0.051 - 0.05 = 9.999999999999994e-4`, not exactly `0.001`.** `assert x == 0.001` fails in ways that look like a logic bug but aren't. Use `assert_in_delta x, 0.001, 1.0e-9` for any multi-step float arithmetic.
+3. **Wrapping `phx-keyup` in a `<form phx-change="…">` requires a second handler clause.** The keyup payload is `%{"value" => v}`, the form-change payload is `%{"<input-name>" => v}`. Crashed `update_amount` in POOL-01 until both clauses existed.
+
+**Meta-rule**: anything that looks like "the test is lying" usually means there's a subtle encoding / precision / payload-shape difference. Don't loosen the assertion until you've confirmed the semantics.
+
+---
+
+## Mnesia index idempotency via runtime `add_table_index` (2026-04-22)
+
+Adding an index to an existing Mnesia table at deploy time is a footgun — `mix ecto.migrate` doesn't touch Mnesia, and writing a bespoke migration per index bloats the initializer. `reconcile_indexes/2` in `mnesia_initializer.ex` now idempotently adds any declared-but-missing index via `:mnesia.add_table_index/2`, keyed off `:mnesia.table_info(table, :index)`.
+
+**Why it matters**: PR 2a needed `:commitment_hash` indexed on `:coin_flip_games` for the CF-01 recovery lookup. Existing live tables wouldn't pick up a new index from the table-definition block — it only applies on fresh creation. Running this reconciler on every boot makes adding an Mnesia index a one-line change.
+
+**Guardrail**: wrapped in `rescue`/`catch` so a transient Mnesia error during reconcile doesn't crash boot. Worst case, the index isn't added yet and queries fall back to `dirty_match_object` (slower but correct).
+

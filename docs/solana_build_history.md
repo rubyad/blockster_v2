@@ -3091,3 +3091,110 @@ Pool detail page had hardcoded `—` for "Cost basis" and "Unrealized P/L" — p
 ### Tests
 
 72/0 pool tests still pass. Compile clean on both settler TypeScript + Elixir (pre-existing unrelated warnings only). No new tests added this pass — behavior change is display-layer + new Mnesia table, existing smoke coverage exercises the write sites.
+
+---
+
+## 2026-04-22 — Bug audit response, Phase 1 (PRs 1a + 1b)
+
+Post-redesign probing pass landed at [`docs/bug_audit_2026_04_22.md`](bug_audit_2026_04_22.md) — 32 severity-tagged items across shop, pool, coin flip, airdrop, wallet, cross-cutting. Phase 1 targets the safety blockers: one critical shop exploit and the cross-cutting integer-crash class.
+
+### PR 1a — SHOP-04 BUX discount footgun (8 commits, `ecbcf5e` → `dee2fef`)
+
+**What it was**: `bux_max_discount = 0 | NULL` was treated by the product detail renderer as "100% discount allowed". Every un-migrated product on `/shop` let a user with enough BUX take inventory at cost. CLAUDE.md flagged this as a known footgun; audit confirmed it was live.
+
+**What shipped**:
+- Default flip at both call sites in `lib/blockster_v2_web/live/shop_live/show.ex` (mount + `transform_product`): 0/nil → 0% effective discount. Feature-flagged behind `SHOP_BUX_CAP_ENFORCED` (default on in prod, off in dev) via new `BlocksterV2.Shop.BuxDiscountConfig` helper — lets local dev test full-discount paths without disabling prod enforcement.
+- `lib/blockster_v2/shop/product.ex` changeset now documents the 0-means-disabled semantic and validates `bux_max_discount ≤ 100`.
+- Data migration `20260422201501_shop_bux_cap_50_percent.exs`: `UPDATE products SET bux_max_discount = 50 WHERE bux_max_discount IS NULL OR bux_max_discount = 0`. 50% matches the live "up to 50% off" marketing copy. `down/0` is a no-op by design — the migration can't distinguish an originally-zero cap from one it wrote.
+- SHOP-05 (auto-applied MAX discount): `@tokens_to_redeem` now defaults to 0 on mount. Max button disables when `effective_max == 0`. User must actively opt into BUX redemption.
+- SHOP-08 (0-SOL "Add to cart" button): defensive UI guard on the button + a server-side `handle_event` guard so a synthesised event can't bypass the button.
+
+**Test coverage**: 3 regression tests in `shop_live/show_test.exs` + 1 in `shop/product_test.exs`.
+
+### PR 1b — Format-helper hardening + LV hygiene (9 commits, `d219327` → `b30ae47`)
+
+**What it was**: format helpers across the app guarded with `is_float(val)` only. PubSub balance updates broadcast integer balances (e.g. `{:bux_balance_updated, 1_000}`) — `is_float` guard skipped the decimal branch silently, rendering `"1000"` instead of `"1.00k"`. On the wallet page, `format_bux` outright crashed when `:erlang.float_to_binary` got an integer.
+
+**What shipped**:
+- Integer-coerce (`val * 1.0` / `/ 1.0`) in every format helper that feeds a render: `pool_detail_live`, `pool_live`, `coin_flip_live`, `member_live/show`, `notification_live/referrals`, `airdrop_live`, `shop/pricing`, `pool_components`, `bux_booster_live`. Pattern: `is_float` guard becomes `is_number` + coerce inside.
+- Property-style parity test at `test/blockster_v2_web/format_helpers_test.exs`: every public `format_*` helper is called with matched integer/float pairs and asserted identical output.
+- LV hygiene: wrapped bare `phx-keyup` / `phx-change` inputs in `<form phx-change="…">` across `pool_detail_live` (POOL-01), `posts_admin_live`, `event_live/index`, `event_live/show`. Preserves `phx-keyup` as secondary binding on pool where paste support matters.
+- `pages_smoke_test.exs` Mnesia setup fix: added `:referral_stats` + `:referral_earnings` tables with correct indexes, surfaced by the new format tests shifting test order.
+
+**Endpoint**: 3266 tests / 76 failures / 211 skipped — Phase 2 baseline.
+
+### Non-obvious things learned
+
+- **HEEx `disabled={true}` renders as the bare `disabled` attribute**, not `disabled="disabled"`. Asserting on the attribute string fails; assert on the companion `cursor-not-allowed` class or the tooltip text instead.
+- **Wrapping `phx-keyup` in a form requires a second handler clause.** The keyup payload is `%{"value" => v}`; the form-change payload is `%{"<input-name>" => v}`. Crashed `update_amount` until the second clause was added.
+- **Full-suite failure counts fluctuate ±10 from Mnesia state sharing**. Individual file runs are stable. Chase module-level failures, not whole-suite drift.
+
+---
+
+## 2026-04-22 — Bug audit response, Phase 2 (PRs 2a–2e)
+
+23 commits across five PRs. Settlement resilience (2a + 2b), pool cost-basis math (2c), auth instrumentation (2d), airdrop migration (2e).
+
+### PR 2a — Coin flip settlement hardening (10 commits, `3036481` → `3ac015a`)
+
+**Root cause of CF-01 InvalidServerSeed**: confirmed via code analysis — the audit's "Mnesia seed overwrite" hypothesis was wrong. Real bug lives on-chain:
+- `submit_commitment.rs:59` stores the commitment in a **single per-player field**, `player_state.pending_commitment`.
+- `place_bet_sol.rs:144` copies `bet_order.commitment_hash = player_state.pending_commitment` and clears the field.
+- Two `submit_commitment` calls before the first `place_bet` lands silently overwrite each other's hash. The first place_bet stamps the WRONG commitment into its bet_order. Settler submits with seed_A against chain expecting hash(seed_B) → `InvalidServerSeed (0x178a)`.
+- Program is correct (see audit Don't-do list). Fix is client/settler only.
+
+**What shipped**:
+- **Recovery by commitment_hash.** New `:commitment_hash` index on `:coin_flip_games` via idempotent runtime `reconcile_indexes/2` in `mnesia_initializer`. New `CoinFlipGame.get_game_by_commitment_hash/1` + `record_to_game/1` helpers. When the settler returns the new 409 `commitment_mismatch` response, `handle_commitment_mismatch/3` looks up a sibling game in Mnesia whose seed SHA256s to the chain's commitment and resettles with THAT seed — parking the orphaned game as `:manual_review`.
+- **Settler pre-submit SHA256 assertion.** `bankroll-service.ts settleBet/6` fetches `bet_order` on-chain and verifies `SHA256(seed) == bet_order.commitment_hash` BEFORE submitting. Returns structured 409 on mismatch instead of burning a tx fee. `/pending-bets/:wallet` now includes `commitment_hash` hex.
+- **CF-02 recovery UI.** `:settlement_timeout` 60s timer stored in `settlement_timeout_ref`. New `:timeout` + `:manual_review` status states in the result card template. "Place another bet" CTA whenever `@settlement_status in [:settled, :failed, :timeout, :manual_review]`. Cancellation paths cover `reset_game`, `:settlement_complete`, `:settlement_failed`.
+- **CF-07 user-scoped broadcasts.** `broadcast_game_settled/2` fires `{:new_settled_game, payload}` AND `{:game_settled, game_id}` on `coin_flip_settlement:#{user_id}` from `mark_game_settled` — so background `CoinFlipBetSettler` settlements ALSO update the LV feed, not just direct-from-LV ones. Payload dedupes by game_id; `{:game_settled, _}` safety net re-fetches from Mnesia.
+- **CF-08 balance propagation.** `handle_async(:sync_post_settle, {:ok, balances})` now assigns `:token_balances` locally AND broadcasts via `BuxBalanceHook.broadcast_token_balances_update/2`. Header pill re-renders without waiting for the async chain.
+- **Tests**: 4 CF-01 regression tests (commitment-hash lookup + `:manual_review` short-circuit) + 4 profit-math unit tests (matches audit examples 0.05×0.02, 0.05×0.98, 100×0.98 via `trunc`/`div`) + 2 LV regression tests (`:new_settled_game` prepend, `:manual_review` non-crash).
+
+**User-paired deferred**:
+- Browser repro of the 3-rapid-bets scenario (fix is defensive even if theory is partly off — recovery-by-hash works regardless).
+- 30-min canary on `node2` before any promotion.
+
+### PR 2b — Shared settler retry + dead-letter queue (4 commits, `a189b4f` → `54ecee6`)
+
+- **`BlocksterV2.SettlerRetry`** — stateless library. `classify/1` maps error reasons to `:retry | :transient | :terminal`. `backoff_delay/1` returns the `[10, 30, 90, 270, 810, 900]` cap-at-900 schedule. `maybe_upgrade_to_terminal/1` caps unknown :retry at 3 consecutive attempts. `park_dead_letter/3` + `list_dead_letters/0` + `resolve/2` wrap the new `:settler_dead_letters` Mnesia table. All DB ops swallow exits so the settle path's already-failing state isn't made worse.
+- **`CoinFlipBetSettler.attempt_settlement/1`** wired to `SettlerRetry.classify/1`. `:terminal` → `mark_game_failed` + `park_dead_letter`. `:transient` → info-log only. `:manual_review` path also parks a dead-letter row. Retry cadence still 1-min tick — exponential backoff is available via the helper but per-bet scheduled retry is a follow-up.
+- **Admin UI** at `/admin/stats/stuck-bets` (`Admin.StatsLive.StuckBets`). Inline HEEx render; lists rows grouped by operation_type with Resolve buttons.
+- **14 SettlerRetry tests** cover all classification buckets, the backoff schedule contract, and the park/list/resolve round-trip.
+
+**Deviation**: delivered as a stateless module rather than a per-op GenServer state machine. Simpler to test, simpler to wire future callers (BuxMinter, PaymentIntentWatcher, AirdropClaimService) incrementally.
+
+### PR 2c — Pool ACB math (4 commits, `af403b1` → `d10787e`)
+
+**Root cause**: the audit's captured "cost basis 1.0008, unrealized P/L -0.5121" after a partial withdraw happened because `record_withdraw` never fired. `socket.assigns[:lp_price]` was always nil at `tx_confirmed` time — `render/1` called `|> assign(lp_price: lp_price)` but that's on the function-component assigns map, NOT the socket. `tx_confirmed`'s `is_number(lp_price) and lp_price > 0` guard failed and `PoolPositions.record_withdraw/4` silently no-op'd.
+
+**Fix**: one line in `handle_async(:fetch_pool_stats, {:ok, {:ok, stats}}, …)` that also persists `lp_price` to `socket.assigns`. The `PoolPositions` math was always correct; the bug was entirely at the LV call site.
+
+Also:
+- **Realized P/L column** in the position panel (3-col grid Cost basis / Unrealized / Realized). Without it, partial withdraws showed a falling cost basis + value but no sense of the gain already pocketed.
+- **`PoolPositions.reset_position/2`** admin recovery helper — wipes the cost-basis row so next render re-seeds from current LP × current lp_price. CLAUDE.md-compliant; no `priv/mnesia` deletion. The audit's `recompute_from_activities/1` isn't feasible — `:pool_activities` doesn't store per-row lp_price.
+- **11 regression tests** parameterised across `:sol` + `:bux` vaults (macro-generated describe blocks). Includes POOL-03 specific screenshot-value regression.
+
+### PR 2d — Auth hardening (2 commits, `ab2b274` → `be5cbb6`) — **🟨 partial**
+
+- **`docs/auth_session_contract.md`** — canonical session-key contract. Only key is `"wallet_address"`. Documents SIWS / Web3Auth / dev-login writers, static-mount vs connected-mount resolution, three conditional GLOBAL-01 fix paths pending repro data.
+- **`BLOCKSTER_DEBUG_AUTH=1` instrumentation** on `UserAuth` + `AdminAuth`. When flipped on, every on_mount logs phase + session keys + connect_params keys + resolved user_id. Wallet addresses truncated to `first4…last4` so the log isn't sensitive.
+- No behaviour change. The actual flash fix is blocked on a browser session I can't drive from the CLI — flagged for user pairing.
+
+### PR 2e — Airdrop winner backfill + single-winner UI (3 commits, `cd44d3c` → `8dadf3b`)
+
+- **`BlocksterV2.Airdrop.WinnerAddressBackfill`** — extracted library that the new `20260422223000_backfill_winner_solana_addresses.exs` migration delegates to. Can't test migrations directly from `mix test` (not on the compile path); extracting the logic was unavoidable.
+- **Migration behaviour**: follows `merged_into_user_id` up to 10 hops; case-insensitive wallet fallback for user_id=NULL rows; crude Solana-pubkey shape check (base58, 32-48 chars, no `0x`) before rewriting; preserves the original wallet in `external_wallet`; `AIRDROP_WINNER_BACKFILL_DRY_RUN=1` logs without mutating.
+- **Not run against dev** — gated on operator `pg_dump airdrop_winners` per the audit Don't-do list. Dry-run instructions are in the migration moduledoc. `down/0` is a no-op; rollback requires restore from backup.
+- **AIRDROP-01** "Winner took all N positions" summary card renders above the table when `distinct_winner_count == 1` and `length(winners) > 1`. Full table still reachable via the existing Show-all toggle.
+- **5 migration regression tests** + 1 LV test.
+
+### Non-obvious things learned (Phase 2)
+
+- **Function-component `|> assign(…)` inside `render/1` does NOT touch socket assigns.** POOL-03 was a one-line fix once this gap was identified. Before setting an assign inside `render/1`, ask whether any handler that runs OFF the render pass (`handle_event`, `handle_info`, `handle_async`) needs to read it. If yes, assign it on the socket from wherever it's computed (usually an async handler).
+- **IEEE-754 float slop in test assertions**: `0.051 - 0.05 = 9.999…e-4`, not `0.001`. Use `assert_in_delta` with a 1e-9 tolerance for any multi-step float arithmetic.
+- **Migrations aren't on the compile path.** `apply(Repo.Migrations.X, :up, [])` from `mix test` fails with `UndefinedFunctionError`. Extract migration logic into `lib/` modules and have the migration delegate. Testability pays back immediately.
+- **`^existing = w.wallet_address ->` inside a `case` is invalid** — variable pinning doesn't work as a pattern-match tie-in. Use a guard: `same when same == w.wallet_address ->`.
+- **TypeScript `tsc --noEmit` runs silently on success.** No output IS the success signal. Confirmed by intentionally introducing a syntax error during development.
+- **Phase 1 baseline → Phase 2 final**: 3266 / 76 / 211 → 3307 / 69 / 211. **+41 tests, −7 failures.** Full-suite flake noise is ±10-20; module-level runs remain stable.
+
