@@ -79,8 +79,11 @@ defmodule BlocksterV2Web.ShopLive.Show do
         product_price = (product.price || 0) |> to_float()
         max_bux_tokens = (product_price * effective_discount / 100) / @token_value_usd
 
-        # Default tokens to redeem is the lesser of user balance and max allowed
-        default_tokens = min(user_bux_balance, max_bux_tokens) |> to_float()
+        # SHOP-05: default to 0 so the price panel shows full price until the
+        # user actively opts into the BUX discount via the input or "Max"
+        # button. Previously defaulted to min(balance, cap), which silently
+        # pre-applied the maximum discount before the user made a choice.
+        default_tokens = 0.0
 
         # Determine shoe gender for unisex products
         shoe_gender = if product_config && product_config.size_type == "unisex_shoes", do: "mens", else: nil

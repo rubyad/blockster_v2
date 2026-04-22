@@ -541,4 +541,85 @@ defmodule BlocksterV2Web.ShopLive.ShowTest do
       assert html =~ "Max: 2,200"
     end
   end
+
+  # ============================================================================
+  # SHOP-05: default tokens_to_redeem = 0 on mount
+  #
+  # Previously the page pre-selected `min(user_balance, max_bux_tokens)`, so a
+  # user landed on the page with the maximum discount already applied — the
+  # anchor price rendered as strikethrough against the fully-discounted price.
+  # After the fix the user sees the full SOL price until they actively enter a
+  # BUX amount (or click "Max").
+  # ============================================================================
+
+  describe "SHOP-05 default tokens_to_redeem" do
+    setup do
+      System.put_env("SHOP_BUX_CAP_ENFORCED", "true")
+      on_exit(fn -> System.delete_env("SHOP_BUX_CAP_ENFORCED") end)
+
+      :mnesia.start()
+
+      case :mnesia.create_table(:user_solana_balances,
+             attributes: [:user_id, :wallet_address, :updated_at, :sol_balance, :bux_balance],
+             type: :set,
+             ram_copies: [node()]
+           ) do
+        {:atomic, :ok} -> :ok
+        {:aborted, {:already_exists, _}} -> :ok
+      end
+
+      :ok
+    end
+
+    defp create_user_with_bux_05(bux_balance) do
+      unique_id = System.unique_integer([:positive])
+
+      pubkey =
+        :crypto.strong_rand_bytes(32)
+        |> Base.encode32(case: :lower, padding: false)
+        |> String.replace(~r/[0il]/, "A")
+        |> String.slice(0, 44)
+
+      user =
+        User.web3auth_registration_changeset(%{
+          "wallet_address" => pubkey,
+          "email" => "shop05_#{unique_id}@example.com",
+          "username" => "shop05u#{unique_id}",
+          "auth_method" => "web3auth_email"
+        })
+        |> Repo.insert!()
+
+      :mnesia.dirty_write(
+        :user_solana_balances,
+        {:user_solana_balances, user.id, user.wallet_address, System.system_time(:second), 0.0,
+         bux_balance * 1.0}
+      )
+
+      user
+    end
+
+    test "on mount with logged-in user holding BUX, tokens_to_redeem starts at 0",
+         %{conn: conn} do
+      user = create_user_with_bux_05(22_000)
+      conn = log_in_user(conn, user)
+
+      {:ok, view, _html} = live(conn, ~p"/shop/phantom-ghost-crewneck")
+
+      html = render(view)
+      # Full $55.00 price shown, no discount badge.
+      assert html =~ "$55.00"
+      refute html =~ "% OFF"
+
+      # The token input starts at 0.00 (template renders `:erlang.float_to_binary`).
+      assert html =~ ~s(value="0.00")
+    end
+
+    test "anonymous visitors also see full price on mount (no regression)",
+         %{conn: conn} do
+      {:ok, _view, html} = live(conn, ~p"/shop/phantom-ghost-crewneck")
+
+      assert html =~ "$55.00"
+      refute html =~ "% OFF"
+    end
+  end
 end
