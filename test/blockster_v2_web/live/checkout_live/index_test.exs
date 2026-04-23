@@ -592,6 +592,88 @@ defmodule BlocksterV2Web.CheckoutLive.IndexTest do
   end
 
   # ============================================================================
+  # SHOP-16: form-event hygiene — no bare phx-change/keyup/blur/focus on inputs
+  # ============================================================================
+
+  describe "form-event hygiene (SHOP-16)" do
+    setup %{order: order} do
+      {:ok, order} =
+        Orders.update_order_shipping(order, %{
+          shipping_name: "Marcus Verren",
+          shipping_email: "marcus@blockster.com",
+          shipping_address_line1: "142 Cherry Lane",
+          shipping_city: "Brooklyn",
+          shipping_state: "NY",
+          shipping_postal_code: "11217",
+          shipping_country: "United States"
+        })
+
+      {:ok, order} =
+        Orders.update_order_shipping_rate(order, %{
+          shipping_cost: Decimal.new("5.99"),
+          shipping_method: "us_standard"
+        })
+
+      %{order: Orders.get_order(order.id)}
+    end
+
+    # Any phx-change / phx-keyup / phx-blur / phx-focus binding MUST live on a
+    # <form> element, not on a bare <input|textarea|select>. Otherwise LV's
+    # `pushInput` blows up with "form events require the input to be inside a
+    # form" — the audit's SHOP-16 console-error symptom.
+    #
+    # Regex is an intentional blunt instrument here — fast, no DOM parse, and
+    # catches the exact anti-pattern with a single pass. False positives (e.g.
+    # `<input>` inside a form with `phx-change` accidentally copied onto the
+    # input) should still trip the assertion; that's the point.
+    @bare_input_form_binding ~r/<(input|textarea|select)[^>]*phx-(change|keyup|blur|focus)=/
+
+    test "shipping step has no bare form-event bindings on inputs", %{
+      conn: conn,
+      user: user,
+      order: order
+    } do
+      conn = log_in_user(conn, user)
+      {:ok, _view, html} = live(conn, ~p"/checkout/#{order.id}")
+
+      refute Regex.match?(@bare_input_form_binding, html)
+    end
+
+    test "review step has no bare form-event bindings on inputs", %{
+      conn: conn,
+      user: user,
+      order: order
+    } do
+      conn = log_in_user(conn, user)
+      {:ok, view, _html} = live(conn, ~p"/checkout/#{order.id}")
+      html = render_click(view, "select_shipping_rate", %{"rate" => "us_standard"})
+
+      refute Regex.match?(@bare_input_form_binding, html)
+    end
+
+    test "payment step has no bare form-event bindings on inputs (BUX discount path)",
+         %{conn: conn, user: user, order: order} do
+      # Force the BUX burn card to render alongside the SOL payment card.
+      order =
+        order
+        |> Ecto.Changeset.change(%{
+          bux_tokens_burned: 1_000,
+          bux_discount_amount: Decimal.new("10.00")
+        })
+        |> Repo.update!()
+
+      order = Orders.get_order(order.id)
+
+      conn = log_in_user(conn, user)
+      {:ok, view, _html} = live(conn, ~p"/checkout/#{order.id}")
+      _ = render_click(view, "select_shipping_rate", %{"rate" => "us_standard"})
+      html = render_click(view, "proceed_to_payment")
+
+      refute Regex.match?(@bare_input_form_binding, html)
+    end
+  end
+
+  # ============================================================================
   # Step 4: Confirmation
   # ============================================================================
 
