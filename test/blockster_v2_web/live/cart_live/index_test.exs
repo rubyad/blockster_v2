@@ -299,6 +299,112 @@ defmodule BlocksterV2Web.CartLive.IndexTest do
     end
   end
 
+  # ============================================================================
+  # SHOP-cart · add-to-cart counter + item fields (PR 3a checklist)
+  # ============================================================================
+
+  describe "add-to-cart flow (SHOP-cart)" do
+    test "cart counter goes from empty-state to singular after one add", %{
+      conn: conn,
+      user: user,
+      product1: product1,
+      variant1: variant1
+    } do
+      # Mount empty first so the baseline assertion is real, not synthetic.
+      conn = log_in_user(conn, user)
+      {:ok, _view, html} = live(conn, ~p"/cart")
+      assert html =~ "Your cart is empty"
+      assert html =~ "0 items"
+
+      # Add via the Cart context — same path the product page uses.
+      {:ok, _item} =
+        CartContext.add_to_cart(user.id, product1.id, %{
+          quantity: 1,
+          variant_id: variant1.id
+        })
+
+      {:ok, _view, html} = live(conn, ~p"/cart")
+
+      # Counter on cart hero is pluralised per length(cart_items) — asserting
+      # both the number and the singular/plural branch locks both in.
+      refute html =~ "Your cart is empty"
+      assert html =~ "1 item"
+      refute html =~ "1 items"
+    end
+
+    test "cart counter reaches 2 after adding a second distinct item", %{
+      conn: conn,
+      user: user,
+      product1: product1,
+      variant1: variant1,
+      product2: product2
+    } do
+      {:ok, _item1} =
+        CartContext.add_to_cart(user.id, product1.id, %{
+          quantity: 1,
+          variant_id: variant1.id
+        })
+
+      {:ok, _item2} = CartContext.add_to_cart(user.id, product2.id, %{quantity: 1})
+
+      conn = log_in_user(conn, user)
+      {:ok, _view, html} = live(conn, ~p"/cart")
+
+      assert html =~ "2 items"
+      refute html =~ "0 items"
+    end
+
+    test "each added item renders its title, image, and variant field values", %{
+      conn: conn,
+      user: user,
+      product1: product1,
+      variant1: variant1
+    } do
+      {:ok, _item} =
+        CartContext.add_to_cart(user.id, product1.id, %{
+          quantity: 3,
+          variant_id: variant1.id
+        })
+
+      conn = log_in_user(conn, user)
+      {:ok, _view, html} = live(conn, ~p"/cart")
+
+      # Title, image, and variant descriptor all present — catches the class
+      # where preload drops or the template stops rendering an item field.
+      assert html =~ "Phantom ghost crewneck"
+      assert html =~ "crewneck.jpg"
+      assert html =~ "Charcoal"
+      # Quantity 3 surfaces as the stepper value.
+      assert html =~ ">3<"
+    end
+
+    test "removing the only item drops the counter back to empty state", %{
+      conn: conn,
+      user: user,
+      product1: product1,
+      variant1: variant1
+    } do
+      {:ok, _item} =
+        CartContext.add_to_cart(user.id, product1.id, %{
+          quantity: 1,
+          variant_id: variant1.id
+        })
+
+      conn = log_in_user(conn, user)
+      {:ok, view, _html} = live(conn, ~p"/cart")
+
+      cart = CartContext.get_or_create_cart(user.id) |> CartContext.preload_items()
+      item = List.first(cart.cart_items)
+
+      html =
+        view
+        |> element("button[phx-click='remove_item'][phx-value-item-id='#{item.id}']")
+        |> render_click()
+
+      assert html =~ "Your cart is empty"
+    end
+  end
+
   describe "update_bux_tokens" do
     setup %{user: user, product1: product1, variant1: variant1} do
       {:ok, _item} = CartContext.add_to_cart(user.id, product1.id, %{quantity: 1, variant_id: variant1.id})
