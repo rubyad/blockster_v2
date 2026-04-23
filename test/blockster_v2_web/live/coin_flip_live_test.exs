@@ -162,6 +162,31 @@ defmodule BlocksterV2Web.CoinFlipLiveTest do
       assert html =~ "No games played yet" or html =~ "Your last bets"
     end
 
+    test "CF-05 — BUX pool card renders 'Coming soon' pill when unfunded", %{conn: conn} do
+      # On devnet the BUX vault is unfunded; the stat card formerly rendered
+      # a raw "—" which reads as a rendering bug. Brand-color pill replaces
+      # it until the vault is funded and returns a non-nil number.
+      {:ok, _view, html} = live(conn, ~p"/play")
+
+      assert html =~ "BUX Pool"
+      assert html =~ "Coming soon"
+      # Brand color applied to the pill background.
+      assert html =~ "bg-[#CAFC00]"
+    end
+
+    test "CF-06 — sidebar 'Your recent games' block is absent when user has 0 games",
+         %{conn: conn} do
+      # Anonymous user has @recent_games = []. The sidebar block that would
+      # render "No games yet" is now hidden entirely; the full "Recent games"
+      # table below the fold still renders its own empty state (so users
+      # don't end up with zero empty-state blocks OR two parallel ones).
+      {:ok, _view, html} = live(conn, ~p"/play")
+
+      # Sidebar heading should NOT appear; below-the-fold table heading still does.
+      refute html =~ "Your recent games"
+      assert html =~ "Recent games"
+    end
+
     test "renders design system footer", %{conn: conn} do
       {:ok, _view, html} = live(conn, ~p"/play")
 

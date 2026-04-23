@@ -205,7 +205,10 @@ defmodule BlocksterV2Web.CoinFlipLive do
         <%!-- ══════════════════════════════════════════════════════
              PAGE HEADER + LIVE STATS BAR
         ══════════════════════════════════════════════════════ --%>
-        <section id="ds-play-hero" class="pt-12 pb-8">
+        <%!-- CF-04: `relative z-0` pins the hero's own stacking context below
+             the site header's `z-30`, so the stat cards stop bleeding
+             through the sticky header on scroll-to-top. --%>
+        <section id="ds-play-hero" class="pt-12 pb-8 relative z-0">
           <div class="grid grid-cols-12 gap-4 md:gap-8 items-end">
             <div class="col-span-12 md:col-span-7">
               <BlocksterV2Web.DesignSystem.eyebrow class="mb-3">
@@ -232,9 +235,24 @@ defmodule BlocksterV2Web.CoinFlipLive do
                 </div>
                 <div class="bg-white rounded-2xl border border-neutral-200/70 p-4 text-right shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
                   <div class="text-[9px] uppercase tracking-[0.14em] text-neutral-500 mb-1">BUX Pool</div>
-                  <div class="font-mono font-bold text-[18px] text-[#141414]">
-                    <%= if @selected_token == "BUX", do: format_balance(@house_balance), else: "—" %>
-                  </div>
+                  <%!-- CF-05: BUX vault is unfunded on devnet; raw "—" reads as
+                       a rendering bug. Brand-color "Coming soon" pill
+                       communicates state and vanishes automatically once the
+                       vault is funded (non-nil, non-zero balance). --%>
+                  <%
+                    bux_value =
+                      if @selected_token == "BUX" and is_number(@house_balance) and @house_balance > 0,
+                        do: format_balance(@house_balance)
+                  %>
+                  <%= if bux_value do %>
+                    <div class="font-mono font-bold text-[18px] text-[#141414]"><%= bux_value %></div>
+                  <% else %>
+                    <div class="flex justify-end">
+                      <span class="inline-flex items-center gap-1 bg-[#CAFC00] text-[#141414] text-[10px] font-bold uppercase tracking-[0.12em] px-2 py-1 rounded-full">
+                        Coming soon
+                      </span>
+                    </div>
+                  <% end %>
                   <.link navigate={~p"/pool/bux"} class="text-[10px] text-[#22C55E] font-mono hover:underline">View pool ↗</.link>
                 </div>
                 <div class="bg-white rounded-2xl border border-neutral-200/70 p-4 text-right shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
@@ -693,14 +711,30 @@ defmodule BlocksterV2Web.CoinFlipLive do
 
                 <%!-- Win / Loss banner --%>
                 <%= if @won do %>
+                  <%!-- CF-03: bold profit amount only renders once settlement
+                       lands on chain. Pre-settlement shows a muted amount +
+                       "Confirming on-chain…" label so the user never sees a
+                       celebratory +X SOL headline for money that hasn't
+                       actually landed in their wallet. Losses are unchanged —
+                       the balance already moved at bet placement. --%>
                   <div class="bg-gradient-to-r from-[#22C55E]/12 via-[#CAFC00]/15 to-[#22C55E]/12 border-b border-[#22C55E]/25 px-6 py-6 text-center">
                     <div class="text-[10px] font-bold uppercase tracking-[0.18em] text-[#15803d] mb-2">You Won</div>
-                    <div class="font-mono font-bold text-[56px] md:text-[64px] text-[#15803d] leading-none tracking-tight">
-                      + <%= format_balance(@payout - @placed_stake) %> <%= @selected_token %>
-                    </div>
-                    <div class="text-[12px] text-[#15803d]/70 mt-2">
-                      Total payout <%= format_balance(@payout) %> <%= @selected_token %> · <%= get_multiplier(@selected_difficulty) %>× multiplier
-                    </div>
+                    <%= if @settlement_status == :settled do %>
+                      <div class="font-mono font-bold text-[56px] md:text-[64px] text-[#15803d] leading-none tracking-tight">
+                        + <%= format_balance(@payout - @placed_stake) %> <%= @selected_token %>
+                      </div>
+                      <div class="text-[12px] text-[#15803d]/70 mt-2">
+                        Total payout <%= format_balance(@payout) %> <%= @selected_token %> · <%= get_multiplier(@selected_difficulty) %>× multiplier
+                      </div>
+                    <% else %>
+                      <div class="font-mono font-bold text-[56px] md:text-[64px] text-[#15803d]/40 leading-none tracking-tight">
+                        + <%= format_balance(@payout - @placed_stake) %> <%= @selected_token %>
+                      </div>
+                      <div class="inline-flex items-center gap-2 mt-2 text-[11px] uppercase tracking-[0.14em] text-[#15803d]/70 font-bold">
+                        <svg class="animate-spin w-3 h-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/></svg>
+                        Confirming on chain…
+                      </div>
+                    <% end %>
                   </div>
                 <% else %>
                   <div class="bg-gradient-to-r from-[#EF4444]/8 to-[#EF4444]/8 border-b border-[#EF4444]/20 px-6 py-6 text-center">
@@ -879,7 +913,11 @@ defmodule BlocksterV2Web.CoinFlipLive do
                   <% end %>
                 </div>
 
-                <%!-- Recent player activity (your own last 5) --%>
+                <%!-- CF-06: sidebar "Your recent games" block only renders when
+                     the user has ≥1 game. The full "Recent games" table below
+                     the fold still shows its own empty-state so new users
+                     aren't greeted with two parallel empty panels. --%>
+                <%= unless Enum.empty?(@recent_games) do %>
                 <div class="bg-white rounded-2xl border border-neutral-200/70 shadow-[0_1px_3px_rgba(0,0,0,0.04)] overflow-hidden">
                   <div class="px-5 py-3 border-b border-neutral-100 flex items-center justify-between">
                     <div class="flex items-center gap-1.5">
@@ -888,29 +926,26 @@ defmodule BlocksterV2Web.CoinFlipLive do
                     </div>
                     <span class="text-[9px] font-mono text-neutral-400">last 5</span>
                   </div>
-                  <%= if Enum.empty?(@recent_games) do %>
-                    <div class="px-5 py-8 text-[11px] text-neutral-400 text-center">No games yet</div>
-                  <% else %>
-                    <div class="divide-y divide-neutral-100">
-                      <%= for game <- Enum.take(@recent_games, 5) do %>
-                        <div class="px-5 py-3 flex items-center justify-between">
-                          <div class="flex items-center gap-2">
-                            <img src={if game.vault_type in ["sol", :sol], do: "https://ik.imagekit.io/blockster/solana-sol-logo.png", else: "https://ik.imagekit.io/blockster/blockster-icon.png"} class="w-5 h-5 rounded-full" />
-                            <span class="text-[11px] font-mono text-neutral-500">
-                              <%= format_balance(game.bet_amount) %> <%= String.upcase(to_string(game.vault_type)) %>
-                            </span>
-                          </div>
-                          <div class="text-right">
-                            <div class={["font-mono font-bold text-[12px]", if(game.won, do: "text-[#22C55E]", else: "text-[#EF4444]")]}>
-                              <%= if game.won, do: "+ #{format_balance(game.payout - game.bet_amount)}", else: "− #{format_balance(game.bet_amount)}" %>
-                            </div>
-                            <div class="text-[9px] font-mono text-neutral-400"><%= game.multiplier %>×</div>
-                          </div>
+                  <div class="divide-y divide-neutral-100">
+                    <%= for game <- Enum.take(@recent_games, 5) do %>
+                      <div class="px-5 py-3 flex items-center justify-between">
+                        <div class="flex items-center gap-2">
+                          <img src={if game.vault_type in ["sol", :sol], do: "https://ik.imagekit.io/blockster/solana-sol-logo.png", else: "https://ik.imagekit.io/blockster/blockster-icon.png"} class="w-5 h-5 rounded-full" />
+                          <span class="text-[11px] font-mono text-neutral-500">
+                            <%= format_balance(game.bet_amount) %> <%= String.upcase(to_string(game.vault_type)) %>
+                          </span>
                         </div>
-                      <% end %>
-                    </div>
-                  <% end %>
+                        <div class="text-right">
+                          <div class={["font-mono font-bold text-[12px]", if(game.won, do: "text-[#22C55E]", else: "text-[#EF4444]")]}>
+                            <%= if game.won, do: "+ #{format_balance(game.payout - game.bet_amount)}", else: "− #{format_balance(game.bet_amount)}" %>
+                          </div>
+                          <div class="text-[9px] font-mono text-neutral-400"><%= game.multiplier %>×</div>
+                        </div>
+                      </div>
+                    <% end %>
+                  </div>
                 </div>
+                <% end %>
 
                 <%!-- Two modes legend --%>
                 <div class="bg-neutral-50 border border-neutral-200/70 rounded-2xl p-5">
