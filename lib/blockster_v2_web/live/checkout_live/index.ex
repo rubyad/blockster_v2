@@ -186,37 +186,55 @@ defmodule BlocksterV2Web.CheckoutLive.Index do
 
   # ── BUX discount burn (optional; only when BUX tokens were allocated) ───────
 
+  def handle_event("toggle_bux_warning_ack", _params, socket) do
+    {:noreply, assign(socket, :bux_warning_ack, not socket.assigns.bux_warning_ack)}
+  end
+
   def handle_event("initiate_bux_payment", _params, socket) do
     order = socket.assigns.order
     user = socket.assigns.current_user
     bux_amount = order.bux_tokens_burned
 
-    if bux_amount <= 0 do
-      {:noreply, socket}
-    else
-      case BalanceManager.deduct_bux(user.id, bux_amount) do
-        {:ok, _new_balance} ->
-          {:ok, order} = Orders.update_order(order, %{status: "bux_pending"})
-          order = Orders.get_order(order.id)
+    cond do
+      bux_amount <= 0 ->
+        {:noreply, socket}
 
-          {:noreply,
-           socket
-           |> assign_order(order)
-           |> assign(:bux_payment_status, :processing)
-           |> push_event("initiate_bux_payment_client", %{
-             amount: bux_amount,
-             order_id: order.id
-           })}
+      not socket.assigns.bux_warning_ack ->
+        {:noreply,
+         put_flash(
+           socket,
+           :error,
+           "Please acknowledge that BUX is non-refundable before continuing."
+         )}
 
-        {:error, :insufficient, current_balance} ->
-          {:noreply,
-           socket
-           |> assign(:bux_payment_status, :failed)
-           |> put_flash(
-             :error,
-             "Insufficient BUX balance. You have #{trunc(current_balance)} BUX but need #{bux_amount} BUX."
-           )}
-      end
+      true ->
+        case BalanceManager.deduct_bux(user.id, bux_amount) do
+          {:ok, _new_balance} ->
+            now = DateTime.utc_now() |> DateTime.truncate(:second)
+
+            {:ok, order} =
+              Orders.update_order(order, %{status: "bux_pending", bux_burn_started_at: now})
+
+            order = Orders.get_order(order.id)
+
+            {:noreply,
+             socket
+             |> assign_order(order)
+             |> assign(:bux_payment_status, :processing)
+             |> push_event("initiate_bux_payment_client", %{
+               amount: bux_amount,
+               order_id: order.id
+             })}
+
+          {:error, :insufficient, current_balance} ->
+            {:noreply,
+             socket
+             |> assign(:bux_payment_status, :failed)
+             |> put_flash(
+               :error,
+               "Insufficient BUX balance. You have #{trunc(current_balance)} BUX but need #{bux_amount} BUX."
+             )}
+        end
     end
   end
 
@@ -352,6 +370,13 @@ defmodule BlocksterV2Web.CheckoutLive.Index do
         true -> :pending
       end
 
+    # bux_warning_ack: SHOP-14 pre-burn non-refundable acknowledgement. If the
+    # burn already landed (or there's no BUX to burn) the gate is moot — default
+    # true so the UI doesn't re-prompt. Otherwise default false; user ticks the
+    # checkbox before the burn CTA enables.
+    bux_warning_ack =
+      bux_status in [:completed, :not_applicable] or order.bux_burn_started_at != nil
+
     socket
     |> assign(:bux_payment_status, bux_status)
     |> assign(:sol_payment_status, sol_status)
@@ -360,6 +385,7 @@ defmodule BlocksterV2Web.CheckoutLive.Index do
     |> assign(:remaining_sol, remaining_sol)
     |> assign(:remaining_lamports, round(remaining_sol * @sol_mark_lamports))
     |> assign(:payment_intent, nil)
+    |> assign_new(:bux_warning_ack, fn -> bux_warning_ack end)
   end
 
   defp maybe_load_payment_intent(socket) do

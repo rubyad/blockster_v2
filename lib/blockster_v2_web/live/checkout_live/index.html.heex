@@ -554,13 +554,41 @@
                   </div>
                 </div>
 
-                <%!-- Send BUX button --%>
+                <%!-- SHOP-14: pre-burn non-refundable warning + acknowledgement gate --%>
                 <%= if @bux_payment_status == :pending do %>
-                  <div class="mt-4">
+                  <div class="mt-4 bg-amber-50 border border-amber-200 rounded-xl p-4">
+                    <div class="flex items-start gap-3">
+                      <svg class="w-5 h-5 text-amber-600 shrink-0 mt-0.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                      <div class="flex-1">
+                        <p class="text-[13px] font-bold text-amber-900 mb-1">BUX is non-refundable</p>
+                        <p class="text-[12px] text-amber-800 leading-relaxed">
+                          Once you sign this transaction, your BUX is burned on Solana. You must complete the SOL payment within the 15-minute window or the burn is forfeited — there is no automatic refund.
+                        </p>
+                        <label class="mt-3 flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            phx-click="toggle_bux_warning_ack"
+                            checked={@bux_warning_ack}
+                            class="w-4 h-4 rounded border-amber-400 text-amber-600 focus:ring-amber-500 cursor-pointer"
+                          />
+                          <span class="text-[12px] font-medium text-amber-900">I understand BUX is non-refundable</span>
+                        </label>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="mt-3">
                     <button
                       phx-click="initiate_bux_payment"
                       phx-disable-with="Processing payment..."
-                      class="w-full inline-flex items-center justify-center gap-2 bg-[#0a0a0a] text-white px-5 py-3 rounded-full text-[13px] font-bold hover:bg-[#1a1a22] transition-colors cursor-pointer"
+                      disabled={not @bux_warning_ack}
+                      class={
+                        "w-full inline-flex items-center justify-center gap-2 px-5 py-3 rounded-full text-[13px] font-bold transition-colors " <>
+                        if(@bux_warning_ack,
+                          do: "bg-[#0a0a0a] text-white hover:bg-[#1a1a22] cursor-pointer",
+                          else: "bg-neutral-200 text-neutral-400 cursor-not-allowed"
+                        )
+                      }
                     >
                       Send <%= Number.Delimit.number_to_delimited(@order.bux_tokens_burned, precision: 0) %> BUX
                     </button>
