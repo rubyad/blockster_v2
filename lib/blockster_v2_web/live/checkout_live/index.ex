@@ -238,10 +238,31 @@ defmodule BlocksterV2Web.CheckoutLive.Index do
     end
   end
 
+  # Canonical SHOP-15 success event — the rebuilt JS hook pushes this with the
+  # burn tx signature after confirming via `getSignatureStatuses` polling
+  # (CLAUDE.md; NEVER confirmTransaction). Keep the legacy `bux_payment_complete`
+  # handler below as a thin shim so a half-rolled-out hook can't brick an
+  # in-flight checkout.
+  def handle_event("bux_burn_confirmed", %{"sig" => sig}, socket) do
+    finalize_bux_burn(socket, sig)
+  end
+
   def handle_event("bux_payment_complete", %{"tx_hash" => hash}, socket) do
+    finalize_bux_burn(socket, hash)
+  end
+
+  defp finalize_bux_burn(socket, tx_hash) when is_binary(tx_hash) and byte_size(tx_hash) > 0 do
     order = socket.assigns.order
-    {:ok, order} = Orders.complete_bux_payment(order, hash)
-    order = Orders.get_order(order.id)
+
+    # Idempotent: if the sig already landed (two firings of the same event,
+    # e.g. hook retries on flaky websocket), re-use the existing order.
+    order =
+      if order.bux_burn_tx_hash in [nil, ""] do
+        {:ok, order} = Orders.complete_bux_payment(order, tx_hash)
+        Orders.get_order(order.id)
+      else
+        order
+      end
 
     user = socket.assigns.current_user
 
@@ -256,6 +277,8 @@ defmodule BlocksterV2Web.CheckoutLive.Index do
      |> put_flash(:info, "BUX applied!")
      |> maybe_create_payment_intent()}
   end
+
+  defp finalize_bux_burn(socket, _), do: {:noreply, socket}
 
   def handle_event("bux_payment_error", %{"error" => err}, socket) do
     order = socket.assigns.order

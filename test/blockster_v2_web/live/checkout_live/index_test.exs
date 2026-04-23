@@ -490,6 +490,108 @@ defmodule BlocksterV2Web.CheckoutLive.IndexTest do
   end
 
   # ============================================================================
+  # Step 3c: SHOP-15 bux_burn_confirmed handler (server-side ready for hook)
+  # ============================================================================
+
+  describe "bux_burn_confirmed handler (SHOP-15)" do
+    setup %{order: order} do
+      # Order shaped to match the post-:initiate_bux_payment state: shipping
+      # set, rate selected, status `:bux_pending`, bux_burn_started_at set.
+      # This is the state the rebuilt JS hook will land the sig into.
+      {:ok, order} =
+        Orders.update_order_shipping(order, %{
+          shipping_name: "Marcus Verren",
+          shipping_email: "marcus@blockster.com",
+          shipping_address_line1: "142 Cherry Lane",
+          shipping_city: "Brooklyn",
+          shipping_state: "NY",
+          shipping_postal_code: "11217",
+          shipping_country: "United States"
+        })
+
+      {:ok, order} =
+        Orders.update_order_shipping_rate(order, %{
+          shipping_cost: Decimal.new("5.99"),
+          shipping_method: "us_standard"
+        })
+
+      started_at = DateTime.utc_now() |> DateTime.truncate(:second)
+
+      order =
+        order
+        |> Ecto.Changeset.change(%{
+          status: "bux_pending",
+          bux_tokens_burned: 1_000,
+          bux_discount_amount: Decimal.new("10.00"),
+          bux_burn_started_at: started_at
+        })
+        |> Repo.update!()
+
+      %{order: Orders.get_order(order.id)}
+    end
+
+    test "persists tx hash and advances status to :bux_paid", %{
+      conn: conn,
+      user: user,
+      order: order
+    } do
+      conn = log_in_user(conn, user)
+      {:ok, view, _html} = live(conn, ~p"/checkout/#{order.id}")
+
+      sig = "5vX" <> String.duplicate("a", 85)
+      render_hook(view, "bux_burn_confirmed", %{"sig" => sig})
+
+      order_after = Orders.get_order(order.id)
+      assert order_after.bux_burn_tx_hash == sig
+      assert order_after.status == "bux_paid"
+    end
+
+    test "legacy bux_payment_complete event still persists tx hash", %{
+      conn: conn,
+      user: user,
+      order: order
+    } do
+      conn = log_in_user(conn, user)
+      {:ok, view, _html} = live(conn, ~p"/checkout/#{order.id}")
+
+      legacy_hash = "5vX" <> String.duplicate("b", 85)
+      render_hook(view, "bux_payment_complete", %{"tx_hash" => legacy_hash})
+
+      assert Orders.get_order(order.id).bux_burn_tx_hash == legacy_hash
+    end
+
+    test "handler is idempotent — second firing does not overwrite tx hash", %{
+      conn: conn,
+      user: user,
+      order: order
+    } do
+      conn = log_in_user(conn, user)
+      {:ok, view, _html} = live(conn, ~p"/checkout/#{order.id}")
+
+      sig1 = "5vX" <> String.duplicate("c", 85)
+      sig2 = "5vX" <> String.duplicate("d", 85)
+
+      render_hook(view, "bux_burn_confirmed", %{"sig" => sig1})
+      render_hook(view, "bux_burn_confirmed", %{"sig" => sig2})
+
+      # First sig wins — the second firing is swallowed (guarding against a
+      # double-pushEvent from the client).
+      assert Orders.get_order(order.id).bux_burn_tx_hash == sig1
+    end
+
+    test "empty sig is a no-op", %{conn: conn, user: user, order: order} do
+      conn = log_in_user(conn, user)
+      {:ok, view, _html} = live(conn, ~p"/checkout/#{order.id}")
+
+      render_hook(view, "bux_burn_confirmed", %{"sig" => ""})
+
+      order_after = Orders.get_order(order.id)
+      assert is_nil(order_after.bux_burn_tx_hash)
+      assert order_after.status == "bux_pending"
+    end
+  end
+
+  # ============================================================================
   # Step 4: Confirmation
   # ============================================================================
 
