@@ -63,6 +63,9 @@ defmodule BlocksterV2.Application do
         {BlocksterV2.Orders.AffiliatePayoutWorker, []},
         # Shop checkout: expire stale unpaid orders (every 5 min)
         {BlocksterV2.Orders.OrderExpiryWorker, []},
+        # Shop checkout: surface orders stuck in :bux_pending past 15-min
+        # intent window (SHOP-14) — logs + PubSub broadcast, no state mutation
+        {BlocksterV2.Orders.BuxBurnWatcher, []},
         # Shop checkout: poll settler for SOL payment intent funding (every 10s)
         {BlocksterV2.PaymentIntentWatcher, []},
         # Airdrop: auto-settle rounds when countdown expires
