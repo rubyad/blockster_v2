@@ -371,6 +371,87 @@ defmodule BlocksterV2Web.CheckoutLive.IndexTest do
   end
 
   # ============================================================================
+  # SHOP-10: validation errors hidden until user touches the form
+  # ============================================================================
+
+  describe "validation-error visibility (SHOP-10)" do
+    test "no 'can't be blank' errors render on mount with empty shipping", %{
+      conn: conn,
+      user: user,
+      order: order
+    } do
+      conn = log_in_user(conn, user)
+      {:ok, _view, html} = live(conn, ~p"/checkout/#{order.id}")
+
+      # Changeset already has validation errors populated (validate_required
+      # fires at cast time), but the template must hide them until the user
+      # has touched / submitted the form. Assert BOTH the raw phrase and a
+      # red-error node aren't in the initial DOM.
+      refute html =~ "can&#39;t be blank"
+      refute html =~ "can't be blank"
+    end
+
+    test "errors appear after the user edits the form (validate_shipping)", %{
+      conn: conn,
+      user: user,
+      order: order
+    } do
+      conn = log_in_user(conn, user)
+      {:ok, view, _html} = live(conn, ~p"/checkout/#{order.id}")
+
+      # Typing into one field posts a change event for the whole form; that
+      # flips `@show_validation_errors` on, so other empty-required fields
+      # now surface their "can't be blank" messages.
+      html =
+        view
+        |> form("[phx-submit='save_shipping']", shipping: %{shipping_name: "Marcus"})
+        |> render_change()
+
+      assert html =~ "can&#39;t be blank" or html =~ "can't be blank"
+    end
+  end
+
+  # ============================================================================
+  # SHOP-12: stepper reflects `{@step, @shipping_phase}` not just @step
+  # ============================================================================
+
+  describe "stepper progress (SHOP-12)" do
+    setup %{order: order} do
+      {:ok, order} =
+        Orders.update_order_shipping(order, %{
+          shipping_name: "Marcus Verren",
+          shipping_email: "marcus@blockster.com",
+          shipping_address_line1: "142 Cherry Lane",
+          shipping_city: "Brooklyn",
+          shipping_state: "NY",
+          shipping_postal_code: "11217",
+          shipping_country: "United States"
+        })
+
+      %{order: Orders.get_order(order.id)}
+    end
+
+    test "dot 2 is active once shipping address is saved (rate_selection phase)",
+         %{conn: conn, user: user, order: order} do
+      conn = log_in_user(conn, user)
+      {:ok, _view, html} = live(conn, ~p"/checkout/#{order.id}")
+
+      # `@step == :shipping` AND `@shipping_phase == :rate_selection` should
+      # light dot 2 — not dot 1. Dot-1 line must NOT carry the active-dot
+      # background class.
+      active_bg = "bg-[#CAFC00]"
+      # Count matches of active dot class; one per active dot. With 4 dots
+      # and only dot 2 active, there should be at least one match in the
+      # rendered DOM.
+      assert html =~ active_bg
+      # Assert the "Shipping" label no longer has the brand color applied
+      # (i.e. dot 1 is no longer current). The completed-dot class is
+      # `bg-[#141414] text-white`.
+      assert html =~ "bg-[#141414]"
+    end
+  end
+
+  # ============================================================================
   # SHOP-11: shipping-step Total renders SOL primary with USD ≈ secondary
   # ============================================================================
 

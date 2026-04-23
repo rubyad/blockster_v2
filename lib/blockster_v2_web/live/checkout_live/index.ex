@@ -36,10 +36,15 @@ defmodule BlocksterV2Web.CheckoutLive.Index do
              |> redirect(to: ~p"/cart")}
 
           %Order{status: "paid"} = order ->
+            # `@shipping_phase` is read by the stepper helper (SHOP-12), so
+            # paid-order mounts also need it assigned — `:rate_selection`
+            # here is a no-op value since `@step == :confirmation` already
+            # trumps any shipping-phase sub-state.
             {:ok,
              socket
              |> assign_order(order)
              |> assign(:step, :confirmation)
+             |> assign(:shipping_phase, :rate_selection)
              |> assign(:page_title, "Order Confirmed")
              |> assign_payment_defaults()}
 
@@ -93,7 +98,12 @@ defmodule BlocksterV2Web.CheckoutLive.Index do
       |> Order.shipping_changeset(params)
       |> Map.put(:action, :validate)
 
-    {:noreply, assign(socket, :shipping_changeset, changeset)}
+    # SHOP-10: first touch flips error visibility on so "can't be blank"
+    # messages don't render on an un-touched form.
+    {:noreply,
+     socket
+     |> assign(:shipping_changeset, changeset)
+     |> assign(:show_validation_errors, true)}
   end
 
   def handle_event("save_shipping", %{"shipping" => params}, socket) do
@@ -108,7 +118,12 @@ defmodule BlocksterV2Web.CheckoutLive.Index do
          |> assign_shipping_rates(order)}
 
       {:error, changeset} ->
-        {:noreply, assign(socket, :shipping_changeset, changeset)}
+        # SHOP-10: failed submit flips the error visibility on (if it wasn't
+        # already) so the user can see which fields need work.
+        {:noreply,
+         socket
+         |> assign(:shipping_changeset, changeset)
+         |> assign(:show_validation_errors, true)}
     end
   end
 
@@ -357,7 +372,13 @@ defmodule BlocksterV2Web.CheckoutLive.Index do
 
   defp assign_shipping_form(socket, order) do
     changeset = Order.shipping_changeset(order, %{})
-    assign(socket, :shipping_changeset, changeset)
+
+    # SHOP-10: errors stay hidden until the first `validate_shipping` event
+    # flips this on (or the user attempts `save_shipping`). Checkout mount
+    # with empty required fields MUST NOT flash "can't be blank" per-field.
+    socket
+    |> assign(:shipping_changeset, changeset)
+    |> assign_new(:show_validation_errors, fn -> false end)
   end
 
   defp assign_shipping_rates(socket, order) do
@@ -496,6 +517,18 @@ defmodule BlocksterV2Web.CheckoutLive.Index do
   def format_sol_amount(nil), do: "0.00"
   def format_sol_amount(float) when is_number(float), do: Pricing.format_sol(float)
 
+  @doc """
+  SHOP-10: returns the per-field error list only after the user has interacted
+  with the shipping form. On mount with empty required fields the changeset
+  already has "can't be blank" errors, but we hide them until first
+  `validate_shipping` / `save_shipping` sets `@show_validation_errors` true.
+  """
+  def shipping_field_errors(_changeset, false, _field), do: []
+
+  def shipping_field_errors(changeset, true, field) do
+    Keyword.get_values(changeset.errors, field)
+  end
+
   def payment_step_copy(%{order: %Order{bux_tokens_burned: bux}}) when bux > 0 do
     "First burn the BUX you redeemed (one Solana tx), then send SOL to your one-time payment address to complete the order."
   end
@@ -509,6 +542,15 @@ defmodule BlocksterV2Web.CheckoutLive.Index do
   def step_number(:payment), do: 3
   def step_number(:confirmation), do: 4
   def step_number(_), do: 1
+
+  @doc """
+  SHOP-12: stepper-visual step number keyed on `{step, shipping_phase}` so
+  dot progression matches user perception. Once the user submits the
+  shipping address the app is logically still in `:shipping` but UX-wise
+  they've moved past it — light dot 2 during `:rate_selection`.
+  """
+  def visual_step_number(:shipping, :rate_selection), do: 2
+  def visual_step_number(step, _phase), do: step_number(step)
 
   def step_label(:shipping), do: "Shipping"
   def step_label(:review), do: "Review"

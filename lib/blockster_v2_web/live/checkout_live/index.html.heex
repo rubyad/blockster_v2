@@ -23,19 +23,23 @@
   <section class="pt-8 pb-6">
     <div class="bg-white rounded-2xl border border-neutral-200/70 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
       <div class="flex items-center gap-3">
-        <%= for {step_atom, idx, label} <- [{:shipping, 1, "Shipping"}, {:review, 2, "Review"}, {:payment, 3, "Payment"}, {:confirmation, 4, "Done"}] do %>
+        <%!-- SHOP-12: active dot keys off `{@step, @shipping_phase}` so the
+             "Shipping" dot stays lit while the user is still in the address
+             sub-phase, and dot 2 lights as soon as they move to rate
+             selection — even though both phases share `@step == :shipping`. --%>
+        <%= for {_step_atom, idx, label} <- [{:shipping, 1, "Shipping"}, {:review, 2, "Review"}, {:payment, 3, "Payment"}, {:confirmation, 4, "Done"}] do %>
           <div class="flex flex-col items-center">
             <%
-              current_num = step_number(@step)
+              visual_num = visual_step_number(@step, @shipping_phase)
               dot_class = cond do
-                current_num > idx -> "w-8 h-8 rounded-full grid place-items-center font-mono text-[12px] font-bold bg-[#141414] text-white"
-                current_num == idx -> "w-8 h-8 rounded-full grid place-items-center font-mono text-[12px] font-bold bg-[#CAFC00] text-[#141414] shadow-[0_0_0_4px_rgba(202,252,0,0.2)]"
+                visual_num > idx -> "w-8 h-8 rounded-full grid place-items-center font-mono text-[12px] font-bold bg-[#141414] text-white"
+                visual_num == idx -> "w-8 h-8 rounded-full grid place-items-center font-mono text-[12px] font-bold bg-[#CAFC00] text-[#141414] shadow-[0_0_0_4px_rgba(202,252,0,0.2)]"
                 true -> "w-8 h-8 rounded-full grid place-items-center font-mono text-[12px] font-bold bg-gray-100 text-[#9CA3AF] border border-neutral-200"
               end
-              label_class = if(current_num >= idx, do: "text-[10px] font-bold tracking-[0.12em] uppercase mt-1.5 text-[#141414]", else: "text-[10px] font-bold tracking-[0.12em] uppercase mt-1.5 text-neutral-400")
+              label_class = if(visual_num >= idx, do: "text-[10px] font-bold tracking-[0.12em] uppercase mt-1.5 text-[#141414]", else: "text-[10px] font-bold tracking-[0.12em] uppercase mt-1.5 text-neutral-400")
             %>
             <div class={dot_class}>
-              <%= if current_num > idx do %>
+              <%= if visual_num > idx do %>
                 <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
               <% else %>
                 <%= idx %>
@@ -46,7 +50,7 @@
           <%= if idx < 4 do %>
             <div class={[
               "flex-1 h-0.5",
-              if(step_number(@step) > idx, do: "bg-[#141414]", else: "bg-neutral-200")
+              if(visual_step_number(@step, @shipping_phase) > idx, do: "bg-[#141414]", else: "bg-neutral-200")
             ]}></div>
           <% end %>
         <% end %>
@@ -85,7 +89,7 @@
                       required
                       class="w-full bg-white border border-neutral-200 rounded-xl px-3.5 py-3 text-[13px] text-[#141414] placeholder:text-[#9CA3AF] focus:outline-none focus:border-[#141414] transition-colors"
                     />
-                    <%= for {msg, _} <- Keyword.get_values(@shipping_changeset.errors, :shipping_name) do %>
+                    <%= for {msg, _} <- shipping_field_errors(@shipping_changeset, @show_validation_errors, :shipping_name) do %>
                       <p class="text-[11px] text-red-500 mt-1"><%= msg %></p>
                     <% end %>
                   </div>
@@ -99,7 +103,7 @@
                       required
                       class="w-full bg-white border border-neutral-200 rounded-xl px-3.5 py-3 text-[13px] text-[#141414] placeholder:text-[#9CA3AF] focus:outline-none focus:border-[#141414] transition-colors"
                     />
-                    <%= for {msg, _} <- Keyword.get_values(@shipping_changeset.errors, :shipping_email) do %>
+                    <%= for {msg, _} <- shipping_field_errors(@shipping_changeset, @show_validation_errors, :shipping_email) do %>
                       <p class="text-[11px] text-red-500 mt-1"><%= msg %></p>
                     <% end %>
                   </div>
@@ -115,7 +119,7 @@
                     required
                     class="w-full bg-white border border-neutral-200 rounded-xl px-3.5 py-3 text-[13px] text-[#141414] placeholder:text-[#9CA3AF] focus:outline-none focus:border-[#141414] transition-colors"
                   />
-                  <%= for {msg, _} <- Keyword.get_values(@shipping_changeset.errors, :shipping_address_line1) do %>
+                  <%= for {msg, _} <- shipping_field_errors(@shipping_changeset, @show_validation_errors, :shipping_address_line1) do %>
                     <p class="text-[11px] text-red-500 mt-1"><%= msg %></p>
                   <% end %>
                 </div>
@@ -143,7 +147,7 @@
                       required
                       class="w-full bg-white border border-neutral-200 rounded-xl px-3.5 py-3 text-[13px] text-[#141414] placeholder:text-[#9CA3AF] focus:outline-none focus:border-[#141414] transition-colors"
                     />
-                    <%= for {msg, _} <- Keyword.get_values(@shipping_changeset.errors, :shipping_city) do %>
+                    <%= for {msg, _} <- shipping_field_errors(@shipping_changeset, @show_validation_errors, :shipping_city) do %>
                       <p class="text-[11px] text-red-500 mt-1"><%= msg %></p>
                     <% end %>
                   </div>
@@ -167,7 +171,7 @@
                       required
                       class="w-full bg-white border border-neutral-200 rounded-xl px-3.5 py-3 text-[13px] text-[#141414] placeholder:text-[#9CA3AF] focus:outline-none focus:border-[#141414] transition-colors"
                     />
-                    <%= for {msg, _} <- Keyword.get_values(@shipping_changeset.errors, :shipping_postal_code) do %>
+                    <%= for {msg, _} <- shipping_field_errors(@shipping_changeset, @show_validation_errors, :shipping_postal_code) do %>
                       <p class="text-[11px] text-red-500 mt-1"><%= msg %></p>
                     <% end %>
                   </div>
@@ -184,7 +188,7 @@
                       required
                       class="w-full bg-white border border-neutral-200 rounded-xl px-3.5 py-3 text-[13px] text-[#141414] placeholder:text-[#9CA3AF] focus:outline-none focus:border-[#141414] transition-colors"
                     />
-                    <%= for {msg, _} <- Keyword.get_values(@shipping_changeset.errors, :shipping_country) do %>
+                    <%= for {msg, _} <- shipping_field_errors(@shipping_changeset, @show_validation_errors, :shipping_country) do %>
                       <p class="text-[11px] text-red-500 mt-1"><%= msg %></p>
                     <% end %>
                   </div>
