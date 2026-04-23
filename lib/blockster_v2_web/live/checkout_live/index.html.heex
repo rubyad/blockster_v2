@@ -330,10 +330,18 @@
                   <span class="font-mono text-neutral-400 italic">Next step</span>
                 </div>
               </div>
+              <%!-- SHOP-11: Total renders SOL primary + USD ≈ secondary to match
+                   the /shop and /checkout payment step rails (SOL is the
+                   settlement currency; USD was a leftover from the Helio era). --%>
+              <% ship_step_subtotal = Decimal.sub(@order.subtotal, @order.bux_discount_amount) %>
               <div class="pt-4 mt-2 border-t border-neutral-100 flex items-baseline justify-between">
-                <span class="text-[13px] font-bold text-[#141414]">Total &middot; USD</span>
+                <span class="text-[13px] font-bold text-[#141414]">Total</span>
                 <div class="text-right">
-                  <div class="font-mono font-bold text-[22px] text-[#141414] leading-none">$<%= format_usd(Decimal.sub(@order.subtotal, @order.bux_discount_amount)) %></div>
+                  <BlocksterV2Web.ShopComponents.sol_usd_dual
+                    usd={ship_step_subtotal}
+                    rate={@sol_usd_rate}
+                    size={:total}
+                  />
                   <%= if @order.bux_tokens_burned > 0 do %>
                     <div class="text-[10px] text-neutral-500 font-mono mt-1">+ <%= Number.Delimit.number_to_delimited(@order.bux_tokens_burned, precision: 0) %> BUX burned</div>
                   <% end %>

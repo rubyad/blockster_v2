@@ -403,6 +403,30 @@ defmodule BlocksterV2Web.CartLive.IndexTest do
 
       assert html =~ "Your cart is empty"
     end
+
+    test "order summary renders SOL primary with USD ≈ secondary (SHOP-06/09)", %{
+      conn: conn,
+      user: user,
+      product1: product1,
+      variant1: variant1
+    } do
+      {:ok, _item} =
+        CartContext.add_to_cart(user.id, product1.id, %{
+          quantity: 1,
+          variant_id: variant1.id
+        })
+
+      conn = log_in_user(conn, user)
+      {:ok, _view, html} = live(conn, ~p"/cart")
+
+      # The subtotal + total rows must render via the shared sol_usd_dual
+      # component — "N.NN SOL" on one line, "≈ $X.XX" on the next.
+      assert html =~ "SOL"
+      assert html =~ "≈"
+      # USD should still appear as the secondary, but there should be at
+      # least one SOL mention per SOL-primary total (subtotal + total = 2+).
+      assert html |> String.split("SOL") |> length() >= 3
+    end
   end
 
   describe "update_bux_tokens" do

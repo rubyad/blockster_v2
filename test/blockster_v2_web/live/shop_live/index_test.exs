@@ -130,10 +130,18 @@ defmodule BlocksterV2Web.ShopLive.IndexTest do
       assert html =~ "Spend the BUX you earned"
       assert html =~ "Crypto-inspired streetwear &amp; gadgets"
       assert html =~ "products in stock"
-      assert html =~ "1 BUX = $0.01"
 
-      # Footer
-      assert html =~ "Where the chain meets the model."
+      # SHOP-01 + SHOP-02: hero reads "Pay in SOL" (not USD) and drops the
+      # dollar-denominated BUX rate pill in favour of a percentage-of-max-off
+      # phrasing so the only monetary unit on the page is SOL.
+      assert html =~ "Pay in SOL"
+      assert html =~ "Redeem BUX for up to 50% off"
+      refute html =~ "Pay in USD"
+      refute html =~ "1 BUX = $"
+
+      # Footer was retuned to the Solana brand line post-migration (matches
+      # the checkout_live smoke assertion).
+      assert html =~ "All in on Solana."
     end
 
     test "renders the shop nav link as active", %{conn: conn} do

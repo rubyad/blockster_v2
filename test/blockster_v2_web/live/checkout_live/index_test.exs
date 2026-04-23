@@ -371,6 +371,25 @@ defmodule BlocksterV2Web.CheckoutLive.IndexTest do
   end
 
   # ============================================================================
+  # SHOP-11: shipping-step Total renders SOL primary with USD ≈ secondary
+  # ============================================================================
+
+  describe "currency display (SHOP-11)" do
+    test "shipping-step order summary Total is SOL primary with USD ≈ secondary",
+         %{conn: conn, user: user, order: order} do
+      conn = log_in_user(conn, user)
+      {:ok, _view, html} = live(conn, ~p"/checkout/#{order.id}")
+
+      # Total label should NOT carry the "· USD" tag anymore (stale from the
+      # Helio era). SOL + `≈ $X.XX` pair should render via sol_usd_dual.
+      refute html =~ "Total &middot; USD"
+      refute html =~ "Total · USD"
+      assert html =~ "SOL"
+      assert html =~ "≈"
+    end
+  end
+
+  # ============================================================================
   # Step 3b: SHOP-14 BUX burn warning + non-refundable acknowledgement gate
   # ============================================================================
 

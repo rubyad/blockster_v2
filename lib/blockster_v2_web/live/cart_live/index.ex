@@ -26,6 +26,10 @@ defmodule BlocksterV2Web.CartLive.Index do
          |> assign(:cart, cart)
          |> assign(:warnings, warnings)
          |> assign(:token_value_usd, @token_value_usd)
+         # SHOP-13/GLOBAL-03: snapshot the SOL/USD rate at mount so intra-page
+         # renders don't drift. Checkout uses the same pattern. /wallet is
+         # explicitly excluded (WALLET-03 — always-live rate).
+         |> assign(:sol_usd_rate, BlocksterV2.Shop.Pricing.sol_usd_rate())
          |> assign(:suggested_products, suggested)
          |> assign_totals()}
     end
