@@ -4503,16 +4503,17 @@ defmodule BlocksterV2Web.DesignSystem do
 
   defp ds_user_initial(_), do: "?"
 
-  defp ds_truncate_addr(nil), do: "—"
-  defp ds_truncate_addr(addr) when byte_size(addr) < 10, do: addr
+  defp ds_truncate_addr(addr) when is_binary(addr) and byte_size(addr) < 10, do: addr
 
-  defp ds_truncate_addr(addr) do
+  defp ds_truncate_addr(addr) when is_binary(addr) do
     "#{String.slice(addr, 0..3)}…#{String.slice(addr, -4..-1)}"
   end
 
-  defp ds_short_pubkey(nil), do: "—"
-  defp ds_short_pubkey(addr) when byte_size(addr) < 6, do: addr
-  defp ds_short_pubkey(addr), do: String.slice(addr, 0..5)
+  defp ds_truncate_addr(_), do: "—"
+
+  defp ds_short_pubkey(addr) when is_binary(addr) and byte_size(addr) < 6, do: addr
+  defp ds_short_pubkey(addr) when is_binary(addr), do: String.slice(addr, 0..5)
+  defp ds_short_pubkey(_), do: "—"
 
   defp ds_auth_source_label("wallet"), do: "Wallet"
   defp ds_auth_source_label("email"), do: "Email"

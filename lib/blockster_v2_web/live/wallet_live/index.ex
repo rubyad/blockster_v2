@@ -105,15 +105,24 @@ defmodule BlocksterV2Web.WalletLive.Index do
 
   # ── Send flow stubs ─────────────────────────────────────────────
 
+  # Fires on every keystroke in either the destination OR the amount field
+  # because phx-change is bound at the form level. Persist BOTH fields back
+  # into @send_form so one field isn't wiped when the other changes.
   @impl true
-  def handle_event("calc_send_preview", %{"amount" => amount}, socket) do
+  def handle_event("calc_send_preview", params, socket) do
+    to = Map.get(params, "to", socket.assigns.send_form.to) || ""
+    amount = Map.get(params, "amount", socket.assigns.send_form.amount) || ""
     preview = calc_usd_preview(amount, socket.assigns.sol_usd_price)
 
-    send_form = Map.merge(socket.assigns.send_form, %{amount: amount, usd_preview: preview})
+    send_form =
+      Map.merge(socket.assigns.send_form, %{
+        to: to,
+        amount: amount,
+        usd_preview: preview
+      })
+
     {:noreply, assign(socket, :send_form, send_form)}
   end
-
-  def handle_event("calc_send_preview", _params, socket), do: {:noreply, socket}
 
   def handle_event("set_send_max", _params, socket) do
     # Reserve ~0.001 SOL for fees + rent exemption minimum.
@@ -363,23 +372,24 @@ defmodule BlocksterV2Web.WalletLive.Index do
 
   def format_ts_short(_), do: "—"
 
-  def truncate_addr(nil), do: "—"
-  def truncate_addr(addr) when byte_size(addr) < 12, do: addr
+  def truncate_addr(addr) when is_binary(addr) and byte_size(addr) < 12, do: addr
 
-  def truncate_addr(addr) do
+  def truncate_addr(addr) when is_binary(addr) do
     "#{String.slice(addr, 0..3)}…#{String.slice(addr, -4..-1)}"
   end
 
-  @doc "Format a Solana pubkey as 4-char groups for visual verification."
-  def format_addr_groups(nil), do: ""
+  def truncate_addr(_), do: "—"
 
-  def format_addr_groups(addr) do
+  @doc "Format a Solana pubkey as 4-char groups for visual verification."
+  def format_addr_groups(addr) when is_binary(addr) do
     addr
     |> String.graphemes()
     |> Enum.chunk_every(4)
     |> Enum.map(&Enum.join/1)
     |> Enum.join(" ")
   end
+
+  def format_addr_groups(_), do: ""
 
   def solscan_url(nil), do: "#"
 

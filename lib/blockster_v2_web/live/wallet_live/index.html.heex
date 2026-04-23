@@ -355,7 +355,11 @@
             </div>
           <% else %>
             <%!-- ── IDLE / SENDING FORM ── --%>
-            <form phx-submit="review_send" class="p-5 md:p-8 space-y-5 relative">
+            <form
+              phx-submit="review_send"
+              phx-change="calc_send_preview"
+              class="p-5 md:p-8 space-y-5 relative"
+            >
 
               <%= if @stage == :sending do %>
                 <div class="absolute inset-0 z-10 bg-white/80 backdrop-blur-sm grid place-items-center rounded-b-[24px]">
@@ -427,7 +431,6 @@
                     placeholder="0.00"
                     autocomplete="off"
                     required
-                    phx-change="calc_send_preview"
                     class="flex-1 min-w-0 bg-transparent pl-4 pr-2 py-3.5 text-[22px] font-bold tabular-nums text-[#141414] placeholder-neutral-300 outline-none border-0 focus:ring-0"
                     style="letter-spacing: -0.02em;"
                   />

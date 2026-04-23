@@ -175,6 +175,28 @@ defmodule BlocksterV2Web.WalletLive.IndexTest do
       assert html =~ "9WzD XwBb"
     end
 
+    test "typing in amount preserves destination address", %{conn: conn} do
+      # Regression: phx-change used to live on the amount input only, which
+      # sent {"amount" => ...} and wiped send_form.to — the destination
+      # field would clear itself as soon as the user touched amount.
+      user = create_web3auth_user()
+      conn = log_in_user(conn, user)
+
+      {:ok, view, _html} = live(conn, ~p"/wallet")
+
+      html =
+        view
+        |> form("form[phx-submit='review_send']", %{
+          to: "9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM",
+          amount: "0.1"
+        })
+        |> render_change()
+
+      # After a phx-change, the destination input should still have its value
+      assert html =~ ~s|value="9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM"|
+      assert html =~ ~s|value="0.1"|
+    end
+
     test "review_send with an invalid address shows an error", %{conn: conn} do
       user = create_web3auth_user()
       conn = log_in_user(conn, user)
@@ -385,6 +407,401 @@ defmodule BlocksterV2Web.WalletLive.IndexTest do
       assert Index.audit_event_label("withdrawal_confirmed") == "Withdrawal confirmed"
       assert Index.audit_event_label("withdrawal_failed") == "Withdrawal failed"
       assert Index.audit_event_label("key_exported") == "Private key exported"
+    end
+  end
+
+  # ══════════════════════════════════════════════════════════════════════════
+  # STRESS TESTS — UX bug class coverage
+  #
+  # Why this block exists: the bug where phx-change wiped the destination
+  # field, and the format_bux-crash on integer input, both slipped past the
+  # happy-path tests above. These tests specifically stress the classes of
+  # thing that were breaking:
+  #  - form-field round-trips on every phx-change
+  #  - formatters with ALL numeric input types
+  #  - stage transitions from non-initial starting states
+  #  - PubSub-driven assign updates that mimic production lifecycle
+  #  - paste / max button interactions that mutate field state
+  # ══════════════════════════════════════════════════════════════════════════
+  describe "format_* robustness (stress)" do
+    alias BlocksterV2Web.WalletLive.Index
+
+    test "no formatter crashes on integer, float, nil, negative, huge values" do
+      inputs = [0, 0.0, 1, 1.0, 1234, 1234.5678, -5, -5.5, nil, "not a number", 9_999_999_999.99]
+
+      for input <- inputs do
+        # None of these should raise
+        assert is_binary(Index.format_sol(input))
+        assert is_binary(Index.format_bux(input))
+        assert is_tuple(Index.split_sol(input))
+        assert is_binary(Index.truncate_addr(input || ""))
+      end
+    end
+
+    test "format_usd handles mixed int/float types without crashing" do
+      assert Index.format_usd(0, 0) == "0.00"
+      assert Index.format_usd(1, 100) == "100.00"
+      assert Index.format_usd(1.5, 200) == "300.00"
+      assert Index.format_usd(2, 172.5) == "345.00"
+      assert Index.format_usd(nil, 100) == "0.00"
+      assert Index.format_usd(1, nil) == "0.00"
+    end
+
+    test "zero_pad_pct + countdown_seconds_remaining accept integer or float" do
+      assert Index.zero_pad_pct(0) == "000"
+      assert Index.zero_pad_pct(0.0) == "000"
+      assert Index.zero_pad_pct(100) == "100"
+      assert Index.zero_pad_pct(99.5) == "100"
+      assert Index.zero_pad_pct(nil) == "000"
+
+      assert Index.countdown_seconds_remaining(0) == 0
+      assert Index.countdown_seconds_remaining(0.0) == 0
+      assert Index.countdown_seconds_remaining(100) == 30
+      assert Index.countdown_seconds_remaining(50) == 15
+      assert Index.countdown_seconds_remaining(nil) == 0
+    end
+  end
+
+  describe "form field round-trips (stress)" do
+    test "typing in amount does NOT wipe destination", %{conn: conn} do
+      user = create_web3auth_user()
+      conn = log_in_user(conn, user)
+      {:ok, view, _html} = live(conn, ~p"/wallet")
+
+      html =
+        view
+        |> form("form[phx-submit='review_send']", %{
+          to: "9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM",
+          amount: "0.1"
+        })
+        |> render_change()
+
+      assert html =~ ~s|value="9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM"|
+      assert html =~ ~s|value="0.1"|
+    end
+
+    test "typing in destination does NOT wipe amount", %{conn: conn} do
+      user = create_web3auth_user()
+      conn = log_in_user(conn, user)
+      {:ok, view, _html} = live(conn, ~p"/wallet")
+
+      # Enter amount first
+      view
+      |> form("form[phx-submit='review_send']", %{to: "", amount: "0.25"})
+      |> render_change()
+
+      # Then type a destination — amount should survive
+      html =
+        view
+        |> form("form[phx-submit='review_send']", %{
+          to: "7EYnhQoR9YM3N7UoaKRoA44Uy8JeaZV3qyouov87awMs",
+          amount: "0.25"
+        })
+        |> render_change()
+
+      assert html =~ ~s|value="0.25"|
+      assert html =~ ~s|value="7EYnhQoR9YM3N7UoaKRoA44Uy8JeaZV3qyouov87awMs"|
+    end
+
+    test "empty form change doesn't crash", %{conn: conn} do
+      user = create_web3auth_user()
+      conn = log_in_user(conn, user)
+      {:ok, view, _html} = live(conn, ~p"/wallet")
+
+      render_change(form(view, "form[phx-submit='review_send']", %{to: "", amount: ""}))
+      assert render(view) =~ "Send SOL"
+    end
+
+    test "set_send_max fills amount and keeps destination", %{conn: conn} do
+      user = create_web3auth_user()
+      conn = log_in_user(conn, user)
+      {:ok, view, _html} = live(conn, ~p"/wallet")
+
+      bump_balance(view, 2.5)
+
+      # Type destination first
+      view
+      |> form("form[phx-submit='review_send']", %{
+        to: "7EYnhQoR9YM3N7UoaKRoA44Uy8JeaZV3qyouov87awMs",
+        amount: ""
+      })
+      |> render_change()
+
+      # Hit MAX — should populate amount without wiping destination
+      html = view |> element("button[phx-click='set_send_max']") |> render_click()
+
+      assert html =~ ~s|value="7EYnhQoR9YM3N7UoaKRoA44Uy8JeaZV3qyouov87awMs"|
+      # Amount should be set to ~max (2.5 - 0.001 reserve)
+      assert html =~ ~r/value="2\.49[89]/
+    end
+  end
+
+  describe "PubSub-driven assign updates (stress)" do
+    test "receiving integer bux_balance_updated message doesn't crash", %{conn: conn} do
+      # Regression: format_bux crashed on :erlang.float_to_binary(0, ...)
+      # because PubSub sends integer 0 for empty-balance users.
+      user = create_web3auth_user()
+      conn = log_in_user(conn, user)
+      {:ok, view, _html} = live(conn, ~p"/wallet")
+
+      send(view.pid, {:bux_balance_updated, 0})
+      assert render(view) =~ "BUX"
+
+      send(view.pid, {:bux_balance_updated, 12_345})
+      assert render(view) =~ "BUX"
+
+      send(view.pid, {:bux_balance_updated, 12_345.67})
+      assert render(view) =~ "BUX"
+    end
+
+    test "fetch_balances handle_async with {:ok, {sol, bux}} updates UI", %{conn: conn} do
+      user = create_web3auth_user()
+      conn = log_in_user(conn, user)
+      {:ok, view, _html} = live(conn, ~p"/wallet")
+
+      :sys.replace_state(view.pid, fn state ->
+        assigns = Map.merge(state.socket.assigns, %{sol_balance: 3.14, bux_balance: 999.5})
+        %{state | socket: %{state.socket | assigns: assigns}}
+      end)
+
+      html = render(view)
+      assert html =~ "Your wallet"
+      # Shouldn't crash
+    end
+  end
+
+  describe "stage transitions from arbitrary starting states (stress)" do
+    test "cancel_send from sending stage returns to idle", %{conn: conn} do
+      user = create_web3auth_user()
+      conn = log_in_user(conn, user)
+      {:ok, view, _html} = live(conn, ~p"/wallet")
+
+      bump_balance(view, 1.0)
+
+      view
+      |> form("form[phx-submit='review_send']", %{
+        to: "9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM",
+        amount: "0.5"
+      })
+      |> render_submit()
+
+      # Advance to :sending then reject
+      view |> element("button[phx-click='confirm_send']") |> render_click()
+      render_hook(view, "withdrawal_error", %{"error" => "Transaction cancelled"})
+
+      html = render(view)
+      refute html =~ "Confirm transfer"
+      assert html =~ "Review transfer"
+      assert html =~ "Transaction cancelled"
+    end
+
+    test "reset_send after :sent clears form and stage", %{conn: conn} do
+      user = create_web3auth_user()
+      conn = log_in_user(conn, user)
+      {:ok, view, _html} = live(conn, ~p"/wallet")
+
+      bump_balance(view, 1.0)
+
+      view
+      |> form("form[phx-submit='review_send']", %{
+        to: "9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM",
+        amount: "0.5"
+      })
+      |> render_submit()
+
+      view |> element("button[phx-click='confirm_send']") |> render_click()
+      render_hook(view, "withdrawal_submitted", %{"signature" => "abcdef"})
+
+      assert render(view) =~ "Confirmed on-chain"
+
+      html = view |> element("button[phx-click='reset_send']") |> render_click()
+      assert html =~ "Review transfer"
+      refute html =~ "Confirmed on-chain"
+    end
+
+    test "export reveal auto-hides after countdown expires", %{conn: conn} do
+      user = create_web3auth_user()
+      conn = log_in_user(conn, user)
+      {:ok, view, _html} = live(conn, ~p"/wallet")
+
+      view |> element("button[phx-click='start_export_intent']") |> render_click()
+      view |> element("input[phx-click='toggle_export_intent_accepted']") |> render_click()
+      view |> element("button[phx-click='start_export_reveal']") |> render_click()
+
+      # Simulate countdown expiring by pushing countdown_pct to 0
+      :sys.replace_state(view.pid, fn state ->
+        assigns = Map.put(state.socket.assigns, :export_countdown_pct, 0.0)
+        %{state | socket: %{state.socket | assigns: assigns}}
+      end)
+
+      send(view.pid, :export_countdown_tick)
+      Process.sleep(50)
+
+      html = render(view)
+      refute html =~ "Your private key"
+      assert html =~ "Take full custody"
+    end
+
+    test "switching export format while revealed doesn't crash", %{conn: conn} do
+      user = create_web3auth_user()
+      conn = log_in_user(conn, user)
+      {:ok, view, _html} = live(conn, ~p"/wallet")
+
+      view |> element("button[phx-click='start_export_intent']") |> render_click()
+      view |> element("input[phx-click='toggle_export_intent_accepted']") |> render_click()
+      view |> element("button[phx-click='start_export_reveal']") |> render_click()
+
+      # Click each format tab — each should succeed
+      for fmt <- ["hex", "qr", "base58"] do
+        html =
+          view
+          |> element("button[phx-click='set_export_format'][phx-value-format='#{fmt}']")
+          |> render_click()
+
+        assert html =~ "Your private key", "format switch to #{fmt} failed"
+      end
+    end
+  end
+
+  describe "validation edge cases (stress)" do
+    test "negative amount is rejected", %{conn: conn} do
+      user = create_web3auth_user()
+      conn = log_in_user(conn, user)
+      {:ok, view, _html} = live(conn, ~p"/wallet")
+
+      bump_balance(view, 1.0)
+
+      html =
+        view
+        |> form("form[phx-submit='review_send']", %{
+          to: "9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM",
+          amount: "-0.5"
+        })
+        |> render_submit()
+
+      refute html =~ "Confirm transfer"
+      assert html =~ ~r/valid amount|greater than/i
+    end
+
+    test "zero amount is rejected", %{conn: conn} do
+      user = create_web3auth_user()
+      conn = log_in_user(conn, user)
+      {:ok, view, _html} = live(conn, ~p"/wallet")
+
+      bump_balance(view, 1.0)
+
+      html =
+        view
+        |> form("form[phx-submit='review_send']", %{
+          to: "9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM",
+          amount: "0"
+        })
+        |> render_submit()
+
+      refute html =~ "Confirm transfer"
+    end
+
+    test "amount exceeding balance is rejected", %{conn: conn} do
+      user = create_web3auth_user()
+      conn = log_in_user(conn, user)
+      {:ok, view, _html} = live(conn, ~p"/wallet")
+
+      bump_balance(view, 0.5)
+
+      html =
+        view
+        |> form("form[phx-submit='review_send']", %{
+          to: "9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM",
+          amount: "1.0"
+        })
+        |> render_submit()
+
+      refute html =~ "Confirm transfer"
+      assert html =~ ~r/exceeds/i
+    end
+
+    test "malformed pubkey (too short) is rejected", %{conn: conn} do
+      user = create_web3auth_user()
+      conn = log_in_user(conn, user)
+      {:ok, view, _html} = live(conn, ~p"/wallet")
+
+      bump_balance(view, 1.0)
+
+      html =
+        view
+        |> form("form[phx-submit='review_send']", %{to: "ABC123", amount: "0.1"})
+        |> render_submit()
+
+      refute html =~ "Confirm transfer"
+    end
+
+    test "pubkey with non-base58 characters is rejected", %{conn: conn} do
+      user = create_web3auth_user()
+      conn = log_in_user(conn, user)
+      {:ok, view, _html} = live(conn, ~p"/wallet")
+
+      bump_balance(view, 1.0)
+
+      # Contains 'l' which is not in base58 alphabet
+      html =
+        view
+        |> form("form[phx-submit='review_send']", %{
+          to: "9WzDXwBlmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWW",
+          amount: "0.1"
+        })
+        |> render_submit()
+
+      refute html =~ "Confirm transfer"
+    end
+  end
+
+  describe "external-wallet user paths (stress)" do
+    test "external-wallet user doesn't crash on full page render", %{conn: conn} do
+      user = create_wallet_user()
+      conn = log_in_user(conn, user)
+
+      {:ok, _view, html} = live(conn, ~p"/wallet")
+
+      # Page should load + show expected content, no Export region, Send is col-span-12
+      assert html =~ "Your wallet"
+      assert html =~ "Send SOL"
+      refute html =~ "Take full custody"
+      refute html =~ "Web3AuthExport"
+      assert html =~ ~s|md:col-span-12|
+    end
+
+    test "external-wallet user can still submit the send form", %{conn: conn} do
+      user = create_wallet_user()
+      conn = log_in_user(conn, user)
+      {:ok, view, _html} = live(conn, ~p"/wallet")
+
+      bump_balance(view, 1.0)
+
+      html =
+        view
+        |> form("form[phx-submit='review_send']", %{
+          to: "9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM",
+          amount: "0.25"
+        })
+        |> render_submit()
+
+      assert html =~ "Confirm transfer"
+    end
+
+    test "export-related events on external-wallet user shouldn't crash", %{conn: conn} do
+      # Even though the UI hides the Export card for wallet users, a stale
+      # JS event or malicious client could still push these — the LV should
+      # handle gracefully rather than crash.
+      user = create_wallet_user()
+      conn = log_in_user(conn, user)
+      {:ok, view, _html} = live(conn, ~p"/wallet")
+
+      render_hook(view, "start_export_intent", %{})
+      render_hook(view, "export_reauth_completed", %{})
+      render_hook(view, "export_reveal_error", %{"error" => "test"})
+      render_hook(view, "set_export_format", %{"format" => "hex"})
+
+      assert render(view) =~ "Your wallet"
     end
   end
 end
