@@ -224,8 +224,13 @@
 
   <%!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
        EMAIL VERIFICATION BANNER (conditional)
+       MEMBER-01: gated on `@is_own_profile` — banner addresses
+       current_user ("Verify your email to unlock…") so it only makes
+       sense on the current user's OWN profile. Previously rendered on
+       every unverified member page, making it read as if we were
+       accusing the profile owner of missing a step.
   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ --%>
-  <%= unless @member.email_verified do %>
+  <%= if @is_own_profile and !@member.email_verified do %>
     <section class="ds-email-verify-banner pb-8">
       <div class="bg-gradient-to-r from-[#fef3c7] to-[#fef9c3] border border-[#facc15]/40 rounded-2xl p-5 flex items-center gap-4 flex-wrap">
         <div class="w-12 h-12 rounded-xl bg-white border border-[#facc15]/40 grid place-items-center shrink-0">
@@ -245,8 +250,9 @@
 
   <%!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
        PHONE VERIFICATION BANNER (conditional)
+       MEMBER-01: own-profile-only; see email-banner comment above.
   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ --%>
-  <%= if !@member.phone_verified do %>
+  <%= if @is_own_profile and !@member.phone_verified do %>
     <section class="ds-phone-verify-banner pb-8">
       <div class="bg-gradient-to-r from-[#fef3c7] to-[#fef9c3] border border-[#facc15]/40 rounded-2xl p-5 flex items-center gap-4 flex-wrap">
         <div class="w-12 h-12 rounded-xl bg-white border border-[#facc15]/40 grid place-items-center shrink-0">

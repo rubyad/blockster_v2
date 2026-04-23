@@ -251,6 +251,38 @@ defmodule BlocksterV2Web.MemberLive.ShowTest do
 
       refute html =~ "ds-phone-verify-banner"
     end
+
+    # MEMBER-01: verification banners address the CURRENT USER (`Verify your
+    # phone to unlock 2× multiplier`). They must NOT render on another user's
+    # profile page even when that other user hasn't verified — otherwise the
+    # banner reads as if we're accusing the profile owner of missing a step,
+    # when the CTA actually targets the viewer.
+    test "hides email banner on another user's profile even if they're unverified",
+         %{conn: conn} do
+      other = insert_user(%{slug: "other-user-no-email", email_verified: false, phone_verified: true})
+      me = insert_user(%{slug: "me-verified", email_verified: true, phone_verified: true})
+      conn = log_in_user(conn, me)
+
+      {:ok, _view, html} = live(conn, ~p"/member/other-user-no-email")
+
+      refute html =~ "ds-email-verify-banner"
+      refute html =~ "Verify your email"
+      # sanity: we reached the other user's profile
+      assert html =~ other.username
+    end
+
+    test "hides phone banner on another user's profile even if they're unverified",
+         %{conn: conn} do
+      other = insert_user(%{slug: "other-user-no-phone", email_verified: true, phone_verified: false})
+      me = insert_user(%{slug: "me-also-verified", email_verified: true, phone_verified: true})
+      conn = log_in_user(conn, me)
+
+      {:ok, _view, html} = live(conn, ~p"/member/other-user-no-phone")
+
+      refute html =~ "ds-phone-verify-banner"
+      refute html =~ "Verify your phone"
+      assert html =~ other.username
+    end
   end
 
   describe "verification status pills" do
