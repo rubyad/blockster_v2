@@ -140,6 +140,31 @@ defmodule BlocksterV2Web.PostLive.ShowTest do
 
       assert html =~ "bg-[#fafaf9]"
     end
+
+    # POST-01: author byline never renders the literal "Unknown". The old
+    # behaviour was for posts with no author row (legacy / editorial content)
+    # to surface "U · Unknown" in the hero byline, which reads as a render
+    # bug. Now falls back to the hub name (if the post has one) or the
+    # neutral "Blockster" editorial byline.
+    test "author byline never renders 'Unknown' — falls back to hub name", %{conn: conn} do
+      hub = insert_hub(%{name: "EditorialHub"})
+      # Post with no author_id (nil) but a hub set.
+      post = insert_post(%{hub_id: hub.id, author_id: nil, author_name: nil})
+
+      {:ok, _view, html} = live(conn, ~p"/#{post.slug}")
+
+      refute html =~ "Unknown"
+      assert html =~ "EditorialHub"
+    end
+
+    test "author byline falls back to 'Blockster' when no author and no hub", %{conn: conn} do
+      post = insert_post(%{hub_id: nil, author_id: nil, author_name: nil})
+
+      {:ok, _view, html} = live(conn, ~p"/#{post.slug}")
+
+      refute html =~ "Unknown"
+      assert html =~ "Blockster"
+    end
   end
 
   describe "GET /:slug · suggested posts" do

@@ -102,21 +102,38 @@ defmodule BlocksterV2.Blog.Post do
 
   @doc """
   Computes the author_name from the loaded author association.
-  Returns "Unknown" if author is not loaded or doesn't exist.
 
-  Persona usernames (marcus_stone) are formatted via `AuthorRotator.display_name/1`
-  so they render as "Marcus Stone" everywhere they appear. Real usernames are
-  returned unchanged so legacy auth fallbacks (`author_name == username`) still
-  match.
+  Falls back to a hub-name byline (when the hub assoc is loaded) or the
+  neutral "Blockster" editorial byline rather than the literal "Unknown"
+  string — POST-01 flagged that real readers saw "U · Unknown" on posts
+  with no author row. Preserves the persona-display rotation for real
+  usernames so "marcus_stone" still renders as "Marcus Stone".
+
+  NOTE: callers (`Blog.get_post_by_slug` + friends) preload `:author` and
+  `:hub`. If `:author` ever lands here as `NotLoaded` we still fall back
+  instead of crashing or emitting "Unknown".
   """
-  def compute_author_name(%__MODULE__{author: %Ecto.Association.NotLoaded{}}), do: "Unknown"
-  def compute_author_name(%__MODULE__{author: nil}), do: "Unknown"
-  def compute_author_name(%__MODULE__{author: author}) when is_map(author) do
+  def compute_author_name(%__MODULE__{author: %Ecto.Association.NotLoaded{}} = post),
+    do: hub_or_editorial_fallback(post)
+
+  def compute_author_name(%__MODULE__{author: nil} = post),
+    do: hub_or_editorial_fallback(post)
+
+  def compute_author_name(%__MODULE__{author: %{is_bot: true}} = post),
+    do: hub_or_editorial_fallback(post)
+
+  def compute_author_name(%__MODULE__{author: author} = post) when is_map(author) do
     case author.username do
-      nil -> author.email || "Unknown"
-      username -> BlocksterV2.ContentAutomation.AuthorRotator.display_name(username)
+      nil ->
+        author.email || hub_or_editorial_fallback(post)
+
+      username ->
+        BlocksterV2.ContentAutomation.AuthorRotator.display_name(username)
     end
   end
+
+  defp hub_or_editorial_fallback(%__MODULE__{hub: %{name: name}}) when is_binary(name), do: name
+  defp hub_or_editorial_fallback(_), do: "Blockster"
 
   @doc """
   Populates the virtual author_name field from the author association.
