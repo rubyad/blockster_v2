@@ -108,7 +108,12 @@ defmodule BlocksterV2Web.PagesSmokeTest do
   defp table_type(:referral_earnings), do: :bag
   defp table_type(_), do: :set
 
-  defp table_indexes(:referral_earnings), do: [:referrer_id]
+  # Must mirror mnesia_initializer.ex — referral_earnings has both
+  # :referrer_id (for list_referral_earnings) and :commitment_hash (for
+  # dedup in record_bet_loss_earning) indexes. Missing :commitment_hash
+  # was the root cause of a cascade of ReferralsTest failures when this
+  # table was created here first.
+  defp table_indexes(:referral_earnings), do: [:referrer_id, :commitment_hash]
   defp table_indexes(_), do: []
 
   defp rand_pubkey do
