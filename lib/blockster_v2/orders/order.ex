@@ -23,6 +23,10 @@ defmodule BlocksterV2.Orders.Order do
 
     # Payment tracking
     field :bux_burn_tx_hash, :string
+    # Timestamp set when the user initiates the on-chain BUX burn (after the
+    # non-refundable warning is acknowledged). Watched server-side so we can
+    # surface orders that stalled post-burn (CLAUDE.md / SHOP-14).
+    field :bux_burn_started_at, :utc_datetime
     field :rogue_payment_tx_hash, :string
     field :rogue_usd_rate_locked, :decimal
     field :helio_charge_id, :string
@@ -108,7 +112,7 @@ defmodule BlocksterV2.Orders.Order do
 
   def status_changeset(order, attrs) do
     order
-    |> cast(attrs, [:status, :fulfillment_notified_at, :notes, :tracking_number])
+    |> cast(attrs, [:status, :fulfillment_notified_at, :notes, :tracking_number, :bux_burn_started_at])
     |> validate_inclusion(:status, @valid_statuses)
   end
 end
