@@ -29,15 +29,44 @@ defmodule BlocksterV2Web.HubLive.Index do
     "AI × Crypto"
   ]
 
+  # HUBS-02: a post is "shown to readers" only if it has a `published_at`
+  # timestamp. Draft / archived / scheduled rows are preloaded by the Blog
+  # query but must NOT contribute to hero stats.
+  defp published?(%{published_at: nil}), do: false
+  defp published?(%{published_at: _}), do: true
+  defp published?(_), do: false
+
   @impl true
   def mount(_params, _session, socket) do
     all_hubs = Blog.list_hubs_with_followers()
 
     {featured, grid_hubs} = Enum.split(all_hubs, @featured_count)
 
+    # HUBS-02: only count PUBLISHED posts so the stat matches what users
+    # can read. Draft / archived rows from the preload would otherwise
+    # inflate the count, which hid a tuning issue behind a bigger number.
     total_post_count =
       Enum.reduce(all_hubs, 0, fn hub, acc ->
-        acc + if Ecto.assoc_loaded?(hub.posts), do: length(hub.posts), else: 0
+        if Ecto.assoc_loaded?(hub.posts) do
+          acc + Enum.count(hub.posts, &published?/1)
+        else
+          acc
+        end
+      end)
+
+    # HUBS-02: aggregate BUX paid out to readers across published posts.
+    # `Post.bux_earned` already tracks reader-reward distributions; summing
+    # it gives the real number instead of the hardcoded "—".
+    total_bux_paid =
+      Enum.reduce(all_hubs, 0, fn hub, acc ->
+        if Ecto.assoc_loaded?(hub.posts) do
+          acc +
+            Enum.reduce(hub.posts, 0, fn post, post_acc ->
+              if published?(post), do: post_acc + (post.bux_earned || 0), else: post_acc
+            end)
+        else
+          acc
+        end
       end)
 
     {:ok,
@@ -49,6 +78,7 @@ defmodule BlocksterV2Web.HubLive.Index do
      |> assign(:active_category, "all")
      |> assign(:total_hub_count, length(all_hubs))
      |> assign(:total_post_count, total_post_count)
+     |> assign(:total_bux_paid, total_bux_paid)
      |> assign(:categories, @categories)
      |> assign(:page_title, "Hubs")}
   end

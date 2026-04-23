@@ -55,12 +55,24 @@
             <div class="font-mono font-bold text-[28px] text-[#141414] leading-none">
               {compact_number(@total_post_count)}
             </div>
-            <div class="text-[10px] uppercase tracking-[0.14em] text-neutral-500 mt-1.5">Articles</div>
+            <%!-- HUBS-02: pluralise the label to match the count so "1 Articles"
+                 doesn't render. --%>
+            <div class="text-[10px] uppercase tracking-[0.14em] text-neutral-500 mt-1.5">
+              <%= if @total_post_count == 1, do: "Article", else: "Articles" %>
+            </div>
           </div>
-          <div class="text-right">
-            <div class="font-mono font-bold text-[28px] text-[#141414] leading-none">—</div>
-            <div class="text-[10px] uppercase tracking-[0.14em] text-neutral-500 mt-1.5">BUX Paid</div>
-          </div>
+          <%!-- HUBS-02: BUX Paid shows the real total from `Post.bux_earned`
+               summed across published posts. Hidden entirely when zero so
+               the dashboard doesn't surface a stat that reads as broken
+               (the previous "—" fallback). --%>
+          <%= if @total_bux_paid > 0 do %>
+            <div class="text-right">
+              <div class="font-mono font-bold text-[28px] text-[#141414] leading-none">
+                {compact_number(@total_bux_paid)}
+              </div>
+              <div class="text-[10px] uppercase tracking-[0.14em] text-neutral-500 mt-1.5">BUX Paid</div>
+            </div>
+          <% end %>
         </div>
       </div>
     </div>

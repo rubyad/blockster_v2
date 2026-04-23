@@ -53,8 +53,13 @@ defmodule BlocksterV2Web.HubLive.IndexTest do
     end
 
     test "renders the page hero with title and stats", %{conn: conn} do
-      insert_hub(%{name: "Solana", slug: "solana", tag_name: "solana"})
+      hub = insert_hub(%{name: "Solana", slug: "solana", tag_name: "solana"})
       insert_hub(%{name: "Ethereum", slug: "ethereum", tag_name: "ethereum"})
+
+      # HUBS-02: "BUX Paid" tile now only renders when at least one published
+      # post across the hubs has accumulated reader rewards. Seed a post with
+      # `bux_earned > 0` to exercise the positive path.
+      insert_post(%{hub_id: hub.id, bux_earned: 1_500})
 
       {:ok, _view, html} = live(conn, ~p"/hubs")
 
@@ -62,9 +67,32 @@ defmodule BlocksterV2Web.HubLive.IndexTest do
       assert html =~ "Hubs"
       # Hero description mentions hub count
       assert html =~ "publications at the intersection of crypto and AI"
-      # Stat tiles
-      assert html =~ "Articles"
+      # Stat tiles — article label pluralises per HUBS-02 (1 Article vs N Articles).
+      assert html =~ "Article"
       assert html =~ "BUX Paid"
+    end
+
+    # HUBS-02: when no published post has any reader rewards yet, the
+    # "BUX Paid" tile hides entirely rather than rendering a placeholder
+    # "—" that reads as a render bug.
+    test "hides 'BUX Paid' tile when no reader rewards have accrued", %{conn: conn} do
+      insert_hub(%{name: "Solana", slug: "solana-nobux", tag_name: "solana_nobux"})
+
+      {:ok, _view, html} = live(conn, ~p"/hubs")
+
+      refute html =~ "BUX Paid"
+    end
+
+    # HUBS-02: pluralization — 1 published post should render "Article" not
+    # "Articles" in the hero stat label.
+    test "singular label when there is exactly one published post", %{conn: conn} do
+      hub = insert_hub(%{name: "Solo", slug: "solo-hub", tag_name: "solo_hub"})
+      insert_post(%{hub_id: hub.id})
+
+      {:ok, _view, html} = live(conn, ~p"/hubs")
+
+      assert html =~ "Article"
+      refute html =~ ">Articles<"
     end
 
     test "renders featured hubs section with top hubs", %{conn: conn} do
