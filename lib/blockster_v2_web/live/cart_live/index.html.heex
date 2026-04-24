@@ -1,6 +1,7 @@
 <BlocksterV2Web.DesignSystem.header
   current_user={@current_user}
   active="shop"
+  display_token="SOL"
   bux_balance={Map.get(assigns, :bux_balance, 0)}
   token_balances={Map.get(assigns, :token_balances, %{})}
   cart_item_count={Map.get(assigns, :cart_item_count, 0)}
@@ -147,7 +148,12 @@
                         class="px-2.5 py-1 text-[14px] text-neutral-500 hover:bg-[#fafaf9] hover:text-[#141414] transition-colors cursor-pointer"
                       >+</button>
                     </div>
-                    <span class="font-mono font-bold text-[18px] text-[#141414]">$<%= format_cart_price(item_subtotal(item)) %></span>
+                    <BlocksterV2Web.ShopComponents.sol_usd_dual
+                      usd={item_subtotal(item)}
+                      rate={@sol_usd_rate}
+                      size={:line}
+                      align="right"
+                    />
                   </div>
 
                   <%!-- BUX redemption strip --%>
@@ -171,7 +177,11 @@
                         />
                         <% bux_disc = Decimal.new("#{item.bux_tokens_to_redeem}") |> Decimal.div(100) %>
                         <%= if Decimal.compare(bux_disc, 0) == :gt do %>
-                          <span class="text-[11px] text-[#15803d] font-mono font-bold">−$<%= Decimal.round(bux_disc, 2) %></span>
+                          <% bux_disc_sol = BlocksterV2.Shop.Pricing.usd_to_sol(Decimal.to_float(bux_disc), @sol_usd_rate) %>
+                          <div class="flex flex-col items-start">
+                            <span class="text-[11px] text-[#15803d] font-mono font-bold">−{BlocksterV2.Shop.Pricing.format_sol_precise(bux_disc_sol)} SOL</span>
+                            <span class="text-[9px] text-[#15803d]/70 font-mono">≈ −$<%= Decimal.round(bux_disc, 2) %></span>
+                          </div>
                         <% end %>
                       </form>
                     </div>
@@ -215,16 +225,16 @@
                 </div>
 
                 <%= if @totals.total_bux_tokens > 0 do %>
-                  <div class="flex items-center justify-between">
-                    <span class="text-neutral-600 font-medium">BUX discount · <span class="font-mono"><%= Number.Delimit.number_to_delimited(@totals.total_bux_tokens, precision: 0) %> BUX</span></span>
-                    <span class="font-mono font-bold text-[#15803d]">−$<%= format_cart_price(@totals.total_bux_discount) %></span>
+                  <% cart_bux_disc_sol = BlocksterV2.Shop.Pricing.usd_to_sol(Decimal.to_float(@totals.total_bux_discount), @sol_usd_rate) %>
+                  <div class="flex items-start justify-between">
+                    <span class="text-neutral-600 font-medium pt-0.5">BUX discount · <span class="font-mono"><%= Number.Delimit.number_to_delimited(@totals.total_bux_tokens, precision: 0) %> BUX</span></span>
+                    <div class="flex flex-col items-end">
+                      <span class="font-mono font-bold text-[14px] text-[#15803d]">−{BlocksterV2.Shop.Pricing.format_sol_precise(cart_bux_disc_sol)} SOL</span>
+                      <span class="text-[11px] text-[#15803d]/70 font-mono mt-0.5">≈ −$<%= format_cart_price(@totals.total_bux_discount) %></span>
+                    </div>
                   </div>
                 <% end %>
 
-                <div class="flex items-center justify-between text-[11px]">
-                  <span class="text-neutral-500 font-medium">Your BUX balance</span>
-                  <span class="font-mono text-neutral-500"><%= Number.Delimit.number_to_delimited(@totals.bux_available, precision: 0) %> BUX</span>
-                </div>
               </div>
 
               <div class="pt-4 mt-4 border-t border-neutral-100 flex items-baseline justify-between">
@@ -286,14 +296,12 @@
               </div>
               <div class="p-4 text-center">
                 <h3 class="font-bold text-[14px] text-[#141414] leading-tight mb-2 line-clamp-2"><%= product.name %></h3>
-                <div class="flex flex-col items-center mb-3">
-                  <%= if product.total_max_discount > 0 do %>
-                    <span class="text-[10px] text-neutral-400 line-through font-mono">$<%= :erlang.float_to_binary(product.price, decimals: 2) %></span>
-                  <% end %>
-                  <span class="font-mono font-bold text-[16px] text-[#141414]">
-                    $<%= :erlang.float_to_binary(if(product.total_max_discount > 0, do: product.max_discounted_price, else: product.price), decimals: 2) %>
-                  </span>
-                </div>
+                <BlocksterV2Web.ShopComponents.product_price_block
+                  product={product}
+                  sol_usd={@sol_usd_rate}
+                  align="center"
+                  size="sm"
+                />
               </div>
             </.link>
           <% end %>

@@ -47,6 +47,19 @@ defmodule BlocksterV2.Shop.Pricing do
   def format_sol(_), do: "0.00"
 
   @doc """
+  Always 4-decimal SOL formatting for payment surfaces (cart, checkout, order
+  confirmation). Display precision must match the amount a user actually pays
+  so that a $151 order at 1 SOL = $150 doesn't read as "1.01 SOL" when the
+  wallet transfers 1.0067 SOL — that mismatch reads as "overcharged by $0.49"
+  at inspection even though nothing is wrong. Shop browse surfaces keep
+  `format_sol/1`'s graduated decimals for cleaner visual density.
+  """
+  def format_sol_precise(sol) when is_number(sol),
+    do: :erlang.float_to_binary(sol / 1.0, decimals: 4)
+
+  def format_sol_precise(_), do: "0.0000"
+
+  @doc """
   Formats a USD amount for display. Two decimals, leading dollar sign.
   """
   def format_usd(usd) when is_number(usd),

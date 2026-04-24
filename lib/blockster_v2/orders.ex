@@ -185,27 +185,39 @@ defmodule BlocksterV2.Orders do
   def process_paid_order(%Order{} = order) do
     order = get_order(order.id)
 
-    # Clear the user's cart so they start fresh
-    Cart.clear_cart(order.user_id)
-    Cart.broadcast_cart_update(order.user_id)
+    # Idempotency gate: `fulfillment_notified_at` is stamped at the end of
+    # `Fulfillment.notify/1`. If it's already set, the full post-paid side
+    # effects (cart clear, confirmation notification, fulfillment email,
+    # Telegram, affiliate payouts, purchase_complete event) already ran —
+    # don't fire them a second time. This makes the function safe to call
+    # from both the `{:order_updated, _}` PubSub path and a mount-time
+    # recovery path without double-charging affiliates or spamming the
+    # user with duplicate emails.
+    if order.fulfillment_notified_at do
+      :already_processed
+    else
+      # Clear the user's cart so they start fresh
+      Cart.clear_cart(order.user_id)
+      Cart.broadcast_cart_update(order.user_id)
 
-    # Notify user of confirmed order
-    notify_order_status_change(order)
+      # Notify user of confirmed order
+      notify_order_status_change(order)
 
-    Task.start(fn ->
-      BlocksterV2.Orders.Fulfillment.notify(order)
-    end)
+      Task.start(fn ->
+        BlocksterV2.Orders.Fulfillment.notify(order)
+      end)
 
-    if order.referrer_id, do: create_affiliate_payouts(order)
+      if order.referrer_id, do: create_affiliate_payouts(order)
 
-    # Track purchase completion for notification triggers
-    BlocksterV2.UserEvents.track(order.user_id, "purchase_complete", %{
-      target_type: "order",
-      target_id: order.id,
-      total: to_string(order.total_paid)
-    })
+      # Track purchase completion for notification triggers
+      BlocksterV2.UserEvents.track(order.user_id, "purchase_complete", %{
+        target_type: "order",
+        target_id: order.id,
+        total: to_string(order.total_paid)
+      })
 
-    :ok
+      :ok
+    end
   end
 
   def create_affiliate_payouts(%Order{} = order) do
@@ -382,7 +394,7 @@ defmodule BlocksterV2.Orders do
       category: "system",
       title: title,
       body: body,
-      action_url: "/shop",
+      action_url: "/checkout/#{order.id}",
       action_label: "View Order",
       metadata: %{"order_id" => order.id, "order_number" => order.order_number}
     })

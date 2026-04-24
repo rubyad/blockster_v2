@@ -8,7 +8,10 @@ defmodule BlocksterV2.Notifications.EmailBuilder do
 
   @from_address {"Blockster", "notifications@blockster.com"}
   @brand_color "#CAFC00"
-  @logo_url "https://ik.imagekit.io/blockster/Blockster-logo-white.png"
+  # Dark-surface wordmark — matches the dark header panel. Canonical URL per
+  # docs/brand_assets.md (as of 2026-04-24). ImageKit `tr=h-56,q-90` keeps the
+  # bundle light while rendering crisp at 28px retina.
+  @logo_url "https://ik.imagekit.io/blockster/brand/blockster-wordmark-dark-transparent-1000x750.png?tr=h-56,q-90"
   @base_url "https://blockster.com"
 
   # ============ Public API ============
@@ -705,4 +708,295 @@ defmodule BlocksterV2.Notifications.EmailBuilder do
     |> String.replace("\"", "&quot;")
   end
   def escape(text), do: escape(to_string(text))
+
+  # ============ Order Confirmation ============
+
+  @doc """
+  Order confirmation email — sent to the buyer after a successful checkout.
+
+  All money values render SOL primary + USD secondary per the project-wide
+  shop SOL-first rule (CLAUDE.md). Uses the payment intent's locked rate
+  (`quoted_sol_usd_rate`) when present so reprinting a month-old receipt
+  doesn't drift under current market rates.
+
+  Payment tx: the Solana transfer tx (from the payment intent) is the
+  primary on-chain reference — rendered as a prominent card. BUX burn tx
+  (if any) is an optional secondary link.
+  """
+  def order_confirmed(to_email, to_name, unsubscribe_token, %BlocksterV2.Orders.Order{} = order) do
+    subject = "Order ##{order.order_number || order.id} confirmed"
+    order_url = "#{@base_url}/checkout/#{order.id}"
+
+    # Prefer the rate locked onto the payment intent at pay time. Falls back
+    # to live rate if no intent exists (fully-BUX-paid order, edge case).
+    payment_intent = BlocksterV2.PaymentIntents.get_for_order(order.id)
+
+    rate =
+      cond do
+        payment_intent && payment_intent.quoted_sol_usd_rate ->
+          Decimal.to_float(payment_intent.quoted_sol_usd_rate)
+
+        true ->
+          BlocksterV2.Shop.Pricing.sol_usd_rate()
+      end
+
+    # Unified SOL/USD dual renderer matching `sol_usd_dual` at
+    # lib/blockster_v2_web/components/shop_components.ex. Email clients can't
+    # use our components so we replicate the structure inline with safe HTML.
+    dual = fn usd_decimal, opts ->
+      usd_float = Decimal.to_float(usd_decimal)
+      sign = Keyword.get(opts, :sign, "")
+      # Color for the primary line (e.g. green for discounts)
+      color = Keyword.get(opts, :color, "#141414")
+      sol = if rate > 0, do: usd_float / rate, else: 0.0
+      primary = "#{sign}#{BlocksterV2.Shop.Pricing.format_sol_precise(sol)} SOL"
+      secondary = "#{sign}≈ $#{BlocksterV2.Shop.Pricing.format_usd(usd_float) |> String.replace_prefix("$", "")}"
+
+      ~s(<div style="text-align:right;">
+        <div style="color:#{color};font-size:14px;font-weight:700;font-family:ui-monospace,SFMono-Regular,monospace;">#{primary}</div>
+        <div style="color:#9aa;font-size:11px;font-family:ui-monospace,SFMono-Regular,monospace;margin-top:2px;">#{secondary}</div>
+      </div>)
+    end
+
+    items_html =
+      Enum.map_join(order.order_items, "", fn item ->
+        image =
+          case item.product_image do
+            url when is_binary(url) and url != "" ->
+              safe_url = BlocksterV2.ImageKit.w128_h128(url) |> ensure_absolute_url()
+              ~s(<img src="#{safe_url}" alt="#{escape(item.product_title)}" width="64" height="64" style="display:block;width:64px;height:64px;border-radius:8px;object-fit:cover;background:#f0f0f0;" />)
+
+            _ ->
+              ~s(<div style="width:64px;height:64px;border-radius:8px;background:#f0f0f0;"></div>)
+          end
+
+        variant =
+          if item.variant_title && item.variant_title != "" and item.variant_title != "Default",
+            do: ~s(<div style="color:#888;font-size:12px;margin-top:2px;">#{escape(item.variant_title)}</div>),
+            else: ""
+
+        qty_line = ~s(<div style="color:#888;font-size:12px;margin-top:4px;">Qty #{item.quantity}</div>)
+
+        line_total = Decimal.sub(item.subtotal, item.bux_discount_amount || Decimal.new(0))
+
+        bux_line =
+          if item.bux_tokens_redeemed && item.bux_tokens_redeemed > 0 do
+            ~s(<div style="color:#15803d;font-size:11px;margin-top:4px;">− #{Number.Delimit.number_to_delimited(item.bux_tokens_redeemed, precision: 0)} BUX applied</div>)
+          else
+            ""
+          end
+
+        """
+        <tr>
+          <td style="padding:16px 0;border-bottom:1px solid #f0f0f0;vertical-align:top;" width="64">#{image}</td>
+          <td style="padding:16px 0 16px 16px;border-bottom:1px solid #f0f0f0;vertical-align:top;">
+            <div style="color:#141414;font-size:14px;font-weight:600;line-height:1.3;">#{escape(item.product_title)}</div>
+            #{variant}
+            #{qty_line}
+            #{bux_line}
+          </td>
+          <td style="padding:16px 0;border-bottom:1px solid #f0f0f0;vertical-align:top;text-align:right;">
+            #{dual.(line_total, [])}
+          </td>
+        </tr>
+        """
+      end)
+
+    shipping_cost = order.shipping_cost || Decimal.new(0)
+    bux_discount = order.bux_discount_amount || Decimal.new(0)
+    total = order.subtotal |> Decimal.add(shipping_cost) |> Decimal.sub(bux_discount)
+
+    bux_discount_row =
+      if Decimal.gt?(bux_discount, 0) do
+        """
+        <tr>
+          <td style="padding:8px 0;color:#555;font-size:13px;vertical-align:top;">BUX discount #{if order.bux_tokens_burned > 0, do: "(#{Number.Delimit.number_to_delimited(order.bux_tokens_burned, precision: 0)} BUX)", else: ""}</td>
+          <td style="padding:8px 0;vertical-align:top;">#{dual.(bux_discount, sign: "−", color: "#15803d")}</td>
+        </tr>
+        """
+      else
+        ""
+      end
+
+    shipping_row =
+      if Decimal.gt?(shipping_cost, 0) do
+        """
+        <tr>
+          <td style="padding:8px 0;color:#555;font-size:13px;vertical-align:top;">Shipping</td>
+          <td style="padding:8px 0;vertical-align:top;">#{dual.(shipping_cost, [])}</td>
+        </tr>
+        """
+      else
+        ""
+      end
+
+    total_sol_float = if rate > 0, do: Decimal.to_float(total) / rate, else: 0.0
+
+    address_lines =
+      [
+        order.shipping_name,
+        order.shipping_address_line1,
+        order.shipping_address_line2,
+        [order.shipping_city, order.shipping_state, order.shipping_postal_code]
+        |> Enum.reject(&(is_nil(&1) or &1 == ""))
+        |> Enum.join(", "),
+        order.shipping_country,
+        order.shipping_phone
+      ]
+      |> Enum.reject(&(is_nil(&1) or &1 == ""))
+      |> Enum.map(&~s(<div>#{escape(&1)}</div>))
+      |> Enum.join("")
+
+    # Prominent SOL payment tx card — the primary on-chain proof-of-purchase.
+    sol_tx_html =
+      if payment_intent && is_binary(payment_intent.funded_tx_sig) and
+           payment_intent.funded_tx_sig != "" do
+        sig = payment_intent.funded_tx_sig
+
+        """
+        <h3 style="color:#141414;font-size:13px;text-transform:uppercase;letter-spacing:0.08em;margin:24px 0 8px;font-weight:700;">On-chain payment</h3>
+        <a href="https://solscan.io/tx/#{escape(sig)}" style="display:block;text-decoration:none;">
+          <div style="background:#fafaf9;border:1px solid #eee;border-radius:12px;padding:16px 18px;">
+            <table width="100%" cellpadding="0" cellspacing="0" border="0">
+              <tr>
+                <td valign="middle">
+                  <div style="color:#141414;font-size:13px;font-weight:700;margin-bottom:4px;">SOL payment transaction</div>
+                  <div style="color:#555;font-size:11px;font-family:ui-monospace,SFMono-Regular,monospace;word-break:break-all;">#{String.slice(sig, 0, 16)}…#{String.slice(sig, -8..-1)}</div>
+                  <div style="color:#9aa;font-size:10px;margin-top:6px;">#{BlocksterV2.Shop.Pricing.format_sol_precise(total_sol_float)} SOL · confirmed on Solana</div>
+                </td>
+                <td align="right" valign="middle" width="60">
+                  <div style="color:#141414;font-size:12px;font-weight:700;">View ↗</div>
+                </td>
+              </tr>
+            </table>
+          </div>
+        </a>
+        """
+      else
+        ""
+      end
+
+    # Secondary BUX burn tx link (tiny, only if a BUX discount was applied).
+    bux_burn_line =
+      if is_binary(order.bux_burn_tx_hash) and order.bux_burn_tx_hash != "" do
+        ~s(<div style="text-align:center;margin:12px 0 0;font-size:11px;color:#888;font-family:ui-monospace,SFMono-Regular,monospace;"><a href="https://solscan.io/tx/#{escape(order.bux_burn_tx_hash)}" style="color:#888;text-decoration:underline;">BUX burn tx ↗</a></div>)
+      else
+        ""
+      end
+
+    html_content = """
+    <div style="text-align:center;margin-bottom:24px;">
+      <div style="display:inline-block;width:48px;height:48px;border-radius:50%;background:#22C55E;margin-bottom:12px;line-height:48px;">
+        <span style="color:white;font-size:24px;font-weight:700;">✓</span>
+      </div>
+      <h2 style="color:#141414;font-size:24px;font-weight:700;margin:0 0 6px;letter-spacing:-0.01em;">Thanks#{if to_name && to_name != "", do: " #{escape(to_name)}", else: ""}</h2>
+      <p style="color:#666;font-size:14px;margin:0;">
+        Your order is confirmed. We'll email again when it ships.
+      </p>
+    </div>
+
+    <div style="background:#fafaf9;border:1px solid #eee;border-radius:12px;padding:16px 20px;margin:0 0 20px;font-size:12px;color:#666;">
+      <div style="display:inline-block;margin-right:16px;"><strong style="color:#141414;">Order</strong> ##{escape(order.order_number || to_string(order.id))}</div>
+      <div style="display:inline-block;"><strong style="color:#141414;">Date</strong> #{Calendar.strftime(order.inserted_at, "%b %d, %Y")}</div>
+    </div>
+
+    <h3 style="color:#141414;font-size:13px;text-transform:uppercase;letter-spacing:0.08em;margin:24px 0 8px;font-weight:700;">Items</h3>
+    <table width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;">
+      #{items_html}
+    </table>
+
+    <h3 style="color:#141414;font-size:13px;text-transform:uppercase;letter-spacing:0.08em;margin:24px 0 8px;font-weight:700;">Summary</h3>
+    <table width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;">
+      <tr>
+        <td style="padding:8px 0;color:#555;font-size:13px;vertical-align:top;">Subtotal</td>
+        <td style="padding:8px 0;vertical-align:top;">#{dual.(order.subtotal, [])}</td>
+      </tr>
+      #{bux_discount_row}
+      #{shipping_row}
+      <tr>
+        <td style="padding:14px 0 8px;border-top:1px solid #eee;color:#141414;font-size:15px;font-weight:700;vertical-align:top;">Total paid</td>
+        <td style="padding:14px 0 8px;border-top:1px solid #eee;vertical-align:top;text-align:right;">
+          <div style="color:#141414;font-size:18px;font-weight:700;font-family:ui-monospace,SFMono-Regular,monospace;">#{BlocksterV2.Shop.Pricing.format_sol_precise(total_sol_float)} SOL</div>
+          <div style="color:#9aa;font-size:12px;font-family:ui-monospace,SFMono-Regular,monospace;margin-top:2px;">≈ $#{BlocksterV2.Shop.Pricing.format_usd(Decimal.to_float(total)) |> String.replace_prefix("$", "")}</div>
+        </td>
+      </tr>
+    </table>
+
+    #{sol_tx_html}
+
+    <h3 style="color:#141414;font-size:13px;text-transform:uppercase;letter-spacing:0.08em;margin:24px 0 8px;font-weight:700;">Shipping to</h3>
+    <div style="color:#141414;font-size:13px;line-height:1.6;background:#fafaf9;border:1px solid #eee;border-radius:12px;padding:14px 18px;">
+      #{address_lines}
+    </div>
+
+    #{cta_button("View order", order_url)}
+
+    #{bux_burn_line}
+    """
+
+    # Text fallback — keep it readable with SOL-first numbers.
+    to_sol = fn d -> Decimal.to_float(d) / rate end
+
+    text_items =
+      Enum.map_join(order.order_items, "\n", fn item ->
+        variant =
+          if item.variant_title && item.variant_title != "" and item.variant_title != "Default",
+            do: " (#{item.variant_title})",
+            else: ""
+
+        line_total = Decimal.sub(item.subtotal, item.bux_discount_amount || Decimal.new(0))
+        sol_str = BlocksterV2.Shop.Pricing.format_sol_precise(to_sol.(line_total))
+        usd_str = BlocksterV2.Shop.Pricing.format_usd(Decimal.to_float(line_total))
+        "- #{item.product_title}#{variant} × #{item.quantity} — #{sol_str} SOL (≈ #{usd_str})"
+      end)
+
+    bux_line_text =
+      if Decimal.gt?(bux_discount, 0) do
+        "BUX discount: -#{BlocksterV2.Shop.Pricing.format_sol_precise(to_sol.(bux_discount))} SOL (≈ -#{BlocksterV2.Shop.Pricing.format_usd(Decimal.to_float(bux_discount))})"
+      else
+        ""
+      end
+
+    shipping_line_text =
+      if Decimal.gt?(shipping_cost, 0) do
+        "Shipping:     #{BlocksterV2.Shop.Pricing.format_sol_precise(to_sol.(shipping_cost))} SOL (≈ #{BlocksterV2.Shop.Pricing.format_usd(Decimal.to_float(shipping_cost))})"
+      else
+        ""
+      end
+
+    sol_tx_text =
+      if payment_intent && is_binary(payment_intent.funded_tx_sig) and
+           payment_intent.funded_tx_sig != "" do
+        "\nON-CHAIN PAYMENT\nSOL payment tx: https://solscan.io/tx/#{payment_intent.funded_tx_sig}\n"
+      else
+        ""
+      end
+
+    text_content = """
+    Thanks#{if to_name && to_name != "", do: " #{to_name}", else: ""},
+
+    Your order is confirmed. We'll email again when it ships.
+
+    Order ##{order.order_number || order.id}
+    Placed: #{Calendar.strftime(order.inserted_at, "%b %d, %Y")}
+
+    ITEMS
+    #{text_items}
+
+    Subtotal:     #{BlocksterV2.Shop.Pricing.format_sol_precise(to_sol.(order.subtotal))} SOL (≈ #{BlocksterV2.Shop.Pricing.format_usd(Decimal.to_float(order.subtotal))})
+    #{bux_line_text}
+    #{shipping_line_text}
+    TOTAL PAID:   #{BlocksterV2.Shop.Pricing.format_sol_precise(total_sol_float)} SOL (≈ #{BlocksterV2.Shop.Pricing.format_usd(Decimal.to_float(total))})
+    #{sol_tx_text}
+    SHIPPING TO
+    #{order.shipping_name || ""}
+    #{order.shipping_address_line1 || ""}
+    #{if order.shipping_address_line2 && order.shipping_address_line2 != "", do: "#{order.shipping_address_line2}\n", else: ""}#{[order.shipping_city, order.shipping_state, order.shipping_postal_code] |> Enum.reject(&(is_nil(&1) or &1 == "")) |> Enum.join(", ")}
+    #{order.shipping_country || ""}
+
+    View order: #{order_url}
+    """
+
+    build_email(to_email, to_name, subject, html_content, text_content, unsubscribe_token)
+  end
 end

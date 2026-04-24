@@ -97,7 +97,7 @@ defmodule BlocksterV2Web.ShopComponents do
         <span class={@primary_cls}>FREE</span>
         <span class={@secondary_cls}>≈ $0.00</span>
       <% else %>
-        <span class={@primary_cls}>{Pricing.format_sol(@sol)} SOL</span>
+        <span class={@primary_cls}>{Pricing.format_sol_precise(@sol)} SOL</span>
         <span class={@secondary_cls}>≈ {Pricing.format_usd(@usd_float)}</span>
       <% end %>
     </div>

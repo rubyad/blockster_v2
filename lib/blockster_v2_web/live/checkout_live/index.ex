@@ -75,6 +75,17 @@ defmodule BlocksterV2Web.CheckoutLive.Index do
               Phoenix.PubSub.subscribe(BlocksterV2.PubSub, "order:#{order.id}")
             end
 
+            # Recovery: if we're landing on a paid order that never ran its
+            # post-paid side effects (cart clear, confirmation email, etc.),
+            # fire them here. Happens when the previous session's LV missed
+            # the {:order_updated, _} broadcast (PubSub drop / commit race
+            # pre-2026-04-24) so `Orders.process_paid_order` never ran and
+            # the cart wasn't cleared. `process_paid_order` is idempotent —
+            # checks `fulfillment_notified_at` before firing side effects.
+            if order.status == "paid" and is_nil(order.fulfillment_notified_at) do
+              Orders.process_paid_order(order)
+            end
+
             {:ok,
              socket
              |> assign_order(order)
@@ -84,7 +95,8 @@ defmodule BlocksterV2Web.CheckoutLive.Index do
              |> assign_shipping_form(order)
              |> assign_shipping_rates(order)
              |> assign_payment_defaults()
-             |> maybe_load_payment_intent()}
+             |> maybe_load_payment_intent()
+             |> maybe_create_payment_intent()}
         end
     end
   end
@@ -201,10 +213,6 @@ defmodule BlocksterV2Web.CheckoutLive.Index do
 
   # ── BUX discount burn (optional; only when BUX tokens were allocated) ───────
 
-  def handle_event("toggle_bux_warning_ack", _params, socket) do
-    {:noreply, assign(socket, :bux_warning_ack, not socket.assigns.bux_warning_ack)}
-  end
-
   def handle_event("initiate_bux_payment", _params, socket) do
     order = socket.assigns.order
     user = socket.assigns.current_user
@@ -214,13 +222,19 @@ defmodule BlocksterV2Web.CheckoutLive.Index do
       bux_amount <= 0 ->
         {:noreply, socket}
 
-      not socket.assigns.bux_warning_ack ->
+      # Re-entrant retry: order already flipped to bux_pending + Mnesia was
+      # already debited on the first attempt. Skip the second deduct and
+      # just re-fire the client event so the (now working) hook can try
+      # the burn again. Without this guard, refresh-then-retry double-
+      # deducts — the bug the stuck-processing ticket originally tripped.
+      order.status == "bux_pending" and order.bux_burn_tx_hash in [nil, ""] ->
         {:noreply,
-         put_flash(
-           socket,
-           :error,
-           "Please acknowledge that BUX is non-refundable before continuing."
-         )}
+         socket
+         |> assign(:bux_payment_status, :processing)
+         |> push_event("initiate_bux_payment_client", %{
+           amount: bux_amount,
+           order_id: order.id
+         })}
 
       true ->
         case BalanceManager.deduct_bux(user.id, bux_amount) do
@@ -313,6 +327,27 @@ defmodule BlocksterV2Web.CheckoutLive.Index do
      |> put_flash(:error, "BUX payment failed: #{err}")}
   end
 
+  # User-initiated cancel from the :processing UI. Only valid when the burn
+  # genuinely never landed (tx hash still nil) — otherwise we'd refund BUX
+  # the user already lost on chain. Reuses the refund path in bux_payment_error.
+  def handle_event("cancel_bux_payment", _params, socket) do
+    order = socket.assigns.order
+
+    cond do
+      order.bux_burn_tx_hash not in [nil, ""] ->
+        {:noreply, put_flash(socket, :error, "BUX already burned on chain — cannot cancel.")}
+
+      order.status not in ["bux_pending", "pending"] ->
+        {:noreply, put_flash(socket, :error, "Order is no longer in a cancellable state.")}
+
+      true ->
+        handle_event("bux_payment_error", %{"error" => "Cancelled by user"}, socket)
+        |> then(fn {:noreply, s} ->
+          {:noreply, assign(s, :bux_payment_status, :pending) |> put_flash(:info, "BUX refunded to your balance.")}
+        end)
+    end
+  end
+
   # ── SOL direct payment ─────────────────────────────────────────────────────
 
   def handle_event("initiate_sol_payment", _params, socket) do
@@ -321,8 +356,14 @@ defmodule BlocksterV2Web.CheckoutLive.Index do
         {:noreply, maybe_create_payment_intent(socket)}
 
       %{status: "pending"} = intent ->
+        # Flip status immediately so the UI reflects "in progress" while the
+        # wallet modal opens. Without this, `phx-disable-with` resolves the
+        # instant the push_event returns and the user sees the button snap
+        # back to "Pay X SOL" while their wallet is loading.
         {:noreply,
-         push_event(socket, "send_sol_payment", %{
+         socket
+         |> assign(:sol_payment_status, :signing)
+         |> push_event("send_sol_payment", %{
            to: intent.pubkey,
            lamports: intent.expected_lamports,
            order_id: socket.assigns.order.id
@@ -335,6 +376,28 @@ defmodule BlocksterV2Web.CheckoutLive.Index do
 
   def handle_event("sol_payment_submitted", %{"signature" => sig}, socket) do
     Logger.info("[Checkout] SOL payment submitted: #{sig}")
+
+    # Persist the buyer's tx sig on the intent before the watcher runs —
+    # settler's `getSignaturesForAddress` lookup is best-effort and can
+    # return null right after the tx lands (balance is visible but the
+    # sig index hasn't caught up). Recording here guarantees the
+    # confirmation page shows the actual tx link.
+    if intent = socket.assigns[:payment_intent] do
+      Task.start(fn -> PaymentIntents.record_submitted_tx_sig(intent.id, sig) end)
+    end
+
+    # JS already confirmed on-chain (via getSignatureStatuses polling in
+    # signAndConfirm) before pushing this event. Don't wait up to 10s for
+    # the next PaymentIntentWatcher tick — fire the check inline. The
+    # watcher hits the settler, flips the intent to funded, and broadcasts
+    # {:order_updated, order} which this LV already subscribes to.
+    Task.start(fn -> BlocksterV2.PaymentIntentWatcher.tick_once() end)
+
+    # Safety net: if the broadcast is missed (LV remount race, transient
+    # pubsub drop) schedule a polling check. Retries stop once the LV
+    # sees status == :completed.
+    Process.send_after(self(), :poll_intent_status, 1500)
+
     {:noreply, assign(socket, :sol_payment_status, :confirming)}
   end
 
@@ -355,16 +418,85 @@ defmodule BlocksterV2Web.CheckoutLive.Index do
       Orders.process_paid_order(order)
     end
 
-    {:noreply,
-     socket
-     |> assign_order(order)
-     |> assign(:sol_payment_status, :completed)
-     |> maybe_load_payment_intent()
-     |> assign(:step, if(order.status == "paid", do: :confirmation, else: socket.assigns.step))
-     |> put_flash(:info, "Payment confirmed! Your order is placed.")}
+    socket =
+      socket
+      |> assign_order(order)
+      |> assign(:sol_payment_status, :completed)
+      |> maybe_load_payment_intent()
+      |> assign(:step, if(order.status == "paid", do: :confirmation, else: socket.assigns.step))
+      |> put_flash(:info, "Payment confirmed! Your order is placed.")
+      |> refresh_token_balances_async()
+
+    {:noreply, socket}
   end
 
+  # Fallback polling in case the PubSub broadcast was missed. Runs tick_once
+  # → if the order has been marked paid by now, transitions via the
+  # {:order_updated, ...} path which this LV also subscribes to. Stops
+  # polling once we observe :completed status (PubSub got through).
+  def handle_info(:poll_intent_status, socket) do
+    if socket.assigns.sol_payment_status == :completed do
+      {:noreply, socket}
+    else
+      Task.start(fn -> BlocksterV2.PaymentIntentWatcher.tick_once() end)
+
+      # Also do a direct DB re-read — if mark_funded landed but the
+      # broadcast was dropped, we pick it up from the DB shape.
+      order = Orders.get_order(socket.assigns.order.id)
+
+      cond do
+        order.status == "paid" ->
+          Orders.process_paid_order(order)
+
+          {:noreply,
+           socket
+           |> assign_order(order)
+           |> assign(:sol_payment_status, :completed)
+           |> maybe_load_payment_intent()
+           |> assign(:step, :confirmation)
+           |> put_flash(:info, "Payment confirmed! Your order is placed.")
+           |> refresh_token_balances_async()}
+
+        true ->
+          Process.send_after(self(), :poll_intent_status, 1500)
+          {:noreply, socket}
+      end
+    end
+  end
+
+  def handle_info({ref, balances}, socket) when is_reference(ref) and is_map(balances) do
+    Process.demonitor(ref, [:flush])
+    merged = Map.merge(socket.assigns[:token_balances] || %{}, balances)
+
+    user_id = socket.assigns.current_user && socket.assigns.current_user.id
+    if user_id, do: BlocksterV2Web.BuxBalanceHook.broadcast_token_balances_update(user_id, balances)
+
+    {:noreply, assign(socket, :token_balances, merged)}
+  end
+
+  def handle_info({:DOWN, _ref, :process, _pid, _reason}, socket), do: {:noreply, socket}
+
   def handle_info(_msg, socket), do: {:noreply, socket}
+
+  # Re-read the user's SOL + BUX balances on-chain after payment so the
+  # header pill drops by the SOL paid + any BUX burned. Runs in a Task so
+  # the LV doesn't block on RPC. Result arrives via the `{ref, balances}`
+  # handle_info above.
+  defp refresh_token_balances_async(socket) do
+    user = socket.assigns[:current_user]
+    wallet = socket.assigns[:wallet_address]
+
+    if user && is_binary(wallet) do
+      Task.async(fn ->
+        BlocksterV2.BuxMinter.sync_user_balances(user.id, wallet)
+        sol = BlocksterV2.EngagementTracker.get_user_sol_balance(user.id)
+        bux = BlocksterV2.EngagementTracker.get_user_solana_bux_balance(user.id)
+        %{"SOL" => sol, "BUX" => bux}
+      end)
+    end
+
+    socket
+  end
 
   # ── Private helpers ─────────────────────────────────────────────────────────
 
@@ -414,13 +546,6 @@ defmodule BlocksterV2Web.CheckoutLive.Index do
         true -> :pending
       end
 
-    # bux_warning_ack: SHOP-14 pre-burn non-refundable acknowledgement. If the
-    # burn already landed (or there's no BUX to burn) the gate is moot — default
-    # true so the UI doesn't re-prompt. Otherwise default false; user ticks the
-    # checkbox before the burn CTA enables.
-    bux_warning_ack =
-      bux_status in [:completed, :not_applicable] or order.bux_burn_started_at != nil
-
     socket
     |> assign(:bux_payment_status, bux_status)
     |> assign(:sol_payment_status, sol_status)
@@ -429,7 +554,6 @@ defmodule BlocksterV2Web.CheckoutLive.Index do
     |> assign(:remaining_sol, remaining_sol)
     |> assign(:remaining_lamports, round(remaining_sol * @sol_mark_lamports))
     |> assign(:payment_intent, nil)
-    |> assign_new(:bux_warning_ack, fn -> bux_warning_ack end)
   end
 
   defp maybe_load_payment_intent(socket) do
@@ -464,34 +588,18 @@ defmodule BlocksterV2Web.CheckoutLive.Index do
 
       true ->
         wallet = user.wallet_address || ""
+        mode = PaymentIntents.payment_mode_for_user(user)
 
-        case PaymentIntents.check_sol_payment_allowed(user, order) do
-          {:error, :web3auth_sol_not_supported} ->
-            # Phase 7 gate: Web3Auth users can't pay in SOL in v1 — settler
-            # has no path to take SOL off them without a wallet-standard
-            # signing UX. Point them at BUX pricing or ask them to connect
-            # a wallet.
+        case PaymentIntents.create_for_order(order, wallet, payment_mode: mode) do
+          {:ok, intent} ->
+            assign(socket, :payment_intent, intent)
+
+          {:error, reason} ->
+            Logger.error("[Checkout] intent creation failed: #{inspect(reason)}")
+
             socket
-            |> assign(:sol_payment_status, :gated)
-            |> put_flash(
-              :error,
-              "SOL checkout is wallet-only right now. Pay with BUX, or connect a Solana wallet."
-            )
-
-          :ok ->
-            mode = PaymentIntents.payment_mode_for_user(user)
-
-            case PaymentIntents.create_for_order(order, wallet, payment_mode: mode) do
-              {:ok, intent} ->
-                assign(socket, :payment_intent, intent)
-
-              {:error, reason} ->
-                Logger.error("[Checkout] intent creation failed: #{inspect(reason)}")
-
-                socket
-                |> assign(:sol_payment_status, :failed)
-                |> put_flash(:error, "Could not generate payment address. Please refresh.")
-            end
+            |> assign(:sol_payment_status, :failed)
+            |> put_flash(:error, "Could not generate payment address. Please refresh.")
         end
     end
   end

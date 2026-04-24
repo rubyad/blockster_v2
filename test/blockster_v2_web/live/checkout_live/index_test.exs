@@ -471,125 +471,6 @@ defmodule BlocksterV2Web.CheckoutLive.IndexTest do
   end
 
   # ============================================================================
-  # Step 3b: SHOP-14 BUX burn warning + non-refundable acknowledgement gate
-  # ============================================================================
-
-  describe "BUX burn warning gate (SHOP-14)" do
-    setup %{order: order} do
-      # Shipping + rate done so mount lands on :review; then we drive to :payment.
-      {:ok, order} =
-        Orders.update_order_shipping(order, %{
-          shipping_name: "Marcus Verren",
-          shipping_email: "marcus@blockster.com",
-          shipping_address_line1: "142 Cherry Lane",
-          shipping_city: "Brooklyn",
-          shipping_state: "NY",
-          shipping_postal_code: "11217",
-          shipping_country: "United States"
-        })
-
-      {:ok, order} =
-        Orders.update_order_shipping_rate(order, %{
-          shipping_cost: Decimal.new("5.99"),
-          shipping_method: "us_standard"
-        })
-
-      # Force bux_tokens_burned > 0 so the burn card renders on payment step.
-      # The cart path is harder to provoke in unit tests (requires seeded Mnesia
-      # BUX balance); mutating the order row post-creation isolates the UI
-      # surface under test.
-      order =
-        order
-        |> Ecto.Changeset.change(%{
-          bux_tokens_burned: 1_000,
-          bux_discount_amount: Decimal.new("10.00")
-        })
-        |> Repo.update!()
-
-      %{order: Orders.get_order(order.id)}
-    end
-
-    test "renders non-refundable warning copy on payment step", %{conn: conn, user: user, order: order} do
-      conn = log_in_user(conn, user)
-      {:ok, view, _html} = live(conn, ~p"/checkout/#{order.id}")
-      _ = render_click(view, "select_shipping_rate", %{"rate" => "us_standard"})
-      html = render_click(view, "proceed_to_payment")
-
-      assert html =~ "BUX is non-refundable"
-      assert html =~ "I understand BUX is non-refundable"
-      assert html =~ "15-minute window"
-    end
-
-    test "Send BUX button is disabled before acknowledgement", %{conn: conn, user: user, order: order} do
-      conn = log_in_user(conn, user)
-      {:ok, view, _html} = live(conn, ~p"/checkout/#{order.id}")
-      _ = render_click(view, "select_shipping_rate", %{"rate" => "us_standard"})
-      html = render_click(view, "proceed_to_payment")
-
-      # `disabled` attribute rendered; `cursor-not-allowed` class applied.
-      assert html =~ ~s(phx-click="initiate_bux_payment")
-      assert html =~ "cursor-not-allowed"
-
-      # The button with initiate_bux_payment should carry the disabled attribute.
-      assert Regex.match?(
-               ~r/phx-click="initiate_bux_payment"[^>]*disabled/s,
-               html
-             ) or
-               Regex.match?(
-                 ~r/disabled[^>]*phx-click="initiate_bux_payment"/s,
-                 html
-               )
-    end
-
-    test "clicking checkbox toggles ack and enables Send BUX button", %{
-      conn: conn,
-      user: user,
-      order: order
-    } do
-      conn = log_in_user(conn, user)
-      {:ok, view, _html} = live(conn, ~p"/checkout/#{order.id}")
-      _ = render_click(view, "select_shipping_rate", %{"rate" => "us_standard"})
-      _ = render_click(view, "proceed_to_payment")
-
-      html = render_click(view, "toggle_bux_warning_ack")
-
-      # Button now rendered without `cursor-not-allowed` and without the
-      # `disabled` attribute adjacent to `phx-click="initiate_bux_payment"`.
-      refute Regex.match?(
-               ~r/phx-click="initiate_bux_payment"[^>]*disabled/s,
-               html
-             )
-
-      refute Regex.match?(
-               ~r/disabled[^>]*phx-click="initiate_bux_payment"/s,
-               html
-             )
-    end
-
-    test "initiate_bux_payment without ack is a no-op with flash error", %{
-      conn: conn,
-      user: user,
-      order: order
-    } do
-      conn = log_in_user(conn, user)
-      {:ok, view, _html} = live(conn, ~p"/checkout/#{order.id}")
-      _ = render_click(view, "select_shipping_rate", %{"rate" => "us_standard"})
-      _ = render_click(view, "proceed_to_payment")
-
-      # Click the burn CTA without toggling the checkbox. The LV guard must
-      # surface a flash error and MUST NOT touch BalanceManager / mutate the
-      # order (otherwise this test would exit with :noproc since the
-      # BalanceManager GenServer isn't started in :test).
-      html = render_click(view, "initiate_bux_payment")
-      assert html =~ "non-refundable"
-
-      order_after = Orders.get_order(order.id)
-      assert order_after.status == "pending"
-      assert is_nil(order_after.bux_burn_started_at)
-    end
-  end
-
-  # ============================================================================
   # Step 3c: SHOP-15 bux_burn_confirmed handler (server-side ready for hook)
   # ============================================================================
 
@@ -800,7 +681,8 @@ defmodule BlocksterV2Web.CheckoutLive.IndexTest do
       {:ok, _view, html} = live(conn, ~p"/checkout/#{order.id}")
 
       assert html =~ "Order complete"
-      assert html =~ "Thanks,"
+      assert html =~ "Thanks"
+      assert html =~ "Email confirmation sent to"
       assert html =~ order.order_number
       assert html =~ "Continue shopping"
     end

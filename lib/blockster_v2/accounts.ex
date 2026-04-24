@@ -451,17 +451,18 @@ defmodule BlocksterV2.Accounts do
       # registration would survive the heal.
       patch =
         case patch[:auth_method] do
-          "web3auth_email" ->
-            patched_email = Map.get(patch, :email, user.email)
+          new_method when is_binary(new_method) ->
+            if verified_email_auth_method?(new_method) do
+              patched_email = Map.get(patch, :email, user.email)
 
-            if is_binary(patched_email) and patched_email != "" do
-              patch
+              if is_binary(patched_email) and patched_email != "" do
+                patch
+              else
+                Map.put(patch, :email_verified, false)
+              end
             else
               Map.put(patch, :email_verified, false)
             end
-
-          new_method when is_binary(new_method) and new_method != "web3auth_email" ->
-            Map.put(patch, :email_verified, false)
 
           _ ->
             patch
@@ -515,12 +516,8 @@ defmodule BlocksterV2.Accounts do
   defp auth_method_for_provider("twitter"), do: "web3auth_x"
   defp auth_method_for_provider("telegram"), do: "web3auth_telegram"
   defp auth_method_for_provider("email"), do: "web3auth_email"
-  # google/apple Web3Auth users don't get the "email verified" bonus by
-  # default — they sign in with their Google/Apple account, not a verified
-  # Blockster-owned email. Keep them on web3auth_email as the closest label
-  # but the email_verified guard in the changeset handles the correctness.
-  defp auth_method_for_provider("google"), do: "web3auth_email"
-  defp auth_method_for_provider("apple"), do: "web3auth_email"
+  defp auth_method_for_provider("google"), do: "web3auth_google"
+  defp auth_method_for_provider("apple"), do: "web3auth_apple"
   defp auth_method_for_provider(_), do: nil
 
   defp custom_auth_method_for(claims) do
@@ -534,6 +531,13 @@ defmodule BlocksterV2.Accounts do
       true -> "web3auth_email"
     end
   end
+
+  # auth_methods whose users own a verified email (OTP-owned blockster-issued,
+  # or OAuth-provider-verified). Keep in sync with User.put_email_verified/2.
+  defp verified_email_auth_method?("web3auth_email"), do: true
+  defp verified_email_auth_method?("web3auth_google"), do: true
+  defp verified_email_auth_method?("web3auth_apple"), do: true
+  defp verified_email_auth_method?(_), do: false
 
   @doc """
   Creates a user from email signup (Thirdweb embedded wallet).

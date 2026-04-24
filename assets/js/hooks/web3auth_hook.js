@@ -24,6 +24,18 @@ import { Transaction, Keypair } from "@solana/web3.js"
 import nacl from "@toruslabs/tweetnacl-js"
 
 const STORAGE_KEY = "blockster_web3auth_session"
+// sessionStorage key: survives the same-tab OAuth redirect, clears on tab close.
+// Set before navigating to Web3Auth; read on return to know which provider
+// button the user tapped (pushed back to LiveView as `provider`).
+const REDIRECT_PROVIDER_KEY = "blockster_web3auth_redirect_provider"
+
+function isMobileUA() {
+  try {
+    if (navigator.userAgentData?.mobile === true) return true
+  } catch (_) {}
+  const ua = (navigator.userAgent || "").toLowerCase()
+  return /mobi|android|iphone|ipad|ipod|opera mini|iemobile/.test(ua)
+}
 
 // Detect the format of `solana_privateKey` — Web3Auth has returned hex, base58,
 // or base64 across versions. Length + charset disambiguates.
@@ -80,6 +92,19 @@ export const Web3Auth = {
     this.handleEvent("start_web3auth_jwt_login", (payload) => this._startJwtLogin(payload))
     this.handleEvent("request_disconnect", () => this._logout())
 
+    // Redirect-mode return: if we stashed a provider in sessionStorage
+    // before navigating to the OAuth window, we're landing back here after
+    // Web3Auth finished the login and navigated back. Complete the flow.
+    const pendingRedirectProvider = (() => {
+      try {
+        const v = sessionStorage.getItem(REDIRECT_PROVIDER_KEY)
+        if (v) sessionStorage.removeItem(REDIRECT_PROVIDER_KEY)
+        return v
+      } catch (_) {
+        return null
+      }
+    })()
+
     // Auto-reconnect if the last session flagged "logged in"
     const hadSession = (() => {
       try {
@@ -88,7 +113,15 @@ export const Web3Auth = {
         return false
       }
     })()
-    if (hadSession && this._clientId) {
+
+    if (pendingRedirectProvider && this._clientId) {
+      // Redirect return takes precedence over silent reconnect — this is
+      // the post-OAuth path where we need to mint a server session cookie.
+      this._completeRedirectReturn(pendingRedirectProvider).catch((e) => {
+        console.warn("[Web3Auth] redirect return failed:", e?.message || e)
+        this.pushEvent("web3auth_error", { error: friendlyWeb3AuthError(e) })
+      })
+    } else if (hadSession && this._clientId) {
       // Silent init — if the session rehydrates, install the signer but do
       // NOT push wallet_authenticated (the user already has a session cookie).
       this._silentReconnect().catch((e) => {
@@ -136,10 +169,20 @@ export const Web3Auth = {
         ? WEB3AUTH_NETWORK[this._network]
         : WEB3AUTH_NETWORK.SAPPHIRE_DEVNET
 
+      // Mobile browsers (iOS Safari, Android Chrome, in-app webviews) can't
+      // reliably hold an OAuth popup open: iOS throttles background tabs and
+      // closes them, in-app browsers block popups entirely, and the async
+      // `await` gap between user tap and `window.open` severs the user
+      // gesture chain. Switch to redirect mode on mobile — the SDK does a
+      // full-page navigation to auth.web3auth.io instead of a popup, and we
+      // rehydrate on return via `_completeRedirectReturn`.
+      const uxMode = isMobileUA() ? "redirect" : "popup"
+
       this._web3auth = new Web3AuthCtor({
         clientId: this._clientId,
         web3AuthNetwork: networkKey,
         storageType: "local",
+        uiConfig: { uxMode },
         chains: [
           {
             chainNamespace: "solana",
@@ -179,6 +222,13 @@ export const Web3Auth = {
       const loginParams = await this._loginParamsFor(provider, email_hint, AUTH_CONNECTION)
       if (!loginParams) return
 
+      // Mobile redirect flow: the SDK will navigate the whole page to
+      // auth.web3auth.io and never return control to this promise. Stash
+      // the provider so `mounted` can finish the login on return.
+      if (isMobileUA()) {
+        try { sessionStorage.setItem(REDIRECT_PROVIDER_KEY, provider) } catch (_) {}
+      }
+
       // Web3Auth.init() resolves BEFORE its internal connector rehydrate
       // finishes — the connect runs inside a fire-and-forget event listener
       // for CONNECTORS_UPDATED. Calling connectTo before the state machine
@@ -189,13 +239,44 @@ export const Web3Auth = {
         loginParams,
       )
       if (!this._provider) {
+        // In redirect mode, connectTo returns null on its way out — the
+        // browser is already navigating. Don't surface that as an error.
+        if (isMobileUA()) return
         this.pushEvent("web3auth_error", { error: "connectTo returned null" })
         return
       }
 
       await this._completeLogin(provider)
     } catch (e) {
+      // If we stashed a redirect provider but `connectTo` then threw, clear
+      // the hint so a future page mount doesn't try to complete a login that
+      // never happened.
+      try { sessionStorage.removeItem(REDIRECT_PROVIDER_KEY) } catch (_) {}
       console.error("[Web3Auth] login failed", e)
+      this.pushEvent("web3auth_error", { error: friendlyWeb3AuthError(e) })
+    }
+  },
+
+  // Called from `mounted` when we detect a pending redirect return
+  // (sessionStorage hint set before the OAuth navigation). The SDK's
+  // `init()` auto-connects when it finds an OAuth callback `sessionId`
+  // under `uxMode: "redirect"`, so after settle we just need to derive
+  // the keypair and push the authenticated event to mint a server cookie.
+  async _completeRedirectReturn(provider) {
+    try {
+      await this._ensureInit()
+      const { status } = await this._waitForConnectorSettle(8000)
+
+      if (status === "connected" && this._web3auth.connected && this._web3auth.provider) {
+        this._provider = this._web3auth.provider
+        await this._completeLogin(provider)
+      } else {
+        this.pushEvent("web3auth_error", {
+          error: "Sign-in did not complete after redirect. Please try again.",
+        })
+      }
+    } catch (e) {
+      console.error("[Web3Auth] redirect-return completion failed", e)
       this.pushEvent("web3auth_error", { error: friendlyWeb3AuthError(e) })
     }
   },

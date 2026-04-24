@@ -1,6 +1,7 @@
 <BlocksterV2Web.DesignSystem.header
   current_user={@current_user}
   active="shop"
+  display_token="SOL"
   bux_balance={Map.get(assigns, :bux_balance, 0)}
   token_balances={Map.get(assigns, :token_balances, %{})}
   cart_item_count={Map.get(assigns, :cart_item_count, 0)}
@@ -278,7 +279,11 @@
                           <p class="text-[11px] text-neutral-500 font-medium"><%= rate.description %></p>
                         </div>
                       </div>
-                      <span class="font-mono font-bold text-[14px] text-[#141414]">$<%= Decimal.round(rate.cost, 2) %></span>
+                      <% rate_sol = BlocksterV2.Shop.Pricing.usd_to_sol(Decimal.to_float(rate.cost), @sol_usd_rate) %>
+                      <div class="text-right">
+                        <div class="font-mono font-bold text-[14px] text-[#141414]">{BlocksterV2.Shop.Pricing.format_sol_precise(rate_sol)} SOL</div>
+                        <div class="text-[10px] text-neutral-500 font-mono mt-0.5">≈ $<%= Decimal.round(rate.cost, 2) %></div>
+                      </div>
                     </button>
                   <% end %>
                 </div>
@@ -314,19 +319,31 @@
                         <%= if item.variant_title && item.variant_title != "Default", do: "#{item.variant_title} · " %>&times;<%= item.quantity %>
                       </div>
                     </div>
-                    <div class="font-mono font-bold text-[12px] text-[#141414]">$<%= format_usd(item.subtotal) %></div>
+                    <% ship_item_sol = BlocksterV2.Shop.Pricing.usd_to_sol(Decimal.to_float(item.subtotal), @sol_usd_rate) %>
+                    <div class="text-right">
+                      <div class="font-mono font-bold text-[12px] text-[#141414]">{BlocksterV2.Shop.Pricing.format_sol_precise(ship_item_sol)} SOL</div>
+                      <div class="text-[10px] text-neutral-400 font-mono">≈ $<%= format_usd(item.subtotal) %></div>
+                    </div>
                   </div>
                 <% end %>
               </div>
-              <div class="space-y-2 pt-4 border-t border-neutral-100 text-[12px]">
-                <div class="flex justify-between">
-                  <span class="text-neutral-500">Subtotal</span>
-                  <span class="font-mono text-[#141414]">$<%= format_usd(@order.subtotal) %></span>
+              <div class="space-y-3 pt-4 border-t border-neutral-100 text-[12px]">
+                <div class="flex justify-between items-start">
+                  <span class="text-neutral-500 pt-0.5">Subtotal</span>
+                  <BlocksterV2Web.ShopComponents.sol_usd_dual
+                    usd={@order.subtotal}
+                    rate={@sol_usd_rate}
+                    size={:tiny}
+                  />
                 </div>
                 <%= if Decimal.gt?(@order.bux_discount_amount, 0) do %>
-                  <div class="flex justify-between">
-                    <span class="text-neutral-500">BUX discount &middot; <%= Number.Delimit.number_to_delimited(@order.bux_tokens_burned, precision: 0) %> BUX</span>
-                    <span class="font-mono text-[#15803d]">&minus;$<%= format_usd(@order.bux_discount_amount) %></span>
+                  <% ship_bux_discount_sol = BlocksterV2.Shop.Pricing.usd_to_sol(Decimal.to_float(@order.bux_discount_amount), @sol_usd_rate) %>
+                  <div class="flex justify-between items-start">
+                    <span class="text-neutral-500 pt-0.5">BUX discount &middot; <%= Number.Delimit.number_to_delimited(@order.bux_tokens_burned, precision: 0) %> BUX</span>
+                    <div class="flex flex-col items-end">
+                      <span class="font-mono font-medium text-[12px] text-[#15803d]">&minus;{BlocksterV2.Shop.Pricing.format_sol_precise(ship_bux_discount_sol)} SOL</span>
+                      <span class="text-[10px] text-[#15803d]/70 font-mono">≈ &minus;$<%= format_usd(@order.bux_discount_amount) %></span>
+                    </div>
                   </div>
                 <% end %>
                 <div class="flex justify-between">
@@ -389,9 +406,16 @@
                     </div>
                     <div class="text-right">
                       <% after_bux = Decimal.sub(item.subtotal, item.bux_discount_amount) %>
-                      <div class="font-mono font-bold text-[14px] text-[#141414]">$<%= format_usd(after_bux) %></div>
+                      <BlocksterV2Web.ShopComponents.sol_usd_dual
+                        usd={after_bux}
+                        rate={@sol_usd_rate}
+                        size={:line}
+                      />
                       <%= if item.bux_tokens_redeemed > 0 do %>
-                        <div class="text-[10px] text-neutral-400 font-mono line-through">$<%= format_usd(item.subtotal) %></div>
+                        <% orig_sol = BlocksterV2.Shop.Pricing.usd_to_sol(Decimal.to_float(item.subtotal), @sol_usd_rate) %>
+                        <div class="text-[10px] text-neutral-400 font-mono line-through mt-0.5">
+                          {BlocksterV2.Shop.Pricing.format_sol_precise(orig_sol)} SOL
+                        </div>
                       <% end %>
                     </div>
                   </div>
@@ -437,8 +461,11 @@
               <%= if @order.shipping_method do %>
                 <% rate = BlocksterV2.Shipping.get_rate(@order.shipping_method) %>
                 <%= if rate do %>
+                  <% ship_cost_sol = BlocksterV2.Shop.Pricing.usd_to_sol(Decimal.to_float(@order.shipping_cost), @sol_usd_rate) %>
                   <div class="text-[13px] text-[#141414] font-medium">
-                    <%= rate.label %> &middot; <%= rate.description %> &middot; <span class="font-mono font-bold">$<%= format_usd(@order.shipping_cost) %></span>
+                    <%= rate.label %> &middot; <%= rate.description %> &middot;
+                    <span class="font-mono font-bold">{BlocksterV2.Shop.Pricing.format_sol_precise(ship_cost_sol)} SOL</span>
+                    <span class="text-[11px] text-neutral-500 font-mono ml-1">≈ $<%= format_usd(@order.shipping_cost) %></span>
                   </div>
                 <% end %>
               <% end %>
@@ -470,21 +497,47 @@
             <div class="bg-white rounded-2xl border border-neutral-200/70 p-6 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
               <div class="text-[10px] font-bold tracking-[0.16em] uppercase text-[#9CA3AF] mb-4">Order summary</div>
               <% shipping_cost = @order.shipping_cost || Decimal.new("0") %>
-              <div class="space-y-2 text-[12px]">
-                <div class="flex justify-between"><span class="text-neutral-500">Subtotal</span><span class="font-mono text-[#141414]">$<%= format_usd(@order.subtotal) %></span></div>
+              <% bux_discount_sol = BlocksterV2.Shop.Pricing.usd_to_sol(Decimal.to_float(@order.bux_discount_amount), @sol_usd_rate) %>
+              <div class="space-y-3 text-[12px]">
+                <div class="flex justify-between items-start">
+                  <span class="text-neutral-500 pt-0.5">Subtotal</span>
+                  <BlocksterV2Web.ShopComponents.sol_usd_dual
+                    usd={@order.subtotal}
+                    rate={@sol_usd_rate}
+                    size={:tiny}
+                  />
+                </div>
                 <%= if Decimal.gt?(@order.bux_discount_amount, 0) do %>
-                  <div class="flex justify-between"><span class="text-neutral-500">BUX discount &middot; <%= Number.Delimit.number_to_delimited(@order.bux_tokens_burned, precision: 0) %> BUX</span><span class="font-mono text-[#15803d]">&minus;$<%= format_usd(@order.bux_discount_amount) %></span></div>
+                  <div class="flex justify-between items-start">
+                    <span class="text-neutral-500 pt-0.5">BUX discount &middot; <%= Number.Delimit.number_to_delimited(@order.bux_tokens_burned, precision: 0) %> BUX</span>
+                    <div class="flex flex-col items-end">
+                      <span class="font-mono font-medium text-[12px] text-[#15803d]">&minus;{BlocksterV2.Shop.Pricing.format_sol_precise(bux_discount_sol)} SOL</span>
+                      <span class="text-[10px] text-[#15803d]/70 font-mono">≈ &minus;$<%= format_usd(@order.bux_discount_amount) %></span>
+                    </div>
+                  </div>
                 <% end %>
-                <div class="flex justify-between"><span class="text-neutral-500">Shipping &middot; <%= if(@order.shipping_method, do: BlocksterV2.Shipping.get_rate(@order.shipping_method) && BlocksterV2.Shipping.get_rate(@order.shipping_method).label, else: "") %></span><span class="font-mono text-[#141414]">$<%= format_usd(shipping_cost) %></span></div>
-                <div class="flex justify-between"><span class="text-neutral-500">Sales tax</span><span class="font-mono text-[#141414]">$0.00</span></div>
+                <div class="flex justify-between items-start">
+                  <span class="text-neutral-500 pt-0.5">Shipping &middot; <%= if(@order.shipping_method, do: BlocksterV2.Shipping.get_rate(@order.shipping_method) && BlocksterV2.Shipping.get_rate(@order.shipping_method).label, else: "") %></span>
+                  <BlocksterV2Web.ShopComponents.sol_usd_dual
+                    usd={shipping_cost}
+                    rate={@sol_usd_rate}
+                    size={:tiny}
+                  />
+                </div>
+                <div class="flex justify-between items-start">
+                  <span class="text-neutral-500 pt-0.5">Sales tax</span>
+                  <span class="font-mono font-medium text-[12px] text-[#141414]">0.0000 SOL</span>
+                </div>
               </div>
               <% review_total = @order.subtotal |> Decimal.add(shipping_cost) |> Decimal.sub(@order.bux_discount_amount) %>
-              <% review_total_sol = BlocksterV2.Shop.Pricing.usd_to_sol(Decimal.to_float(review_total), BlocksterV2.Shop.Pricing.sol_usd_rate()) %>
               <div class="pt-4 mt-4 border-t border-neutral-100 flex items-baseline justify-between">
                 <span class="text-[13px] font-bold text-[#141414]">Total</span>
                 <div class="text-right">
-                  <div class="font-mono font-bold text-[22px] text-[#141414] leading-none">{BlocksterV2.Shop.Pricing.format_sol(review_total_sol)} SOL</div>
-                  <div class="mt-1 text-[11px] text-neutral-500 font-mono">≈ $<%= format_usd(review_total) %></div>
+                  <BlocksterV2Web.ShopComponents.sol_usd_dual
+                    usd={review_total}
+                    rate={@sol_usd_rate}
+                    size={:total}
+                  />
                   <%= if @order.bux_tokens_burned > 0 do %>
                     <div class="text-[10px] text-neutral-500 font-mono mt-1">+ <%= Number.Delimit.number_to_delimited(@order.bux_tokens_burned, precision: 0) %> BUX burned</div>
                   <% end %>
@@ -521,14 +574,13 @@
               %>
               <div
                 id="bux-payment-hook"
-                phx-hook="BuxPaymentHook"
-                data-treasury-address={Application.get_env(:blockster_v2, :shop_treasury_address)}
+                phx-hook="SolanaBuxBurn"
+                data-bux-mint="7CuRyw2YkqQhUUFbw6CCnoedHWT8tK2c9UzZQYDGmxVX"
+                data-bux-decimals="9"
                 class={bux_card_class}
               >
                 <div class="flex items-start gap-4">
-                  <div class="w-12 h-12 rounded-xl bg-[#CAFC00] grid place-items-center shrink-0">
-                    <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="" class="w-6 h-6 rounded-full" />
-                  </div>
+                  <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="BUX" class="w-12 h-12 rounded-full shrink-0" />
                   <div class="flex-1 min-w-0">
                     <div class="flex items-center gap-2 mb-1">
                       <span class="font-bold text-[15px] text-[#141414]">Burn <%= Number.Delimit.number_to_delimited(@order.bux_tokens_burned, precision: 0) %> BUX</span>
@@ -550,10 +602,11 @@
                       <% end %>
                     </div>
                     <p class="text-[12px] text-neutral-600 font-medium leading-relaxed">
+                      <% bux_card_disc_sol = BlocksterV2.Shop.Pricing.usd_to_sol(Decimal.to_float(@order.bux_discount_amount), @sol_usd_rate) %>
                       <%= if @bux_payment_status == :completed do %>
-                        Your BUX has been burned on chain to apply the $<%= format_usd(@order.bux_discount_amount) %> discount.
+                        Your BUX has been burned on chain to apply the <strong>{BlocksterV2.Shop.Pricing.format_sol_precise(bux_card_disc_sol)} SOL</strong> <span class="text-neutral-400">(≈ $<%= format_usd(@order.bux_discount_amount) %>)</span> discount.
                       <% else %>
-                        <%= Number.Delimit.number_to_delimited(@order.bux_tokens_burned, precision: 0) %> BUX = $<%= format_usd(@order.bux_discount_amount) %> discount applied to your order.
+                        <%= Number.Delimit.number_to_delimited(@order.bux_tokens_burned, precision: 0) %> BUX = <strong>{BlocksterV2.Shop.Pricing.format_sol_precise(bux_card_disc_sol)} SOL</strong> <span class="text-neutral-400">(≈ $<%= format_usd(@order.bux_discount_amount) %>)</span> discount applied to your order.
                       <% end %>
                     </p>
 
@@ -566,43 +619,29 @@
                   </div>
                 </div>
 
-                <%!-- SHOP-14: pre-burn non-refundable warning + acknowledgement gate --%>
                 <%= if @bux_payment_status == :pending do %>
-                  <div class="mt-4 bg-amber-50 border border-amber-200 rounded-xl p-4">
-                    <div class="flex items-start gap-3">
-                      <svg class="w-5 h-5 text-amber-600 shrink-0 mt-0.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-                      <div class="flex-1">
-                        <p class="text-[13px] font-bold text-amber-900 mb-1">BUX is non-refundable</p>
-                        <p class="text-[12px] text-amber-800 leading-relaxed">
-                          Once you sign this transaction, your BUX is burned on Solana. You must complete the SOL payment within the 15-minute window or the burn is forfeited — there is no automatic refund.
-                        </p>
-                        <label class="mt-3 flex items-center gap-2 cursor-pointer">
-                          <input
-                            type="checkbox"
-                            phx-click="toggle_bux_warning_ack"
-                            checked={@bux_warning_ack}
-                            class="w-4 h-4 rounded border-amber-400 text-amber-600 focus:ring-amber-500 cursor-pointer"
-                          />
-                          <span class="text-[12px] font-medium text-amber-900">I understand BUX is non-refundable</span>
-                        </label>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div class="mt-3">
+                  <div class="mt-4">
                     <button
                       phx-click="initiate_bux_payment"
                       phx-disable-with="Processing payment..."
-                      disabled={not @bux_warning_ack}
-                      class={
-                        "w-full inline-flex items-center justify-center gap-2 px-5 py-3 rounded-full text-[13px] font-bold transition-colors " <>
-                        if(@bux_warning_ack,
-                          do: "bg-[#0a0a0a] text-white hover:bg-[#1a1a22] cursor-pointer",
-                          else: "bg-neutral-200 text-neutral-400 cursor-not-allowed"
-                        )
-                      }
+                      class="w-full inline-flex items-center justify-center gap-2 px-5 py-3 rounded-full text-[13px] font-bold bg-[#0a0a0a] text-white hover:bg-[#1a1a22] transition-colors cursor-pointer"
                     >
                       Send <%= Number.Delimit.number_to_delimited(@order.bux_tokens_burned, precision: 0) %> BUX
+                    </button>
+                  </div>
+                <% end %>
+
+                <%!-- Processing escape hatch — if the burn tx stalls or the
+                     wallet modal was dismissed without signing, let the user
+                     cancel so the BUX gets refunded to their balance. --%>
+                <%= if @bux_payment_status == :processing do %>
+                  <div class="mt-4">
+                    <button
+                      phx-click="cancel_bux_payment"
+                      data-confirm="Cancel BUX burn and refund to your balance? Only use this if the wallet never prompted you or the signature was dismissed."
+                      class="w-full inline-flex items-center justify-center bg-white border border-neutral-200 text-neutral-600 px-4 py-2.5 rounded-full text-[12px] font-medium hover:border-neutral-400 hover:text-[#141414] transition-colors cursor-pointer"
+                    >
+                      Cancel &amp; refund BUX
                     </button>
                   </div>
                 <% end %>
@@ -650,17 +689,20 @@
                 class={sol_card_class}
               >
                 <div class="flex items-start gap-4 mb-4">
-                  <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-[#9945FF] to-[#14F195] grid place-items-center shrink-0">
-                    <img src="https://ik.imagekit.io/blockster/solana-sol-logo.png" alt="SOL" class="w-7 h-7" />
-                  </div>
+                  <img src="https://ik.imagekit.io/blockster/solana-sol-logo.png" alt="SOL" class="w-12 h-12 rounded-full shrink-0" />
                   <div class="flex-1 min-w-0">
                     <div class="flex items-center gap-2 mb-1 flex-wrap">
-                      <span class="font-bold text-[15px] text-[#141414]">Pay {BlocksterV2.Shop.Pricing.format_sol(@remaining_sol)} SOL</span>
+                      <span class="font-bold text-[15px] text-[#141414]">Pay {BlocksterV2.Shop.Pricing.format_sol_precise(@remaining_sol)} SOL</span>
                       <%= case @sol_payment_status do %>
                         <% :completed -> %>
                           <span class="inline-flex items-center gap-1 bg-[#22C55E]/[0.12] text-[#15803d] border border-[#22C55E]/30 px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider">
                             <svg class="w-2.5 h-2.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
                             Paid
+                          </span>
+                        <% :signing -> %>
+                          <span class="inline-flex items-center gap-1 bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider">
+                            <svg class="animate-spin w-2.5 h-2.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
+                            Signing
                           </span>
                         <% :confirming -> %>
                           <span class="inline-flex items-center gap-1 bg-amber-100 text-amber-600 px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider">
@@ -678,7 +720,10 @@
                       <% end %>
                     </div>
                     <p class="text-[12px] text-neutral-600 font-medium leading-relaxed">
-                      ≈ $<%= format_usd(@remaining_usd) %> &middot; locked at 1 SOL = $<%= format_usd(Decimal.from_float(@sol_usd_rate * 1.0) |> Decimal.round(2)) %>
+                      ≈ $<%= format_usd(@remaining_usd) %>
+                      <span class="text-[10px] text-neutral-400 font-mono ml-1">
+                        &middot; locked at 1 SOL = $<%= format_usd(Decimal.from_float(@sol_usd_rate * 1.0) |> Decimal.round(2)) %>
+                      </span>
                     </p>
                   </div>
                 </div>
@@ -691,9 +736,20 @@
                       <code class="flex-1 min-w-0 font-mono text-[11px] text-[#141414] break-all"><%= intent.pubkey %></code>
                       <button
                         type="button"
-                        onclick={"navigator.clipboard.writeText('#{intent.pubkey}')"}
-                        class="shrink-0 text-[10px] font-bold uppercase tracking-wider bg-white border border-neutral-300 hover:border-[#141414] px-2.5 py-1.5 rounded-lg cursor-pointer"
-                      >Copy</button>
+                        id="intent-pubkey-copy"
+                        phx-hook="CopyToClipboard"
+                        data-copy-text={intent.pubkey}
+                        class="shrink-0 inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider bg-white border border-neutral-300 hover:border-[#141414] px-2.5 py-1.5 rounded-lg cursor-pointer transition-colors"
+                      >
+                        <svg class="w-3 h-3 copy-icon-default" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                          <rect x="7" y="7" width="9" height="9" rx="1.5" stroke="currentColor" stroke-width="1.5"/>
+                          <path d="M13 7V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v7a1 1 0 0 0 1 1h2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                        </svg>
+                        <svg class="w-3 h-3 text-[#22C55E] copy-icon hidden" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                          <path d="M4 10l4 4 8-8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                        <span class="copy-text">Copy</span>
+                      </button>
                     </div>
                     <div class="mt-2 text-[10px] text-neutral-400">
                       Expires in <span id="intent-countdown" phx-update="ignore" data-expires-at={DateTime.to_iso8601(intent.expires_at)}>—</span>
@@ -709,13 +765,12 @@
                   </div>
                 <% end %>
 
-                <%= if @sol_payment_status in [:pending] and bux_done and intent do %>
+                <%= if @sol_payment_status == :pending and bux_done and intent do %>
                   <button
                     phx-click="initiate_sol_payment"
-                    phx-disable-with="Opening wallet…"
                     class="w-full inline-flex items-center justify-center gap-2 bg-[#0a0a0a] text-white px-5 py-3.5 rounded-full text-[14px] font-bold hover:bg-[#1a1a22] transition-colors cursor-pointer"
                   >
-                    Pay {BlocksterV2.Shop.Pricing.format_sol(@remaining_sol)} SOL from connected wallet
+                    Pay {BlocksterV2.Shop.Pricing.format_sol_precise(@remaining_sol)} SOL from connected wallet
                     <svg class="w-3.5 h-3.5" viewBox="0 0 20 20" fill="none"><path d="M3 10h12m0 0l-4-4m4 4l-4 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
                   </button>
                   <div class="mt-3 text-center text-[10px] text-neutral-400 font-medium">
@@ -723,9 +778,31 @@
                   </div>
                 <% end %>
 
+                <%= if @sol_payment_status == :signing do %>
+                  <button
+                    type="button"
+                    disabled
+                    class="w-full inline-flex items-center justify-center gap-2.5 bg-[#0a0a0a]/90 text-white px-5 py-3.5 rounded-full text-[14px] font-bold cursor-not-allowed"
+                  >
+                    <svg class="animate-spin w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+                    Approve the transaction in your wallet…
+                  </button>
+                  <div class="mt-3 text-center text-[10px] text-neutral-400 font-medium">
+                    Check your wallet for a signing prompt.
+                  </div>
+                <% end %>
+
                 <%= if @sol_payment_status == :confirming do %>
-                  <div class="bg-amber-50 border border-amber-200 rounded-xl p-4">
-                    <p class="text-[11px] text-amber-700 font-medium">Transfer submitted. Waiting for on-chain confirmation…</p>
+                  <button
+                    type="button"
+                    disabled
+                    class="w-full inline-flex items-center justify-center gap-2.5 bg-[#0a0a0a]/90 text-white px-5 py-3.5 rounded-full text-[14px] font-bold cursor-not-allowed"
+                  >
+                    <svg class="animate-spin w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+                    Landing on chain…
+                  </button>
+                  <div class="mt-3 text-center text-[10px] text-neutral-400 font-medium">
+                    Transaction submitted. Usually &lt; 3 seconds on Solana.
                   </div>
                 <% end %>
 
@@ -767,12 +844,33 @@
             <div class="bg-white rounded-2xl border border-neutral-200/70 p-6 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
               <div class="text-[10px] font-bold tracking-[0.16em] uppercase text-[#9CA3AF] mb-4">Final total</div>
               <% pay_shipping = @order.shipping_cost || Decimal.new("0") %>
-              <div class="space-y-2 text-[12px]">
-                <div class="flex justify-between"><span class="text-neutral-500">Subtotal</span><span class="font-mono text-[#141414]">$<%= format_usd(@order.subtotal) %></span></div>
+              <% pay_bux_discount_sol = BlocksterV2.Shop.Pricing.usd_to_sol(Decimal.to_float(@order.bux_discount_amount), @sol_usd_rate) %>
+              <div class="space-y-3 text-[12px]">
+                <div class="flex justify-between items-start">
+                  <span class="text-neutral-500 pt-0.5">Subtotal</span>
+                  <BlocksterV2Web.ShopComponents.sol_usd_dual
+                    usd={@order.subtotal}
+                    rate={@sol_usd_rate}
+                    size={:tiny}
+                  />
+                </div>
                 <%= if Decimal.gt?(@order.bux_discount_amount, 0) do %>
-                  <div class="flex justify-between"><span class="text-neutral-500">BUX discount</span><span class="font-mono text-[#15803d]">&minus;$<%= format_usd(@order.bux_discount_amount) %></span></div>
+                  <div class="flex justify-between items-start">
+                    <span class="text-neutral-500 pt-0.5">BUX discount</span>
+                    <div class="flex flex-col items-end">
+                      <span class="font-mono font-medium text-[12px] text-[#15803d]">&minus;{BlocksterV2.Shop.Pricing.format_sol_precise(pay_bux_discount_sol)} SOL</span>
+                      <span class="text-[10px] text-[#15803d]/70 font-mono">≈ &minus;$<%= format_usd(@order.bux_discount_amount) %></span>
+                    </div>
+                  </div>
                 <% end %>
-                <div class="flex justify-between"><span class="text-neutral-500">Shipping</span><span class="font-mono text-[#141414]">$<%= format_usd(pay_shipping) %></span></div>
+                <div class="flex justify-between items-start">
+                  <span class="text-neutral-500 pt-0.5">Shipping</span>
+                  <BlocksterV2Web.ShopComponents.sol_usd_dual
+                    usd={pay_shipping}
+                    rate={@sol_usd_rate}
+                    size={:tiny}
+                  />
+                </div>
               </div>
               <% pay_total = @order.subtotal |> Decimal.add(pay_shipping) |> Decimal.sub(@order.bux_discount_amount) %>
               <% pay_total_sol = BlocksterV2.Shop.Pricing.usd_to_sol(Decimal.to_float(pay_total), @sol_usd_rate) %>
@@ -780,7 +878,7 @@
                 <div class="flex items-baseline justify-between">
                   <span class="text-[13px] font-bold text-[#141414]">Total</span>
                   <div class="text-right">
-                    <div class="font-mono font-bold text-[28px] text-[#141414] leading-none">{BlocksterV2.Shop.Pricing.format_sol(pay_total_sol)} SOL</div>
+                    <div class="font-mono font-bold text-[28px] text-[#141414] leading-none">{BlocksterV2.Shop.Pricing.format_sol_precise(pay_total_sol)} SOL</div>
                     <div class="mt-1 text-[11px] text-neutral-500 font-mono">≈ $<%= format_usd(pay_total) %></div>
                   </div>
                 </div>
@@ -811,12 +909,11 @@
 
         <div class="text-[10px] font-bold tracking-[0.16em] uppercase text-[#9CA3AF] mb-2">Order complete</div>
         <h2 class="font-bold tracking-[-0.022em] text-[36px] text-[#141414] mb-3 leading-[1.0]">
-          Thanks, <%= if @order.shipping_name, do: String.split(@order.shipping_name) |> List.first(), else: "there" %>.
+          Thanks <%= if @order.shipping_name && @order.shipping_name != "", do: @order.shipping_name, else: "there" %>
         </h2>
         <p class="text-[14px] text-neutral-600 font-medium max-w-[420px] mx-auto mb-7">
-          We sent a receipt to
-          <strong class="font-bold text-[#141414]"><%= @order.shipping_email %></strong>.
-          The hubs will fulfill and ship your order over the next few days.
+          Email confirmation sent to
+          <strong class="font-bold text-[#141414]"><%= @order.shipping_email %></strong>
         </p>
 
         <%!-- Order Details Grid --%>
@@ -830,7 +927,20 @@
               <div class="text-[10px] uppercase tracking-[0.14em] text-neutral-500 font-bold mb-1">Total paid</div>
               <% conf_shipping = @order.shipping_cost || Decimal.new("0") %>
               <% conf_total = @order.subtotal |> Decimal.add(conf_shipping) |> Decimal.sub(@order.bux_discount_amount) %>
-              <div class="font-mono font-bold text-[14px] text-[#141414]">$<%= format_usd(conf_total) %> USD</div>
+              <%!-- Prefer the rate snapshotted onto the intent at payment
+                   time (quoted_sol_usd_rate) over the live snapshot on
+                   the socket — otherwise rate drift between pay-time
+                   and confirmation-view can misrepresent what was paid. --%>
+              <% conf_rate_used =
+                if @payment_intent && @payment_intent.quoted_sol_usd_rate,
+                  do: Decimal.to_float(@payment_intent.quoted_sol_usd_rate),
+                  else: @sol_usd_rate %>
+              <BlocksterV2Web.ShopComponents.sol_usd_dual
+                usd={conf_total}
+                rate={conf_rate_used}
+                size={:line}
+                align="left"
+              />
             </div>
             <%= if @order.bux_burn_tx_hash do %>
               <div>
@@ -862,6 +972,32 @@
               </div>
             <% end %>
           </div>
+
+          <%= if @order.shipping_address_line1 && @order.shipping_address_line1 != "" do %>
+            <div class="mt-4 pt-4 border-t border-neutral-200/60 text-left">
+              <div class="text-[10px] uppercase tracking-[0.14em] text-neutral-500 font-bold mb-1">Shipping to</div>
+              <div class="text-[13px] text-[#141414] leading-relaxed">
+                <%= if @order.shipping_name && @order.shipping_name != "" do %>
+                  <div class="font-bold"><%= @order.shipping_name %></div>
+                <% end %>
+                <div><%= @order.shipping_address_line1 %></div>
+                <%= if @order.shipping_address_line2 && @order.shipping_address_line2 != "" do %>
+                  <div><%= @order.shipping_address_line2 %></div>
+                <% end %>
+                <div>
+                  <%= [@order.shipping_city, @order.shipping_state, @order.shipping_postal_code]
+                      |> Enum.reject(&(is_nil(&1) or &1 == ""))
+                      |> Enum.join(", ") %>
+                </div>
+                <%= if @order.shipping_country && @order.shipping_country != "" do %>
+                  <div><%= @order.shipping_country %></div>
+                <% end %>
+                <%= if @order.shipping_phone && @order.shipping_phone != "" do %>
+                  <div class="text-neutral-500 text-[12px] mt-1 font-mono"><%= @order.shipping_phone %></div>
+                <% end %>
+              </div>
+            </div>
+          <% end %>
         </div>
 
         <%!-- CTAs --%>

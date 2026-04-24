@@ -306,15 +306,12 @@
               </div>
               <div class="p-4 text-center">
                 <h3 class="font-bold text-[14px] text-[#141414] leading-tight mb-2 tracking-tight line-clamp-2">{product.name}</h3>
-                <div class="flex flex-col items-center mb-3">
-                  <%= if product.total_max_discount > 0 do %>
-                    <span class="text-[10px] text-neutral-400 line-through font-mono">${:erlang.float_to_binary(product.price, decimals: 2)}</span>
-                    <span class="font-mono font-bold text-[18px] text-[#141414]">${:erlang.float_to_binary(product.max_discounted_price, decimals: 2)}</span>
-                    <span class="text-[9px] text-neutral-500">with BUX tokens</span>
-                  <% else %>
-                    <span class="font-mono font-bold text-[18px] text-[#141414]">${:erlang.float_to_binary(product.price, decimals: 2)}</span>
-                  <% end %>
-                </div>
+                <BlocksterV2Web.ShopComponents.product_price_block
+                  product={product}
+                  sol_usd={@sol_usd_rate}
+                  align="center"
+                  size="sm"
+                />
                 <div class="w-full py-1.5 bg-[#0a0a0a] text-white text-[11px] font-bold rounded-full">Buy Now</div>
               </div>
             </.link>
@@ -518,15 +515,12 @@
               </div>
               <div class="p-4 text-center">
                 <h3 class="font-bold text-[14px] text-[#141414] leading-tight mb-2 tracking-tight line-clamp-2">{product.name}</h3>
-                <div class="flex flex-col items-center mb-3">
-                  <%= if product.total_max_discount > 0 do %>
-                    <span class="text-[10px] text-neutral-400 line-through font-mono">${:erlang.float_to_binary(product.price, decimals: 2)}</span>
-                    <span class="font-mono font-bold text-[18px] text-[#141414]">${:erlang.float_to_binary(product.max_discounted_price, decimals: 2)}</span>
-                    <span class="text-[9px] text-neutral-500">with BUX tokens</span>
-                  <% else %>
-                    <span class="font-mono font-bold text-[18px] text-[#141414]">${:erlang.float_to_binary(product.price, decimals: 2)}</span>
-                  <% end %>
-                </div>
+                <BlocksterV2Web.ShopComponents.product_price_block
+                  product={product}
+                  sol_usd={@sol_usd_rate}
+                  align="center"
+                  size="sm"
+                />
                 <div class="w-full py-1.5 bg-[#0a0a0a] text-white text-[11px] font-bold rounded-full">Buy Now</div>
               </div>
             </.link>

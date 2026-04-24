@@ -719,17 +719,16 @@ Sized for continuous AI-assisted work, one phase at a time, with user available 
 |---|---|---|
 | 5 · Web3Auth frontend hook + sign-in modal | `assets/js/hooks/web3auth_hook.js`, modal rebuild in `wallet_components.ex`, event wiring in `wallet_auth_events.ex`, throwaway `/dev/test-web3auth` deleted | 28 modal tests + 15 event-handler tests (all green) |
 | 6 · Onboarding adaptation | `build_steps_for_user/1` filters `@base_steps` by `auth_method`; web3auth_email skips migrate_email + email; web3auth_x skips migrate_email + x; web3auth_telegram skips migrate_email | 10 new step-filter tests (all green) |
-| 7 · Shop `wallet_sign` payment intents | Migration `20260420220000_add_payment_mode_to_order_payment_intents.exs`; `PaymentIntents.payment_mode_for_user/1` + `check_sol_payment_allowed/2`; v1 gate behind `WEB3AUTH_SOL_CHECKOUT_ENABLED`; `sol_payment.js` switched to `signAndConfirm` (works for both signer sources) | 15 new payment-intent tests (all green) |
+| 7 · Shop `wallet_sign` payment intents | Migration `20260420220000_add_payment_mode_to_order_payment_intents.exs`; `PaymentIntents.payment_mode_for_user/1`; `sol_payment.js` switched to `signAndConfirm` (works for both signer sources). **Originally gated behind `WEB3AUTH_SOL_CHECKOUT_ENABLED` env flag + `check_sol_payment_allowed/2`; both removed 2026-04-23 (Phase 13 in shop_checkout_plan.md) — Web3Auth users now check out SOL the same way Wallet Standard users do.** | 15 new payment-intent tests (all green) |
 | 8 · Settings Connected Accounts | `auth_method_primary_label/1` + `auth_method_secondary_label/1` surface sign-in origin in `member_live/show.html.heex`; existing Email/X/Telegram linking flows preserved | 7 new label tests (all green) |
 | 9 · Telegram multiplier | **Skipped per user decision** — plan marks it optional; easily added post-launch as v1.1+ | — |
-| 10 · Regression + rollout | Non-deploying. Two feature flags wired (`SOCIAL_LOGIN_ENABLED`, `WEB3AUTH_SOL_CHECKOUT_ENABLED`). Baseline test failures cut from 1092 → 31 (97% reduction). Runbook below. | — |
+| 10 · Regression + rollout | Non-deploying. Rollout is gated behind `SOCIAL_LOGIN_ENABLED` (the secondary `WEB3AUTH_SOL_CHECKOUT_ENABLED` flag was removed 2026-04-23 — see Phase 13 in shop_checkout_plan.md). Baseline test failures cut from 1092 → 31 (97% reduction). Runbook below. | — |
 
-### Feature flags (default OFF — flip when ready)
+### Feature flag (default OFF — flip when ready)
 
 | Env var | Default | Effect |
 |---|---|---|
 | `SOCIAL_LOGIN_ENABLED` | `"true"` in code; prod secret should start `"false"` and flip per rollout stage | When `"true"`, the sign-in modal renders the email form + social tiles; when `"false"`, modal is wallet-only (falls back to pre-Phase-5 copy). Read by `BlocksterV2Web.WalletAuthEvents.social_login_enabled?/0`. |
-| `WEB3AUTH_SOL_CHECKOUT_ENABLED` | `"false"` | When `"false"`, Web3Auth users are gated out of SOL-priced shop items with a flash message directing them to BUX pricing or to connect a wallet (plan §7.4 — v1 scope). Flip to `"true"` when the `wallet_sign` flow has been exercised on devnet. |
 
 ### Staged secrets (run BEFORE first deploy, non-restarting)
 
@@ -743,7 +742,6 @@ flyctl secrets set \
   WEB3AUTH_TELEGRAM_VERIFIER_ID=blockster-telegram \
   TELEGRAM_LOGIN_BOT_USERNAME=BlocksterV2Bot \
   SOCIAL_LOGIN_ENABLED=false \
-  WEB3AUTH_SOL_CHECKOUT_ENABLED=false \
   --stage --app blockster-v2
 ```
 
@@ -767,7 +765,7 @@ These are NOT wired yet — the user-event hooks are already firing the right me
 ### Known scope deferred to v1.1+
 
 - **Telegram multiplier** (plan Phase 9). Easiest addition: `BlocksterV2.TelegramMultiplier` mirroring `EmailMultiplier`; append `telegram_multiplier` as the LAST field of `unified_multipliers_v2` Mnesia tuple (per CLAUDE.md append-only rule); update `UnifiedMultiplier` formula + cap.
-- **Web3Auth SOL-priced shop checkout** — plan §7.4. `payment_mode = "wallet_sign"` + `WEB3AUTH_SOL_CHECKOUT_ENABLED=true` makes this flow possible; needs end-to-end devnet verification before enabling.
+- ~~**Web3Auth SOL-priced shop checkout**~~ — **Shipped 2026-04-23 (Phase 13 in shop_checkout_plan.md).** `payment_mode="wallet_sign"` + `SolPaymentHook` via `signAndConfirm` take SOL off a Web3Auth-derived wallet the same way as Wallet Standard. The v1 `WEB3AUTH_SOL_CHECKOUT_ENABLED` gate was deleted.
 - **EngagementTracker dual-table write path**. Post-migration, reads come from `user_solana_balances` but `BalanceManager.deduct_bux` writes to `user_bux_balances`. Not a Phase 10 blocker (on-chain SPL BUX is the real source of truth, shop burns go through `BuxPaymentHook`), but left a test marked `@tag :skip` at `phase5_test.exs:503` with a comment. Consolidate when convenient.
 - **Apple login** — plan §7. Needs Apple Developer `services.plist`. Straightforward once available.
 

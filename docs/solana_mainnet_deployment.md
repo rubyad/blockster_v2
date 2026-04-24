@@ -4,7 +4,7 @@ Complete step-by-step instructions to deploy Blockster V2 on Solana mainnet.
 
 **Prerequisites**: All code changes are on `feat/solana-migration` branch and tested on devnet.
 
-**Last substantive update**: 2026-04-21 — Phase 0–10 Web3Auth social login shipped (see `docs/solana_build_history.md` 2026-04-20 + 2026-04-21 entries). Email sign-in now runs through an in-app OTP flow (NOT Web3Auth's `EMAIL_PASSWORDLESS` popup) that issues a JWT consumed by Web3Auth's `CUSTOM` connector — requires a second dashboard verifier named `blockster-email`. Email-ownership-is-account-ownership design: any sign-in where the email matches an existing user merges that account into the new Web3Auth-derived Solana wallet (legacy BUX minted to new wallet via settler). Onboarding simplified — single "Get started" CTA, `migrate_email` step retired. Two env flags gate rollout: `SOCIAL_LOGIN_ENABLED` (default off, flip when ready) + `WEB3AUTH_SOL_CHECKOUT_ENABLED` (default off, v1 keeps SOL shop checkout wallet-only). See [docs/social_login_plan.md](social_login_plan.md) Appendices D + E for the session narratives.
+**Last substantive update**: 2026-04-23 — Phase 13 removed the `WEB3AUTH_SOL_CHECKOUT_ENABLED` gate. Web3Auth users now pay SOL-priced orders the same way Wallet Standard users do (`payment_mode="wallet_sign"`; `SolPaymentHook` via `signAndConfirm` handles both signer sources). Only `SOCIAL_LOGIN_ENABLED` remains as the master rollout switch. 2026-04-21 context still relevant: Phase 0–10 Web3Auth social login shipped (see `docs/solana_build_history.md` 2026-04-20 + 2026-04-21 entries). Email sign-in runs through an in-app OTP flow (NOT Web3Auth's `EMAIL_PASSWORDLESS` popup) that issues a JWT consumed by Web3Auth's `CUSTOM` connector — requires a second dashboard verifier named `blockster-email`. Email-ownership-is-account-ownership design: any sign-in where the email matches an existing user merges that account into the new Web3Auth-derived Solana wallet (legacy BUX minted to new wallet via settler). Onboarding simplified — single "Get started" CTA, `migrate_email` step retired. See [docs/social_login_plan.md](social_login_plan.md) Appendices D + E for the session narratives.
 
 ---
 
@@ -411,7 +411,6 @@ flyctl secrets set \
   WEB3AUTH_JWT_SIGNING_KEY_PATH="/data/web3auth/signing_key.json" \
   BLOCKSTER_V2_BOT_TOKEN="<TELEGRAM_BOT_TOKEN>" \
   SOCIAL_LOGIN_ENABLED="false" \
-  WEB3AUTH_SOL_CHECKOUT_ENABLED="false" \
   --stage --app blockster-v2
 ```
 
@@ -425,7 +424,7 @@ flyctl secrets set \
 
 `SOCIAL_LOGIN_ENABLED=false` is the kill switch — with this off the sign-in modal only shows Phantom/Solflare/Backpack (current behavior). Phase 10 is where this flips via the staged rollout procedure.
 
-`WEB3AUTH_SOL_CHECKOUT_ENABLED=false` gates SOL-priced shop checkout to Wallet Standard users only in v1. When off, Web3Auth users attempting to check out with SOL-priced items see a flash pointing them at BUX pricing or wallet connect. Flip to `true` in v1.1+ after the `wallet_sign` payment mode (already wired in `PaymentIntents`, gated by this env) has been exercised on devnet.
+> **Note (2026-04-23)**: `WEB3AUTH_SOL_CHECKOUT_ENABLED` was removed. Web3Auth users now pay SOL-priced orders the same way Wallet Standard users do — `SolPaymentHook` + `signAndConfirm` handle both signer sources. No separate flag needed.
 
 ### Two Custom JWT verifiers must exist in the Web3Auth dashboard
 
@@ -538,7 +537,6 @@ Then register the PUBLIC key half with Web3Auth's dashboard (JWKS URL = `https:/
 | `WEB3AUTH_TELEGRAM_VERIFIER_ID` | main app | Telegram Custom JWT verifier name (usually `blockster-telegram`) |
 | `WEB3AUTH_JWT_SIGNING_KEY_PATH` | main app | Path to mounted RSA private key file (e.g. `/data/web3auth/signing_key.json`). Signs BOTH the `blockster-email` and `blockster-telegram` JWTs |
 | `SOCIAL_LOGIN_ENABLED` | main app | Master kill-switch for the social-login UI. `false` hides the email form + social tiles |
-| `WEB3AUTH_SOL_CHECKOUT_ENABLED` | main app | Gate for SOL-priced shop checkout for Web3Auth users. `false` in v1 — they're pushed to BUX or to wallet connect |
 | `BLOCKSTER_V2_BOT_TOKEN` | main app | Telegram bot token for HMAC verification of Login Widget payloads |
 | `SOCIAL_LOGIN_ENABLED` | main app | Feature flag — `false` keeps social login UI hidden |
 | `HOURLY_PROMO_ENABLED` | main app | `false` — keeps the Telegram promo scheduler off |
@@ -786,7 +784,7 @@ Social login ships behind `SOCIAL_LOGIN_ENABLED`. After the Phase 5–10 session
 - [ ] `POST /api/auth/telegram/verify` handles at least one known-good widget payload end-to-end.
 - [ ] A manual Web3Auth email signup flow on staging completes: modal → email input → receive OTP → enter code in modal (no popup!) → Web3Auth MPC derives pubkey → user row created → session cookie set → onboarding lands.
 - [ ] A legacy EVM user email sign-in on staging completes the reclaim merge: legacy user row deactivated, legacy BUX minted to new Solana wallet via settler, username/X/Telegram/phone transferred, returning user lands on `/` (onboarding skipped).
-- [ ] `WEB3AUTH_SOL_CHECKOUT_ENABLED` stays `false` for v1 — confirm SOL-priced shop items block Web3Auth users with a clear flash message pointing them at BUX pricing.
+- [ ] SOL-priced shop checkout completes end-to-end as a Web3Auth user on devnet (the 2026-04-23 Phase 13 work removed the `WEB3AUTH_SOL_CHECKOUT_ENABLED` gate; prove `payment_mode="wallet_sign"` + `SolPaymentHook` take SOL off a Web3Auth-derived wallet to the ephemeral intent address).
 
 ### Staged rollout
 

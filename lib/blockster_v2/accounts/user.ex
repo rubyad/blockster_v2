@@ -104,6 +104,8 @@ defmodule BlocksterV2.Accounts.User do
          "wallet",
          "email",
          "web3auth_email",
+         "web3auth_google",
+         "web3auth_apple",
          "web3auth_x",
          "web3auth_telegram"
        ])
@@ -157,6 +159,8 @@ defmodule BlocksterV2.Accounts.User do
     |> validate_required([:wallet_address, :auth_method])
     |> validate_inclusion(:auth_method, [
          "web3auth_email",
+         "web3auth_google",
+         "web3auth_apple",
          "web3auth_x",
          "web3auth_telegram"
        ])
@@ -174,8 +178,12 @@ defmodule BlocksterV2.Accounts.User do
        )
   end
 
-  defp put_email_verified(changeset, "web3auth_email", email)
-       when is_binary(email) and email != "" do
+  # OTP-owned email (web3auth_email) + OAuth-verified emails (Google / Apple)
+  # count as verified once we actually have an address on file. Keep in sync
+  # with Accounts.verified_email_auth_method?/1.
+  defp put_email_verified(changeset, auth_method, email)
+       when auth_method in ["web3auth_email", "web3auth_google", "web3auth_apple"] and
+              is_binary(email) and email != "" do
     put_change(changeset, :email_verified, true)
   end
 

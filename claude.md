@@ -77,10 +77,12 @@ Phoenix LiveView web3 content platform — shop, hubs, events, token-based engag
 ## Running Locally
 
 ```bash
-bin/dev           # settler + 2 Elixir nodes (full cluster) — DEFAULT, always use this
-bin/dev single    # single node, no cluster (discouraged)
-bin/dev settler   # settler only
+WIDGETS_ENABLED=true bin/dev   # settler + 2 Elixir nodes (full cluster) — DEFAULT, always use this
+bin/dev single                 # single node, no cluster (discouraged)
+bin/dev settler                # settler only
 ```
+
+**ALWAYS prefix `bin/dev` with `WIDGETS_ENABLED=true`** when starting local. Widgets are off by default, but the dev workflow assumes they're on — starting without it ships a degraded UI.
 
 | Service | Port | Purpose |
 |---------|------|---------|
@@ -92,10 +94,9 @@ bin/dev settler   # settler only
 
 **Dev env**: Settler auth bypassed (`SETTLER_API_SECRET=dev-secret`), BuxMinter defaults to `http://localhost:3000`, Solana = devnet (QuickNode), libcluster auto-discovers `node1`/`node2`.
 
-**Real-time widgets**: `WIDGETS_ENABLED=false` by default. To see live data:
+**Real-time widgets**: `WIDGETS_ENABLED=true` is the dev default (see above). One-time seed:
 ```bash
-WIDGETS_ENABLED=true bin/dev
-mix run priv/repo/seeds_widget_banners.exs   # one-time
+mix run priv/repo/seeds_widget_banners.exs
 ```
 
 ## Deployment
@@ -168,7 +169,7 @@ All 12 phases complete. Migrated from Rogue Chain (EVM) to Solana.
 All 10 phases complete — see [docs/social_login_plan.md](docs/social_login_plan.md) + Appendices D + E for session narratives, [docs/web3auth_integration.md](docs/web3auth_integration.md) for technical reference.
 
 **Key facts**:
-- Two feature flags gate the rollout: `SOCIAL_LOGIN_ENABLED` (master switch, default off in prod) + `WEB3AUTH_SOL_CHECKOUT_ENABLED` (default off; SOL-priced shop checkout is wallet-only in v1).
+- One feature flag gates the rollout: `SOCIAL_LOGIN_ENABLED` (master switch, default off in prod). Web3Auth users check out SOL the same way Wallet Standard users do (`payment_mode_for_user/1` returns `"wallet_sign"`; `SolPaymentHook` handles both signer sources via `signAndConfirm`).
 - Sign-in modal: email input + X/Google/Apple/Telegram tile grid + existing Phantom/Solflare/Backpack wallet list. Invoke `/frontend-design:frontend-design` for any modal changes per CLAUDE.md.
 - **Email flow runs through a Custom JWT, NOT Web3Auth's EMAIL_PASSWORDLESS popup**. In-app OTP (two-stage inline entry) → `Auth.EmailOtpStore` (ETS) → `Auth.Web3AuthSigning.sign_id_token` → `connectTo(AUTH, { authConnection: CUSTOM, authConnectionId: "blockster-email", extraLoginOptions: {id_token, verifierIdField: "sub"} })`. No popup, no captcha. See docs/social_login_plan.md Appendix E for the "why".
 - Telegram flow: same Custom JWT infrastructure, verifier `blockster-telegram`. Widget embed wires to `POST /api/auth/telegram/verify`.
@@ -203,13 +204,13 @@ All 10 phases complete — see [docs/social_login_plan.md](docs/social_login_pla
 ## Shop / Checkout (SOL-direct)
 
 - Routes: `/shop` (`ShopLive.Index`), `/shop/:slug` (`ShopLive.Show`), `/cart` (`CartLive.Index`), `/checkout/:order_id` (`CheckoutLive.Index`).
-- Prices stored in USD; displayed in SOL primary + USD secondary via `BlocksterV2.Shop.Pricing` + `BlocksterV2Web.ShopComponents.product_price_block`. Rate from `PriceTracker.get_price("SOL")` (10-min CoinGecko poll).
+- **SOL-FIRST RULE (applies everywhere money moves — shop pages, cart, checkout, order-confirmation emails, receipts, admin views):** Prices stored in USD; always display SOL primary + USD secondary. Use `BlocksterV2Web.ShopComponents.sol_usd_dual` for line items and totals, `BlocksterV2Web.ShopComponents.product_price_block` for product-card prices. Direct formatters: `BlocksterV2.Shop.Pricing.format_sol_precise/1` (4 decimals for payment surfaces) + `format_usd/1`. Rate from `PriceTracker.get_price("SOL")` live, or `payment_intent.quoted_sol_usd_rate` when viewing a past order (lock the rate so rate drift doesn't misrepresent what was paid). **Do not show USD-only numbers in any user-facing shop surface.**
 - Payment flow (Phase 5b): buyer pays remaining `subtotal + shipping − bux_discount` as a single SOL transfer from their connected wallet to a **unique ephemeral address per order**. No Helio, no Stripe, no external processor.
   - Settler HKDF-derives the ephemeral keypair from `(PAYMENT_INTENT_SEED, order_id)` — stateless, no per-order key storage. Rotating the seed invalidates every unswept intent.
   - `order_payment_intents` table holds pubkey + `expected_lamports` + status (`pending → funded → swept | expired | failed`) + 15-min `expires_at`.
   - `PaymentIntentWatcher` (GlobalSingleton, 10s tick) polls settler `GET /intents/:pubkey` → on funded flips order → `paid`, broadcasts `{:order_updated, order}` on `order:<id>` → watcher sweeps next tick to `SOL_TREASURY_ADDRESS` (fee paid by `MINT_AUTHORITY`).
   - Checkout JS hook: `assets/js/hooks/sol_payment.js` — builds `SystemProgram.transfer`, signs via Wallet Standard `signAndSendTransaction`.
-- BUX discount: still optional, still burns on-chain via `BuxPaymentHook` before the SOL payment step.
+- BUX discount: still optional, burns on-chain via `SolanaBuxBurn` JS hook (`assets/js/hooks/solana_bux_burn.js`) before the SOL payment step. Hand-rolls an SPL `BurnChecked` instruction client-side, signs via `window.__signer` + `signAndConfirm` (polls `getSignatureStatuses`). Works for both Wallet Standard and Web3Auth. The old `BuxPaymentHook` (EVM/Thirdweb) at `assets/js/hooks/bux_payment.js` is a dead stub — don't revive.
 - Per-product `bux_max_discount` cap (0/nil = uncapped = 100% discount allowed — known footgun, set explicit caps per product or change the fallback in `shop_live/show.ex`).
 - Settler env vars (required for prod): `PAYMENT_INTENT_SEED`, `SOL_TREASURY_ADDRESS`. Dev defaults exist. Full deploy runbook: [`docs/solana_mainnet_deployment.md`](docs/solana_mainnet_deployment.md) Step 5.
 

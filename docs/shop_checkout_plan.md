@@ -1,14 +1,62 @@
 # Shop Checkout System - Implementation Plan
 
-> **Status**: Phase 12 Complete — Helio replaced by SOL-direct payment
+> **Status**: Phase 13 Complete — BUX burn hook rebuilt on Solana
 > **Created**: 2026-02-16
-> **Last update**: 2026-04-19
+> **Last update**: 2026-04-23
 > **Branch**: `feat/solana-migration`
 > **Scope**: Complete checkout system with SOL-direct payment intents, BUX discount burn, affiliate system, and order fulfillment
 
 ---
 
 ## Implementation Progress
+
+### Phase 13: BUX Burn Hook Rebuilt on Solana (2026-04-23) ✅
+
+Root cause: `assets/js/hooks/bux_payment.js` (`BuxPaymentHook`) was a dead EVM/Thirdweb stub post-Solana migration. Checkout LiveView pushed `initiate_bux_payment_client` to this stub, nothing ran, and users with a BUX discount got stuck on "Processing" forever — Mnesia BUX was deducted at click time, on-chain BUX never burned, order trapped in `bux_pending`.
+
+**New hook:** `assets/js/hooks/solana_bux_burn.js` (`SolanaBuxBurn`). Hand-rolls an SPL `BurnChecked` instruction (10-byte data: discriminator 15 + `u64` amount LE + `u8` decimals) using only `@solana/web3.js` primitives already in the bundle — no `@solana/spl-token` dep added. Derives the user's BUX ATA with `PublicKey.findProgramAddressSync`, signs via `window.__signer`, confirms via shared `signAndConfirm` helper (polls `getSignatureStatuses` per CLAUDE.md, never `confirmTransaction`). Works for both Wallet Standard and Web3Auth signers.
+
+**Wiring:**
+- `checkout_live/index.html.heex:524` — `phx-hook="BuxPaymentHook"` → `phx-hook="SolanaBuxBurn"`. New data attributes: `data-bux-mint="7CuRyw2YkqQhUUFbw6CCnoedHWT8tK2c9UzZQYDGmxVX"`, `data-bux-decimals="9"`.
+- `app.js:80,681` — import + register `SolanaBuxBurn`.
+- Server-side `bux_burn_confirmed` handler at `checkout_live/index.ex:261` (already in place from SHOP-15) receives the sig and transitions order to `bux_paid`.
+
+**Re-entrant safety** (`checkout_live/index.ex:225+`): when order is already `bux_pending` with `bux_burn_tx_hash` still nil, `initiate_bux_payment` skips the second `BalanceManager.deduct_bux` and just re-fires the client event. Closes the double-deduct race that a refresh-then-retry on a stuck order would otherwise hit.
+
+**Cancel escape hatch** on `:processing` state: new "Cancel & refund BUX" button → `cancel_bux_payment` handler → routes into existing `bux_payment_error` refund path (credits Mnesia, resets order to `pending`). Prevents permanent order lockout when the wallet modal is dismissed without signing.
+
+**Non-refundable warning removed:** SHOP-14 acknowledgement gate (amber warning box + "I understand BUX is non-refundable" checkbox + `bux_warning_ack` assign / `toggle_bux_warning_ack` handler / gate branch in `initiate_bux_payment`) deleted per product call. 4 gate tests removed from `checkout_live/index_test.exs`. With the cancel button in place and refund-on-error intact, the non-refundable copy overstated the risk.
+
+**Files created:**
+- `assets/js/hooks/solana_bux_burn.js`
+
+**Files modified:**
+- `assets/js/app.js` — import + hook registration
+- `lib/blockster_v2_web/live/checkout_live/index.html.heex` — swap hook, add cancel button, delete warning box
+- `lib/blockster_v2_web/live/checkout_live/index.ex` — re-entrant guard, cancel handler, delete ack gate + assign
+- `test/blockster_v2_web/live/checkout_live/index_test.exs` — delete SHOP-14 tests
+- `CLAUDE.md` — Shop section now points at `SolanaBuxBurn`
+
+**Preserved as deprecated (safe to remove in follow-up):**
+- `assets/js/hooks/bux_payment.js` — stub file
+- `BuxPaymentHook` import/registration in `app.js` — flagged DEPRECATED
+
+**Tests:** `mix test test/blockster_v2_web/live/checkout_live` → 30/0.
+
+**Addendum (same day):** After verifying the new `SolanaBuxBurn` hook end-to-end, the follow-up SOL payment step flashed "SOL checkout is wallet-only right now. Pay with BUX, or connect a Solana wallet." — the v1 `check_sol_payment_allowed/2` gate at `payment_intents.ex:86` was rejecting Web3Auth users even though `SolPaymentHook` + `signAndConfirm` now handle both signer sources uniformly (Coin Flip, Pool, and shop SOL-direct all exercise this). The gate plus its `WEB3AUTH_SOL_CHECKOUT_ENABLED` env flag were vestigial from Phase 7 when the wallet-sign path was unproven.
+
+**Removed:**
+- `PaymentIntents.check_sol_payment_allowed/2` and its `:web3auth_sol_not_supported` error return.
+- `WEB3AUTH_SOL_CHECKOUT_ENABLED` env var reads (only place it was consumed).
+- The `:gated` branch in `checkout_live/index.ex:maybe_create_payment_intent` (collapsed to direct intent creation).
+- 3 tests in `test/blockster_v2/payment_intents_phase7_test.exs` that exercised the gate + env toggle.
+- `WEB3AUTH_SOL_CHECKOUT_ENABLED` references in `CLAUDE.md`, `docs/solana_mainnet_deployment.md` (secrets runbook + env table + launch checklist), and `docs/social_login_plan.md` (rollout table + runbook + deferred scope). Historical mentions in `docs/bug_audit_2026_04_22.md` and `docs/solana_build_history.md` left intact — they describe what was true at audit / build time.
+
+**Consistency fix:** `payment_mode_for_user/1` previously only matched `web3auth_email | web3auth_x | web3auth_telegram` (3 types). After the 2026-04-23 label fix added `web3auth_google` and `web3auth_apple` as valid auth_methods, Google/Apple users were silently falling through to `"manual"` mode. Consolidated to a `@web3auth_auth_methods` module attribute covering all 5 Web3Auth types — drift closed.
+
+**Net effect:** Web3Auth users (all 5 auth_methods) now hit the same SOL checkout flow as Wallet Standard users. No per-user gating, no env flag to set.
+
+---
 
 ### Phase 12: SOL-Direct Checkout — Helio Removed (2026-04-19) ✅
 

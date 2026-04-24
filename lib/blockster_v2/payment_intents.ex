@@ -59,6 +59,8 @@ defmodule BlocksterV2.PaymentIntents do
     end
   end
 
+  @web3auth_auth_methods ~w(web3auth_email web3auth_google web3auth_apple web3auth_x web3auth_telegram)
+
   @doc """
   Decide the payment mode for a user. Web3Auth social users sign locally
   from their exported ed25519 key with the settler as fee_payer — direct
@@ -68,32 +70,10 @@ defmodule BlocksterV2.PaymentIntents do
   Unknown / nil users default to `manual` (the safer behavior — no settler
   fee burn if someone hits the checkout without a session somehow).
   """
-  def payment_mode_for_user(%{auth_method: auth}) when auth in ["web3auth_email", "web3auth_x", "web3auth_telegram"],
+  def payment_mode_for_user(%{auth_method: auth}) when auth in @web3auth_auth_methods,
     do: "wallet_sign"
 
   def payment_mode_for_user(_), do: "manual"
-
-  @doc """
-  Returns `:ok` if the user is allowed to pay with SOL for this order,
-  otherwise `{:error, :web3auth_sol_not_supported}`. In v1 Web3Auth users
-  can only check out BUX-priced items; SOL-priced items route through
-  Helio/fiat in v1.1+. See plan §7.4.
-
-  Callers at checkout should call this before creating the intent — if it
-  returns `:error`, show a message directing the user to connect a wallet
-  or pick BUX pricing.
-  """
-  def check_sol_payment_allowed(%{auth_method: auth}, _order)
-      when auth in ["web3auth_email", "web3auth_x", "web3auth_telegram"] do
-    # v1 gate. Remove when wallet_sign flow is stabilized (plan §7.4 — v1.1+).
-    if System.get_env("WEB3AUTH_SOL_CHECKOUT_ENABLED", "false") == "true" do
-      :ok
-    else
-      {:error, :web3auth_sol_not_supported}
-    end
-  end
-
-  def check_sol_payment_allowed(_user, _order), do: :ok
 
   @doc "Fetches the current intent for an order, or nil."
   def get_for_order(order_id) do
@@ -116,6 +96,26 @@ defmodule BlocksterV2.PaymentIntents do
   Marks an intent as funded. Called by the watcher after the settler confirms
   the ephemeral address received >= expected_lamports.
   """
+  @doc """
+  Records the tx signature the buyer's wallet produced, BEFORE the settler
+  watcher has confirmed the ephemeral address funded. Lets us preserve the
+  buyer-side sig even if settler's `getSignaturesForAddress` lookup lags —
+  we'd rather show the actual tx than leave the confirmation page tx-less.
+  """
+  def record_submitted_tx_sig(intent_id, tx_sig) when is_binary(tx_sig) and tx_sig != "" do
+    case Repo.get(PaymentIntent, intent_id) do
+      nil ->
+        {:error, :not_found}
+
+      intent ->
+        intent
+        |> Ecto.Changeset.change(%{funded_tx_sig: tx_sig})
+        |> Repo.update()
+    end
+  end
+
+  def record_submitted_tx_sig(_, _), do: {:error, :invalid_sig}
+
   def mark_funded(intent_id, tx_sig, funded_lamports) do
     Repo.get(PaymentIntent, intent_id)
     |> case do
@@ -123,20 +123,38 @@ defmodule BlocksterV2.PaymentIntents do
         {:error, :not_found}
 
       intent ->
+        # Prefer the sig the caller passed (settler's best-effort lookup),
+        # fall back to whatever's already on the row (typically recorded
+        # via record_submitted_tx_sig/2 from the buyer). Prevents the
+        # watcher from clobbering a known-good sig with a nil when
+        # getSignaturesForAddress races balance propagation on the RPC.
+        resolved_sig = tx_sig || intent.funded_tx_sig
+
         attrs = %{
           status: "funded",
-          funded_tx_sig: tx_sig,
+          funded_tx_sig: resolved_sig,
           funded_lamports: funded_lamports,
           funded_at: DateTime.utc_now() |> DateTime.truncate(:second),
           last_checked_at: DateTime.utc_now() |> DateTime.truncate(:second)
         }
 
-        Repo.transaction(fn ->
-          {:ok, updated} = intent |> PaymentIntent.funded_changeset(attrs) |> Repo.update()
-          {:ok, order} = mark_order_paid(intent.order_id)
-          broadcast_order(order)
-          updated
-        end)
+        # Commit the intent-funded + order-paid writes together. Broadcast
+        # AFTER the transaction returns — if we broadcast from inside the
+        # transaction, subscribers racing a fresh read on a different
+        # connection see the pre-commit state and skip the paid-status
+        # branch (root cause of "confirmation didn't show until refresh").
+        case Repo.transaction(fn ->
+               {:ok, updated} = intent |> PaymentIntent.funded_changeset(attrs) |> Repo.update()
+               {:ok, order} = mark_order_paid(intent.order_id)
+               {updated, order}
+             end) do
+          {:ok, {updated, order}} ->
+            broadcast_order(order)
+            {:ok, updated}
+
+          {:error, _} = err ->
+            err
+        end
     end
   end
 
