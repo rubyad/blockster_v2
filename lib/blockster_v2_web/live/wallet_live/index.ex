@@ -61,10 +61,14 @@ defmodule BlocksterV2Web.WalletLive.Index do
       |> assign(:web3auth?, web3auth?)
       |> assign(:sol_balance, 0.0)
       |> assign(:bux_balance, 0.0)
+      |> assign(:sol_lp_balance, 0.0)
+      |> assign(:bux_lp_balance, 0.0)
+      |> assign(:sol_lp_price, 1.0)
+      |> assign(:bux_lp_price, 1.0)
       |> assign(:sol_usd_price, sol_usd_price)
       |> assign(:last_balance_fetch_at, DateTime.utc_now())
       |> assign(:stage, :idle)
-      |> assign(:send_form, %{to: "", amount: "", error: nil, usd_preview: "0.00"})
+      |> assign(:send_form, %{to: "", amount: "", token: "SOL", error: nil, usd_preview: "0.00"})
       |> assign(:pending_tx, nil)
       |> assign(:export_format, "base58")
       |> assign(:export_countdown_pct, 100)
@@ -85,11 +89,15 @@ defmodule BlocksterV2Web.WalletLive.Index do
   end
 
   @impl true
-  def handle_async(:fetch_balances, {:ok, {sol, bux}}, socket) do
+  def handle_async(:fetch_balances, {:ok, {sol, bux, sol_lp, bux_lp, sol_lp_price, bux_lp_price}}, socket) do
     {:noreply,
      socket
      |> assign(:sol_balance, sol)
      |> assign(:bux_balance, bux)
+     |> assign(:sol_lp_balance, sol_lp)
+     |> assign(:bux_lp_balance, bux_lp)
+     |> assign(:sol_lp_price, sol_lp_price)
+     |> assign(:bux_lp_price, bux_lp_price)
      |> assign(:last_balance_fetch_at, DateTime.utc_now())}
   end
 
@@ -112,7 +120,8 @@ defmodule BlocksterV2Web.WalletLive.Index do
   def handle_event("calc_send_preview", params, socket) do
     to = Map.get(params, "to", socket.assigns.send_form.to) || ""
     amount = Map.get(params, "amount", socket.assigns.send_form.amount) || ""
-    preview = calc_usd_preview(amount, socket.assigns.sol_usd_price)
+    token = socket.assigns.send_form.token || "SOL"
+    preview = preview_for_token(token, amount, socket.assigns)
 
     send_form =
       Map.merge(socket.assigns.send_form, %{
@@ -124,11 +133,38 @@ defmodule BlocksterV2Web.WalletLive.Index do
     {:noreply, assign(socket, :send_form, send_form)}
   end
 
+  # Switch the active token in the send card. Clears amount so the old value
+  # (potentially over the new token's balance) doesn't carry over.
+  def handle_event("select_send_token", %{"token" => token}, socket)
+      when token in ["SOL", "BUX", "SOL-LP", "BUX-LP"] do
+    send_form =
+      socket.assigns.send_form
+      |> Map.put(:token, token)
+      |> Map.put(:amount, "")
+      |> Map.put(:error, nil)
+      |> Map.put(:usd_preview, "0.00")
+
+    {:noreply, assign(socket, :send_form, send_form)}
+  end
+
+  def handle_event("select_send_token", _params, socket), do: {:noreply, socket}
+
   def handle_event("set_send_max", _params, socket) do
-    # Reserve ~0.001 SOL for fees + rent exemption minimum.
-    max = Float.round(max(socket.assigns.sol_balance - 0.001, 0.0), 6)
-    amount_str = :erlang.float_to_binary(max, decimals: 6)
-    preview = calc_usd_preview(amount_str, socket.assigns.sol_usd_price)
+    token = socket.assigns.send_form.token || "SOL"
+    balance = balance_for_token(token, socket.assigns)
+
+    # SOL needs fee + rent reserve; SPL transfers pay fees in SOL too but the
+    # token amount itself isn't touched — no self-reserve needed on the token
+    # balance.
+    reserve =
+      case token do
+        "SOL" -> 0.001
+        _ -> 0.0
+      end
+
+    max = Float.round(max(balance - reserve, 0.0), token_decimals_display(token))
+    amount_str = :erlang.float_to_binary(max, decimals: token_decimals_display(token))
+    preview = preview_for_token(token, amount_str, socket.assigns)
 
     send_form =
       Map.merge(socket.assigns.send_form, %{amount: amount_str, usd_preview: preview})
@@ -137,10 +173,13 @@ defmodule BlocksterV2Web.WalletLive.Index do
   end
 
   def handle_event("review_send", %{"to" => to, "amount" => amount}, socket) do
-    case validate_send(to, amount, socket.assigns.sol_balance) do
+    token = socket.assigns.send_form.token || "SOL"
+    balance = balance_for_token(token, socket.assigns)
+
+    case validate_send(to, amount, balance, token) do
       :ok ->
-        preview = calc_usd_preview(amount, socket.assigns.sol_usd_price)
-        send_form = %{to: to, amount: amount, error: nil, usd_preview: preview}
+        preview = preview_for_token(token, amount, socket.assigns)
+        send_form = %{to: to, amount: amount, token: token, error: nil, usd_preview: preview}
         {:noreply, socket |> assign(:stage, :confirming) |> assign(:send_form, send_form)}
 
       {:error, msg} ->
@@ -154,24 +193,42 @@ defmodule BlocksterV2Web.WalletLive.Index do
   end
 
   def handle_event("confirm_send", _params, socket) do
+    token = socket.assigns.send_form.token || "SOL"
+
     log_audit(socket, :withdrawal_initiated, %{
       amount: socket.assigns.send_form.amount,
-      to: socket.assigns.send_form.to
+      to: socket.assigns.send_form.to,
+      token: token
     })
 
     socket =
-      socket
-      |> assign(:stage, :sending)
-      |> push_event("web3auth_withdraw_sign", %{
-        to: socket.assigns.send_form.to,
-        amount: socket.assigns.send_form.amount
-      })
+      case token do
+        "SOL" ->
+          socket
+          |> assign(:stage, :sending)
+          |> push_event("web3auth_withdraw_sign", %{
+            to: socket.assigns.send_form.to,
+            amount: socket.assigns.send_form.amount
+          })
+
+        spl_token when spl_token in ["BUX", "SOL-LP", "BUX-LP"] ->
+          socket
+          |> assign(:stage, :sending)
+          |> push_event("web3auth_withdraw_token_sign", %{
+            to: socket.assigns.send_form.to,
+            amount: socket.assigns.send_form.amount,
+            token: spl_token,
+            mint: spl_mint_for_token(spl_token),
+            decimals: token_decimals_chain(spl_token)
+          })
+      end
 
     {:noreply, socket}
   end
 
   def handle_event("reset_send", _params, socket) do
-    send_form = %{to: "", amount: "", error: nil, usd_preview: "0.00"}
+    token = socket.assigns.send_form.token || "SOL"
+    send_form = %{to: "", amount: "", token: token, error: nil, usd_preview: "0.00"}
 
     {:noreply,
      socket
@@ -323,6 +380,26 @@ defmodule BlocksterV2Web.WalletLive.Index do
   end
 
   def format_sol(_), do: "0.0000"
+
+  # LP token balance — same precision as SOL (same decimals on chain).
+  def format_lp(balance) when is_number(balance) do
+    :erlang.float_to_binary(balance * 1.0, decimals: 4)
+  end
+
+  def format_lp(_), do: "0.0000"
+
+  # 4dp for prices like LP→SOL rates.
+  def format_sol_4dp(value) when is_number(value) do
+    :erlang.float_to_binary(value * 1.0, decimals: 4)
+  end
+
+  def format_sol_4dp(_), do: "0.0000"
+
+  def format_lp_4dp(value) when is_number(value) do
+    :erlang.float_to_binary(value * 1.0, decimals: 4)
+  end
+
+  def format_lp_4dp(_), do: "0.0000"
 
   # BUX with two decimal places and a thousands separator. On-chain raw units
   # are converted upstream — balance here can be integer or float; coerce to
@@ -498,20 +575,48 @@ defmodule BlocksterV2Web.WalletLive.Index do
     _ -> 0.0
   end
 
-  # Fetches both SOL and BUX balances in a single settler call.
-  # `BuxMinter.get_balance/1` hits the settler's GET /balance/:wallet which
-  # returns `{ sol, bux }` in lamports-converted floats. On failure the UI
-  # shows 0.0 for both — better than erroring the page.
+  # Fetches SOL, BUX, SOL-LP, BUX-LP balances + LP prices in one async batch.
+  # - Base balances come from settler's GET /balance/:wallet.
+  # - LP balances come from settler's GET /lp-balance/:wallet/:vault.
+  # - LP prices come from BuxMinter.get_pool_stats() (same call used by
+  #   LpPriceTracker). All optional — missing values default to 0 / 1.0.
   defp fetch_balances(wallet_address) when is_binary(wallet_address) do
-    case BlocksterV2.BuxMinter.get_balance(wallet_address) do
-      {:ok, %{sol: sol, bux: bux}} -> {sol * 1.0, bux * 1.0}
-      _ -> {0.0, 0.0}
-    end
+    {sol, bux} =
+      case BlocksterV2.BuxMinter.get_balance(wallet_address) do
+        {:ok, %{sol: s, bux: b}} -> {s * 1.0, b * 1.0}
+        _ -> {0.0, 0.0}
+      end
+
+    sol_lp =
+      case BlocksterV2.BuxMinter.get_lp_balance(wallet_address, "sol") do
+        {:ok, n} when is_number(n) -> n * 1.0
+        _ -> 0.0
+      end
+
+    bux_lp =
+      case BlocksterV2.BuxMinter.get_lp_balance(wallet_address, "bux") do
+        {:ok, n} when is_number(n) -> n * 1.0
+        _ -> 0.0
+      end
+
+    {sol_lp_price, bux_lp_price} =
+      case BlocksterV2.BuxMinter.get_pool_stats() do
+        {:ok, stats} ->
+          {
+            get_in(stats, ["sol", "lpPrice"]) || 1.0,
+            get_in(stats, ["bux", "lpPrice"]) || 1.0
+          }
+
+        _ ->
+          {1.0, 1.0}
+      end
+
+    {sol, bux, sol_lp, bux_lp, sol_lp_price * 1.0, bux_lp_price * 1.0}
   rescue
-    _ -> {0.0, 0.0}
+    _ -> {0.0, 0.0, 0.0, 0.0, 1.0, 1.0}
   end
 
-  defp fetch_balances(_), do: {0.0, 0.0}
+  defp fetch_balances(_), do: {0.0, 0.0, 0.0, 0.0, 1.0, 1.0}
 
   # QR for receive-address card. Deterministic SVG from sha256 of pubkey —
   # stable visual, not a real scannable code. Replace with EQRCode once
@@ -519,7 +624,13 @@ defmodule BlocksterV2Web.WalletLive.Index do
   defp render_qr(address) when is_binary(address), do: render_stub_qr(address)
   defp render_qr(_), do: ""
 
-  defp validate_send(to, amount, balance) do
+  defp validate_send(to, amount, balance, token \\ "SOL") do
+    reserve =
+      case token do
+        "SOL" -> 0.001
+        _ -> 0.0
+      end
+
     cond do
       not is_binary(to) or String.length(String.trim(to)) < 32 ->
         {:error, "Enter a valid Solana address"}
@@ -529,13 +640,77 @@ defmodule BlocksterV2Web.WalletLive.Index do
 
       true ->
         case Float.parse(amount || "") do
-          {n, _} when n > 0 and n <= balance - 0.001 -> :ok
-          {n, _} when n > balance - 0.001 -> {:error, "Amount exceeds balance (incl. fees)"}
+          {n, _} when n > 0 and n <= balance - reserve -> :ok
+          {n, _} when n > balance - reserve ->
+            if token == "SOL" do
+              {:error, "Amount exceeds balance (incl. fees)"}
+            else
+              {:error, "Amount exceeds your #{token} balance"}
+            end
+
           {n, _} when n <= 0 -> {:error, "Amount must be greater than 0"}
           :error -> {:error, "Enter a valid amount"}
         end
     end
   end
+
+  # Map a UI token label to the on-chain SPL mint. SOL is native so it has
+  # no mint; callers should branch on token type before calling this.
+  defp spl_mint_for_token("BUX"),    do: "7CuRyw2YkqQhUUFbw6CCnoedHWT8tK2c9UzZQYDGmxVX"
+  defp spl_mint_for_token("SOL-LP"), do: "4ppR9BUEKbu5LdtQze8C6ksnKzgeDquucEuQCck38StJ"
+  defp spl_mint_for_token("BUX-LP"), do: "CGNFj29F67BJhFmE3eJ2tCkb8ZwbQQ4Fd1xFynMCDMrX"
+  defp spl_mint_for_token(_),        do: nil
+
+  # How the token is stored on chain (decimals). All three SPL tokens use 9
+  # decimals, matching SOL lamport precision. Kept as a fn so changing one
+  # later doesn't hunt-and-peck.
+  defp token_decimals_chain("SOL"),    do: 9
+  defp token_decimals_chain("BUX"),    do: 9
+  defp token_decimals_chain("SOL-LP"), do: 9
+  defp token_decimals_chain("BUX-LP"), do: 9
+  defp token_decimals_chain(_),        do: 9
+
+  # How many decimals to display in the input. BUX shows 2 (most BUX amounts
+  # are integer-ish), the others show 6 so the user can see tiny tail values.
+  defp token_decimals_display("BUX"), do: 2
+  defp token_decimals_display(_),     do: 6
+
+  defp balance_for_token("SOL",    a), do: a.sol_balance
+  defp balance_for_token("BUX",    a), do: a.bux_balance
+  defp balance_for_token("SOL-LP", a), do: a.sol_lp_balance
+  defp balance_for_token("BUX-LP", a), do: a.bux_lp_balance
+  defp balance_for_token(_,        _), do: 0.0
+
+  # Under-the-amount preview text. SOL shows USD; SPL tokens show underlying
+  # value (BUX-LP → BUX; SOL-LP → SOL). BUX alone shows nothing useful so
+  # returns an empty "0.00" the template can hide.
+  defp preview_for_token("SOL", amount, assigns),
+    do: calc_usd_preview(amount, assigns.sol_usd_price)
+
+  defp preview_for_token("SOL-LP", amount, assigns) do
+    case Float.parse(amount || "") do
+      {n, _} ->
+        underlying = n * assigns.sol_lp_price
+        :erlang.float_to_binary(underlying * 1.0, decimals: 4)
+
+      :error ->
+        "0.0000"
+    end
+  end
+
+  defp preview_for_token("BUX-LP", amount, assigns) do
+    case Float.parse(amount || "") do
+      {n, _} ->
+        underlying = n * assigns.bux_lp_price
+        :erlang.float_to_binary(underlying * 1.0, decimals: 2)
+
+      :error ->
+        "0.00"
+    end
+  end
+
+  defp preview_for_token("BUX", _amount, _assigns), do: "0.00"
+  defp preview_for_token(_, _, _), do: "0.00"
 
   # Very loose pubkey validation — real check is on the JS hook (it decodes
   # with PublicKey and rejects token accounts).

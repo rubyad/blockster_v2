@@ -1,0 +1,197 @@
+<BlocksterV2Web.DesignSystem.header
+  current_user={@current_user}
+  active={nil}
+  bux_balance={Map.get(assigns, :bux_balance, 0)}
+  token_balances={Map.get(assigns, :token_balances, %{})}
+  cart_item_count={Map.get(assigns, :cart_item_count, 0)}
+  unread_notification_count={Map.get(assigns, :unread_notification_count, 0)}
+  notification_dropdown_open={Map.get(assigns, :notification_dropdown_open, false)}
+  recent_notifications={Map.get(assigns, :recent_notifications, [])}
+  search_query={Map.get(assigns, :search_query, "")}
+  search_results={Map.get(assigns, :search_results, [])}
+  show_search_results={Map.get(assigns, :show_search_results, false)}
+  show_search_modal={Map.get(assigns, :show_search_modal, false)}
+  connecting={Map.get(assigns, :connecting, false)}
+  show_why_earn_bux={true}
+  announcement_banner={assigns[:announcement_banner]}
+/>
+
+<main class="bg-[#F5F6FB] min-h-screen">
+  <%!-- ── Hero ─────────────────────────────────────────────────── --%>
+  <section class="relative bg-[#0B0B0C] overflow-hidden">
+    <div class="absolute inset-0 pointer-events-none">
+      <div class="absolute -top-24 -right-24 w-[520px] h-[520px] bg-[#CAFC00]/[0.07] rounded-full blur-3xl"></div>
+      <div class="absolute bottom-0 -left-40 w-[420px] h-[420px] bg-[#7D00FF]/20 rounded-full blur-[140px]"></div>
+      <div class="absolute inset-0 bg-[radial-gradient(circle_at_80%_20%,rgba(255,255,255,0.04),transparent_50%)]"></div>
+    </div>
+
+    <div class="relative max-w-[1280px] mx-auto px-6 lg:px-10 pt-20 pb-24 md:pt-28 md:pb-32">
+      <div class="max-w-[820px]">
+        <div class="inline-flex items-center gap-2 mb-8">
+          <span class="w-1.5 h-1.5 rounded-full bg-[#CAFC00]"></span>
+          <span class="text-[10px] uppercase tracking-[0.22em] text-white/60 font-haas_medium_65">
+            About Blockster
+          </span>
+        </div>
+
+        <h1 class="font-bold tracking-[-0.024em] leading-[0.98] text-white text-[44px] md:text-[84px] mb-8 max-w-[780px]">
+          Reading crypto<br />
+          <span class="text-white/45">should pay.</span>
+        </h1>
+
+        <p class="text-white/70 text-[17px] md:text-[19px] leading-[1.6] max-w-[640px] font-haas_roman_55">
+          Blockster is a crypto publication where every article you finish pays you real tokens, settled on-chain. We cover the builders, the protocols, the culture — and we share the economics with the people reading, not just the people writing.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <%!-- ── What we are ──────────────────────────────────────────── --%>
+  <section class="max-w-[1280px] mx-auto px-6 lg:px-10 pt-20 md:pt-28 pb-10">
+    <div class="grid grid-cols-1 md:grid-cols-12 gap-8 md:gap-16">
+      <div class="md:col-span-4">
+        <div class="text-[10px] uppercase tracking-[0.2em] text-[#141414]/45 font-haas_medium_65 mb-4">
+          What it is
+        </div>
+        <h2 class="text-[32px] md:text-[44px] font-bold tracking-[-0.02em] leading-[1.02] text-[#141414]">
+          A publication that pays its readers.
+        </h2>
+      </div>
+
+      <div class="md:col-span-7 md:col-start-6">
+        <div class="space-y-5 text-[16px] md:text-[17px] leading-[1.65] text-[#515B70] font-haas_roman_55">
+          <p>
+            The old bargain for digital media was simple: your attention in, ads out. Readers built the audience, and the platform collected the cheque. We think that's backwards in an industry that was literally built to re-assign ownership of value.
+          </p>
+          <p>
+            On Blockster, every article is wired into an on-chain engagement loop. The longer and deeper you read, the more <span class="font-haas_medium_65 text-[#141414]">BUX</span> you earn. BUX is a real SPL token on Solana — you can hold it, stake it into pools, flip it on the coin-flip game, or spend it in the shop.
+          </p>
+          <p>
+            We write about what's moving on-chain today. Protocol launches, founder interviews, market structure, the occasional rug. No sponsored fluff in the feed, no "press release as editorial." If a story runs, an editor signed off on it.
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <%!-- ── Stats band ───────────────────────────────────────────── --%>
+  <section class="max-w-[1280px] mx-auto px-6 lg:px-10 pt-6 pb-20 md:pb-28">
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-px bg-[#E3E6EF] rounded-2xl overflow-hidden border border-[#E3E6EF]">
+      <div class="bg-white px-6 py-8 md:px-8 md:py-10">
+        <div class="text-[38px] md:text-[46px] font-bold tracking-[-0.02em] text-[#141414] leading-none mb-2">
+          68
+        </div>
+        <div class="text-[13px] text-[#515B70]">Ecosystem hubs covered</div>
+      </div>
+      <div class="bg-white px-6 py-8 md:px-8 md:py-10">
+        <div class="text-[38px] md:text-[46px] font-bold tracking-[-0.02em] text-[#141414] leading-none mb-2">
+          ~200<span class="text-[#CAFC00]">k</span>
+        </div>
+        <div class="text-[13px] text-[#515B70]">BUX paid to readers</div>
+      </div>
+      <div class="bg-white px-6 py-8 md:px-8 md:py-10">
+        <div class="text-[38px] md:text-[46px] font-bold tracking-[-0.02em] text-[#141414] leading-none mb-2">
+          100<span class="text-[#515B70]/50 font-haas_roman_55">%</span>
+        </div>
+        <div class="text-[13px] text-[#515B70]">Settled on-chain</div>
+      </div>
+      <div class="bg-white px-6 py-8 md:px-8 md:py-10">
+        <div class="text-[38px] md:text-[46px] font-bold tracking-[-0.02em] text-[#141414] leading-none mb-2">
+          3
+        </div>
+        <div class="text-[13px] text-[#515B70]">People making it</div>
+      </div>
+    </div>
+  </section>
+
+  <%!-- ── Team ─────────────────────────────────────────────────── --%>
+  <section class="bg-white border-t border-[#E3E6EF]">
+    <div class="max-w-[1280px] mx-auto px-6 lg:px-10 pt-20 md:pt-28 pb-24 md:pb-32">
+      <div class="flex flex-col md:flex-row md:items-end md:justify-between gap-6 mb-14 md:mb-20">
+        <div>
+          <div class="text-[10px] uppercase tracking-[0.2em] text-[#141414]/45 font-haas_medium_65 mb-4">
+            The team
+          </div>
+          <h2 class="text-[32px] md:text-[52px] font-bold tracking-[-0.02em] leading-[1.02] text-[#141414] max-w-[720px]">
+            Three people, one belief:<br />
+            <span class="text-[#141414]/45">readers deserve a seat at the table.</span>
+          </h2>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-5 md:gap-6">
+        <article
+          :for={founder <- @founders}
+          class="group relative bg-[#F5F6FB] rounded-3xl overflow-hidden flex flex-col border border-transparent hover:border-[#141414]/10 transition-colors"
+        >
+          <div class="relative aspect-[4/5] overflow-hidden bg-[#E3E6EF]">
+            <img
+              src={founder.image}
+              alt={founder.name}
+              loading="lazy"
+              class="absolute inset-0 w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-500"
+            />
+            <div class="absolute top-4 left-4 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/90 backdrop-blur-sm">
+              <span class="w-1 h-1 rounded-full bg-[#CAFC00]"></span>
+              <span class="text-[10px] uppercase tracking-[0.14em] font-haas_medium_65 text-[#141414]">
+                Co-founder
+              </span>
+            </div>
+          </div>
+
+          <div class="p-6 md:p-7 flex flex-col gap-4 flex-1">
+            <div>
+              <h3 class="text-[22px] md:text-[24px] font-bold tracking-[-0.012em] text-[#141414] leading-tight">
+                {founder.name}
+              </h3>
+              <p class="text-[13px] text-[#515B70] mt-1 font-haas_roman_55">
+                {founder.title}
+              </p>
+            </div>
+
+            <p class="text-[14px] leading-[1.6] text-[#515B70] font-haas_roman_55 flex-1">
+              {founder.bio}
+            </p>
+
+            <div class="flex items-center gap-4 pt-3 border-t border-[#E3E6EF]">
+              <a
+                :for={social <- founder.socials}
+                href={social.href}
+                target="_blank"
+                rel="noopener"
+                class="text-[11px] uppercase tracking-[0.14em] font-haas_medium_65 text-[#515B70] hover:text-[#141414] transition-colors"
+              >
+                {social.label} ↗
+              </a>
+            </div>
+          </div>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <%!-- ── CTA strip ────────────────────────────────────────────── --%>
+  <section class="bg-[#0B0B0C] relative overflow-hidden">
+    <div class="absolute inset-0 pointer-events-none">
+      <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-[#CAFC00]/[0.06] rounded-full blur-[160px]"></div>
+    </div>
+    <div class="relative max-w-[1280px] mx-auto px-6 lg:px-10 py-20 md:py-28 text-center">
+      <h2 class="text-white text-[34px] md:text-[56px] font-bold tracking-[-0.02em] leading-[1.02] mb-6 max-w-[720px] mx-auto">
+        Come read with us.<br />
+        <span class="text-white/45">The first article's on the house.</span>
+      </h2>
+      <p class="text-white/65 text-[15px] md:text-[16px] leading-[1.55] max-w-[520px] mx-auto mb-8 font-haas_roman_55">
+        Open a Solana wallet or sign in with email. Your BUX starts stacking the moment you scroll.
+      </p>
+      <.link
+        navigate={~p"/"}
+        class="inline-flex items-center gap-2 bg-[#CAFC00] hover:bg-[#d7ff2f] text-black px-6 py-3 rounded-full text-[14px] font-haas_medium_65 tracking-tight transition-colors cursor-pointer"
+      >
+        Start reading
+        <span class="text-[16px]">→</span>
+      </.link>
+    </div>
+  </section>
+</main>
+
+<BlocksterV2Web.DesignSystem.footer />

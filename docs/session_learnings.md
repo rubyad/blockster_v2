@@ -7,6 +7,12 @@ For active reference material, see the main [CLAUDE.md](../CLAUDE.md).
 ---
 
 ## Table of Contents
+- [Broadcast inside `Repo.transaction` races the commit — subscribers see pre-commit state](#broadcast-inside-repotransaction-races-the-commit--subscribers-see-pre-commit-state-2026-04-24)
+- [Idempotent post-paid processing via the `fulfillment_notified_at` stamp](#idempotent-post-paid-processing-via-the-fulfillment_notified_at-stamp-2026-04-24)
+- [Web3Auth mobile popup fails silently — switch to `uxMode: "redirect"` + sessionStorage hint](#web3auth-mobile-popup-fails-silently--switch-to-uxmode-redirect--sessionstorage-hint-2026-04-24)
+- [`auth_method` funneling obscures downstream display — keep provider identity distinct](#auth_method-funneling-obscures-downstream-display--keep-provider-identity-distinct-2026-04-24)
+- [Settler `getSignaturesForAddress` lags balance — record buyer-side tx sig as authoritative](#settler-getsignaturesforaddress-lags-balance--record-buyer-side-tx-sig-as-authoritative-2026-04-24)
+- [Hand-rolling SPL `BurnChecked` avoids `@solana/spl-token` bundle bloat](#hand-rolling-spl-burnchecked-avoids-solanaspl-token-bundle-bloat-2026-04-24)
 - [Pool cost-basis bug — `|> assign(…)` inside render/1 does NOT touch the socket](#pool-cost-basis-bug--assign--inside-render1-does-not-touch-the-socket-2026-04-22)
 - [CF-01 InvalidServerSeed — on-chain commitment race, NOT Mnesia overwrite](#cf-01-invalidserverseed-on-chain-commitment-race-not-mnesia-seed-overwrite-2026-04-22)
 - [Migrations aren't on the `mix test` compile path — extract logic to `lib/`](#migrations-arent-on-the-mix-test-compile-path--extract-logic-to-lib-2026-04-22)
@@ -60,6 +66,290 @@ For active reference material, see the main [CLAUDE.md](../CLAUDE.md).
 - [AirdropVault V2 Upgrade](#airdropvault-v2-upgrade--client-side-deposits-feb-28-2026)
 - [NFTRewarder V6 & RPC Batching](#nftrewarder-v6--rpc-batching-mar-2026)
 - [Engagement Tracker Silent Failure — `#post-content` Selector Miss After Redesign](#engagement-tracker-silent-failure--post-content-selector-miss-after-redesign-apr-2026)
+
+---
+
+## Broadcast inside `Repo.transaction` races the commit — subscribers see pre-commit state (2026-04-24)
+
+**Symptom**: user completes a shop SOL payment, JS confirms on-chain, server-side `PaymentIntentWatcher` fires, `mark_funded/3` flips order to `paid`, PubSub broadcast fires, LV receives `{:order_updated, order}` — but LV's handler re-reads the order and sees `status != "paid"`, skips the step transition. User has to refresh to see the confirmation page.
+
+**Root cause**: `PaymentIntents.mark_funded/3` called `broadcast_order(order)` **inside** its `Repo.transaction` block. PubSub delivery is async but `Phoenix.PubSub.broadcast/3` fires immediately on send — the subscriber's process may be scheduled + run its handler before the enclosing transaction has committed. When the handler does `Orders.get_order(updated_order.id)` on a **different DB connection** (one not participating in the uncommitted transaction), that connection reads the pre-update state. Net effect: broadcast delivered, subscriber handled, but the DB read inside the subscriber returned stale data.
+
+**Why balance refresh still worked and obscured the diagnosis**: the balance refresh path (`refresh_token_balances_async/1`) fired in a spawned `Task` that started later, after the transaction had committed — so the Task's DB reads saw the post-commit state. User saw balance drop (convinced payment landed) but confirmation page still stuck on the pending step.
+
+**Fix**: broadcast outside the transaction.
+
+```elixir
+# BAD — broadcast can fire before commit
+Repo.transaction(fn ->
+  {:ok, updated} = intent |> PaymentIntent.funded_changeset(attrs) |> Repo.update()
+  {:ok, order} = mark_order_paid(intent.order_id)
+  broadcast_order(order)
+  updated
+end)
+
+# GOOD — broadcast after commit
+case Repo.transaction(fn ->
+       {:ok, updated} = intent |> PaymentIntent.funded_changeset(attrs) |> Repo.update()
+       {:ok, order} = mark_order_paid(intent.order_id)
+       {updated, order}
+     end) do
+  {:ok, {updated, order}} ->
+    broadcast_order(order)
+    {:ok, updated}
+
+  {:error, _} = err ->
+    err
+end
+```
+
+**Reusable rule**: when broadcasting database state changes via PubSub, the broadcast always comes **after** the transaction returns, never from inside the `Repo.transaction` closure. Subscribers on different connections cannot see uncommitted writes, and there's no universal primitive to defer a broadcast until after commit (Ecto's `after_action` operates inside the same transaction, not after).
+
+**Belt + suspenders fallback** that also landed: `checkout_live/index.ex` now schedules `:poll_intent_status` every 1.5s after `sol_payment_submitted`. Each tick re-runs the watcher and also reads the order directly — if we observe `status == "paid"` locally (even without receiving the broadcast), we transition to confirmation. Closes the window for genuinely-dropped broadcasts (network flake, LV remount race) too.
+
+**Files**: `lib/blockster_v2/payment_intents.ex:113-131`, `lib/blockster_v2_web/live/checkout_live/index.ex:handle_info(:poll_intent_status, ...)`.
+
+---
+
+## Idempotent post-paid processing via the `fulfillment_notified_at` stamp (2026-04-24)
+
+**Symptom**: user completed a SOL payment, landed on the confirmation page, but their cart wasn't cleared. Went back to shop, added a new product, checkout showed the old product + the new one. Emails were also missing.
+
+**Root cause**: `Orders.process_paid_order/1` does a lot of side effects — `Cart.clear_cart`, `notify_order_status_change` (in-app notification), `Fulfillment.notify` (emails + Telegram + customer confirmation), `create_affiliate_payouts`, `UserEvents.track("purchase_complete")`. It was only called from one path: `handle_info({:order_updated, _})` when the LV saw `status == "paid"`. If that handler skipped the paid branch (the commit race above) or was never received (LV wasn't subscribed yet / process dead), **none of the side effects ran**. Order was marked paid in the DB but was a "paid-in-name-only" row.
+
+**Fix (two-part)**:
+
+1. **Idempotency guard on `process_paid_order/1`** — gate every side effect behind an `if order.fulfillment_notified_at` check. The stamp is set at the end of `Fulfillment.notify/1` (the last thing to run). If set, early-return `:already_processed`.
+
+   ```elixir
+   def process_paid_order(%Order{} = order) do
+     order = get_order(order.id)
+
+     if order.fulfillment_notified_at do
+       :already_processed
+     else
+       Cart.clear_cart(order.user_id)
+       Cart.broadcast_cart_update(order.user_id)
+       notify_order_status_change(order)
+       Task.start(fn -> Fulfillment.notify(order) end)
+       if order.referrer_id, do: create_affiliate_payouts(order)
+       UserEvents.track(order.user_id, "purchase_complete", %{...})
+       :ok
+     end
+   end
+   ```
+
+2. **Mount-time recovery** in `checkout_live/index.ex` — when landing on a paid order with no stamp, fire `process_paid_order/1` inline. Safe because of the idempotency guard above; catches any historic casualty the first time the user reloads the checkout URL.
+
+   ```elixir
+   if order.status == "paid" and is_nil(order.fulfillment_notified_at) do
+     Orders.process_paid_order(order)
+   end
+   ```
+
+**Reusable pattern**: for any subsystem that fires multiple side effects on a one-time event (checkout, signup, claim), pick one "last thing to run" as the stamp and gate the whole block on it. Good stamps are timestamp fields that (a) are set inside the block (so they reflect actual completion), (b) are nil before first run, and (c) already exist in the schema for another reason (here: fulfillment tracking). This lets you call the block from multiple places — PubSub handlers, mount-time recovery, manual admin triggers — without worrying about double-firing.
+
+**Files**: `lib/blockster_v2/orders.ex:185-218`, `lib/blockster_v2_web/live/checkout_live/index.ex:83-87`.
+
+---
+
+## Web3Auth mobile popup fails silently — switch to `uxMode: "redirect"` + sessionStorage hint (2026-04-24)
+
+**Symptom**: user taps X/Google/Apple tile on mobile, gets "Sign-in window closed before completing" error. Desktop works fine. Retrying doesn't help.
+
+**Root cause** (three compounding problems):
+
+1. **Mobile browsers throttle background tabs**: iOS Safari suspends background tabs aggressively, which closes any OAuth popup the moment the user switches to it. The popup "closes before completing" from Web3Auth's perspective.
+2. **Popups are blocked after `await`**: our `_startLogin` handler did `await this._ensureInit()` before calling `web3auth.connectTo(...)`. Mobile Chrome treats `window.open` calls after an `await` as programmatic (no user gesture), and blocks them. Desktop is more permissive.
+3. **In-app webviews (Telegram, Twitter in-app)**: popups are just unsupported entirely.
+
+**Fix**: switch `uxMode` to `"redirect"` on mobile. Redirect does a full-page navigation to `auth.web3auth.io` instead of opening a popup — user signs in on provider → Web3Auth redirects back → our SDK auto-connects on `init()` when it finds the OAuth callback session.
+
+```js
+const isMobile = /mobi|android|iphone|ipad|ipod/i.test(navigator.userAgent.toLowerCase())
+  || navigator.userAgentData?.mobile === true
+
+this._web3auth = new Web3AuthCtor({
+  clientId, web3AuthNetwork, storageType: "local",
+  uiConfig: { uxMode: isMobile ? "redirect" : "popup" },
+  chains: [...]
+})
+```
+
+**Completing the login on return**: `mounted()` isn't called with any LV-side memory across the redirect — the page reloaded. To know which provider the user had tapped (for the `web3auth_authenticated` payload), stash it pre-redirect:
+
+```js
+// Before connectTo
+if (isMobile) sessionStorage.setItem(REDIRECT_PROVIDER_KEY, provider)
+
+// In mounted(), before the existing hadSession branch
+const pendingRedirectProvider = (() => {
+  try {
+    const v = sessionStorage.getItem(REDIRECT_PROVIDER_KEY)
+    if (v) sessionStorage.removeItem(REDIRECT_PROVIDER_KEY)
+    return v
+  } catch (_) { return null }
+})()
+
+if (pendingRedirectProvider && this._clientId) {
+  this._completeRedirectReturn(pendingRedirectProvider).catch(...)
+}
+```
+
+`_completeRedirectReturn/1` runs `_ensureInit()` → `_waitForConnectorSettle()`. Under `uxMode: "redirect"`, the SDK's connector auto-`connect()`s when it finds an OAuth `sessionId` in storage, so settle resolves as `"connected"`. We then fire `_completeLogin(provider)` which pushes `web3auth_authenticated` (identical to the popup path's end state).
+
+**Dashboard dependency (easy to miss)**: Web3Auth dashboard → project → **Whitelisted URLs** must include the exact origin the browser lands on after OAuth. For dev through Cloudflare quick-tunnel, that's the current `trycloudflare.com` hostname — and it rotates every `cloudflared` restart. Named tunnel or deployed test domain recommended for stable dev.
+
+**Files**: `assets/js/hooks/web3auth_hook.js:_ensureInit`, `:_completeRedirectReturn`, `:mounted`.
+
+---
+
+## `auth_method` funneling obscures downstream display — keep provider identity distinct (2026-04-24)
+
+**Symptom**: user signs in with Google, but the user dropdown says "Email Login" instead of "Google".
+
+**Root cause**: `Accounts.auth_method_for_provider/1` had deliberately mapped Google and Apple sign-ins to `"web3auth_email"` (even though the schema `@valid_auth_methods` was later extended to accept `"web3auth_google"` / `"web3auth_apple"`). Reasoning per the old comment: the `put_email_verified/3` helper only flipped `email_verified=true` for `web3auth_email`, so funneling Google/Apple through it reused that logic.
+
+Side effect nobody tested: `ds_auth_source_label/1` maps each auth_method to a display string. `"web3auth_email"` → "Email Login". So Google users legitimately showed as "Email Login" in the dropdown because that's what was in the DB.
+
+**Fix**: each provider gets its own auth_method value, plus a shared predicate for "is verified-email-bearing":
+
+```elixir
+defp auth_method_for_provider("google"), do: "web3auth_google"
+defp auth_method_for_provider("apple"), do: "web3auth_apple"
+defp auth_method_for_provider("email"), do: "web3auth_email"
+# ... etc
+
+# Shared predicate — used by put_email_verified + heal-patch + any other consumer
+defp verified_email_auth_method?("web3auth_email"), do: true
+defp verified_email_auth_method?("web3auth_google"), do: true
+defp verified_email_auth_method?("web3auth_apple"), do: true
+defp verified_email_auth_method?(_), do: false
+```
+
+**Reusable rule**: never funnel distinct identities through a single auth_method value for the sake of reusing a side-effect. The auth_method field has multiple downstream readers (display label, analytics, verifiers, multiplier math). Factor the shared behavior into a predicate; let each identity carry its true value.
+
+**Auto-heal**: `Accounts.maybe_update_web3auth_fields/2` re-derives `auth_method` on every login, so pre-fix rows (where Google users were stored as `web3auth_email`) heal automatically on their next Google sign-in. No backfill migration needed.
+
+**Files**: `lib/blockster_v2/accounts.ex:auth_method_for_provider/1`, `verified_email_auth_method?/1`, `lib/blockster_v2/accounts/user.ex:put_email_verified/3`.
+
+---
+
+## Settler `getSignaturesForAddress` lags balance — record buyer-side tx sig as authoritative (2026-04-24)
+
+**Symptom**: shop order confirmation page shows no "SOL payment tx" link even though the payment landed and the order is marked paid.
+
+**Root cause**: `PaymentIntentWatcher.check_one/1` (server-side, runs on every watcher tick) calls the settler's `GET /intents/:pubkey` endpoint to ask "is this intent funded?". Settler implementation (`contracts/blockster-settler/src/services/payment-intent-service.ts:getPaymentIntentStatus`) does:
+
+```ts
+const balance = await connection.getBalance(pubkey, "confirmed"); // fast
+const funded = balance >= expectedLamports;
+if (funded) {
+  const sigs = await connection.getSignaturesForAddress(pubkey, { limit: 1 }); // best-effort
+  if (sigs[0]) fundedTxSig = sigs[0].signature;
+}
+return { balance_lamports, funded, funded_tx_sig };
+```
+
+RPC nodes index `getBalance` fast (it hits account state directly) but `getSignaturesForAddress` uses a tx-history indexer that lags behind by a second or two. If the watcher tick fires in that window, `funded=true` + `funded_tx_sig=null`. `PaymentIntents.mark_funded/3` stored the null. Order was paid with no tx reference.
+
+**Fix**: use the buyer-side sig as authoritative. The JS hook (`signAndConfirm` in `signer.js`) already polls `getSignatureStatuses` and confirms the tx **before** pushing `sol_payment_submitted` to the server. So we already have the canonical sig on the client. Record it immediately on the intent row, and make `mark_funded/3` coalesce instead of clobber:
+
+```elixir
+# New fn — persist sig right after the buyer submits, no status change
+def record_submitted_tx_sig(intent_id, tx_sig) when is_binary(tx_sig) and tx_sig != "" do
+  case Repo.get(PaymentIntent, intent_id) do
+    nil -> {:error, :not_found}
+    intent ->
+      intent
+      |> Ecto.Changeset.change(%{funded_tx_sig: tx_sig})
+      |> Repo.update()
+  end
+end
+
+# In mark_funded — coalesce rather than overwrite
+resolved_sig = tx_sig || intent.funded_tx_sig   # <-- the critical line
+
+attrs = %{
+  status: "funded",
+  funded_tx_sig: resolved_sig,
+  ...
+}
+```
+
+**LV handler** fires the record call right when `sol_payment_submitted` arrives:
+
+```elixir
+def handle_event("sol_payment_submitted", %{"signature" => sig}, socket) do
+  if intent = socket.assigns[:payment_intent] do
+    Task.start(fn -> PaymentIntents.record_submitted_tx_sig(intent.id, sig) end)
+  end
+  # ... also trigger watcher inline + schedule fallback poll
+end
+```
+
+**Reusable pattern**: when a two-party system (client + server) both have access to the same canonical data, and one side's view lags the other's, record the eager side's view first and have the lagging side coalesce its update. Don't let the lagging side overwrite with null.
+
+**Files**: `lib/blockster_v2/payment_intents.ex:record_submitted_tx_sig/2`, `mark_funded/3`, `lib/blockster_v2_web/live/checkout_live/index.ex:handle_event("sol_payment_submitted", ...)`.
+
+---
+
+## Hand-rolling SPL `BurnChecked` avoids `@solana/spl-token` bundle bloat (2026-04-24)
+
+**Context**: replaced the dead EVM-era `BuxPaymentHook` with a working Solana burn for the shop checkout BUX discount step. Needed an SPL `BurnChecked` instruction. The obvious path was adding `@solana/spl-token` as a dep and calling `createBurnCheckedInstruction()`. But `@solana/spl-token` + its transitive deps add ~2MB to the bundle, which is noticeable on the already-heavy social login + wallet flows.
+
+**Observation**: `BurnChecked` is a trivial instruction — 10 bytes of data, 3 accounts. And we already have `@solana/web3.js` in the bundle (for `Transaction`, `PublicKey`, etc). Hand-rolling the instruction costs ~30 lines, no new deps:
+
+```js
+import { PublicKey, TransactionInstruction } from "@solana/web3.js"
+
+const TOKEN_PROGRAM_ID = new PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA")
+const ASSOCIATED_TOKEN_PROGRAM_ID = new PublicKey("ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL")
+
+// ATA derivation — PDA of [owner, token_program, mint] under ATA program.
+// Matches what spl-token's getAssociatedTokenAddress computes.
+function deriveAta(owner, mint) {
+  const [ata] = PublicKey.findProgramAddressSync(
+    [owner.toBuffer(), TOKEN_PROGRAM_ID.toBuffer(), mint.toBuffer()],
+    ASSOCIATED_TOKEN_PROGRAM_ID,
+  )
+  return ata
+}
+
+// BurnChecked instruction data layout (10 bytes):
+//   [0]   discriminator = 15 (BurnChecked)
+//   [1-8] amount as u64 little-endian
+//   [9]   decimals as u8
+// Accounts (per SPL Token spec):
+//   [0] writable source_ata
+//   [1] writable mint
+//   [2] signer  owner
+function buildBurnCheckedIx({ ata, mint, owner, amountRaw, decimals }) {
+  const data = new Uint8Array(10)
+  data[0] = 15
+  const view = new DataView(data.buffer)
+  // BigInt → two u32 writes (DataView.setBigUint64 isn't universal; explicit lo/hi is safest).
+  const lo = Number(amountRaw & 0xffffffffn)
+  const hi = Number((amountRaw >> 32n) & 0xffffffffn)
+  view.setUint32(1, lo, true)
+  view.setUint32(5, hi, true)
+  data[9] = decimals
+
+  return new TransactionInstruction({
+    programId: TOKEN_PROGRAM_ID,
+    keys: [
+      { pubkey: ata, isSigner: false, isWritable: true },
+      { pubkey: mint, isSigner: false, isWritable: true },
+      { pubkey: owner, isSigner: true, isWritable: false },
+    ],
+    data: data,
+  })
+}
+```
+
+**Rule of thumb**: before adding a Solana dep for a single instruction, check if the instruction layout is simple (≤20 bytes of data, ≤5 accounts) and whether the primitives you need (`PublicKey`, `TransactionInstruction`, PDA derivation) are already in your bundle. If yes, hand-rolling is smaller and has zero risk of dep-version drift. If the dep offers meaningful primitives beyond one instruction (e.g. token metadata helpers, account parsers), the dep may still be worth it.
+
+**Files**: `assets/js/hooks/solana_bux_burn.js`.
 
 ---
 
@@ -1413,4 +1703,129 @@ Adding an index to an existing Mnesia table at deploy time is a footgun — `mix
 **Why it matters**: PR 2a needed `:commitment_hash` indexed on `:coin_flip_games` for the CF-01 recovery lookup. Existing live tables wouldn't pick up a new index from the table-definition block — it only applies on fresh creation. Running this reconciler on every boot makes adding an Mnesia index a one-line change.
 
 **Guardrail**: wrapped in `rescue`/`catch` so a transient Mnesia error during reconcile doesn't crash boot. Worst case, the index isn't added yet and queries fall back to `dirty_match_object` (slower but correct).
+
+---
+
+## Coin Flip `BetTooLarge` (6016) — float round-trip lamport drift (2026-04-24)
+
+**Symptom**: User hit `BetTooLarge` (Anchor custom error 6016) when clicking MAX on a 3-flip win-one (1.13×) bet. Lower multipliers (1.98×) accepted the same MAX just fine. Typing `1.04` manually worked, `1.05` (MAX value) failed. Off by ~1-3 lamports.
+
+**Root cause**: the bet amount crosses 6 steps of float arithmetic between Elixir and chain. Each conversion introduces ≤1 lamport of drift; at low multipliers (1.98×) the `base * 20000 / 19800` ratio is ~1.01× and absorbs it, but at 1.13× the ratio is ~1.77× and the error compounds enough to push the amount 1-3 lamports *over* the chain's integer max.
+
+The chain re-computes `max_bet = (vault_lamports - rent - liability) * max_bet_bps / 10000 * 20000 / multiplier_bps` in exact u128 integers at tx time. The client was off by up to 3 lamports on the same formula because:
+
+1. Settler reads `vault.lamports()` (u64), converts to SOL float, subtracts `totalLiability` (also a float) — float precision loss (~1 lamport).
+2. JSON encodes to Elixir.
+3. Elixir does `trunc(house_balance * 1.0e9)` — `59.3 * 1e9` in IEEE-754 is `59299999999.99…` not `59300000000`.
+4. Elixir computes max in integer lamports (safe).
+5. Elixir divides back to SOL float: `max_bet_lamports / 1.0e9` — another float trip.
+6. JS settler does `Math.floor(amount * 1e9)` — yet another round.
+
+**Fix**: haircut the client's `calculate_max_bet` by **10 lamports** in `lib/blockster_v2_web/live/coin_flip_live.ex:2490-2513`. Invisible to the player (≈ $0.000002 on SOL at current prices) but absorbs any 1-3 lamport drift.
+
+```elixir
+max(0, max_bet_lamports - 10) / 1.0e9
+```
+
+**Why not just integer-math end-to-end**: the settler's `buildPlaceBetTx` accepts `amount: number` (JS float), and the settler itself round-trips balances through float in `getPoolStats`. Switching to bigint/string end-to-end is the proper fix but touches the settler API, client hook, and multiple LV sites. 10-lamport buffer is the pragmatic win until that refactor.
+
+**Why 1.98× wasn't affected**: `* 20000 / 19800` ≈ `× 1.01`. Even with 3 lamports of pre-error, the result is within the chain's max. `* 20000 / 11300` ≈ `× 1.77` amplifies the same drift by 77%, crossing the threshold.
+
+---
+
+## Pool index sticky search bar ate half the mobile viewport — pills had to go (2026-04-24)
+
+The `/hubs` page had a sticky search bar at `top-[88px]` with a search input PLUS a wrapping row of category chip buttons (≥10 pills on a 68-hub dataset). On mobile, that sticky strip took ~180 px of the 844 px viewport — over 20% — and the first hub card rendered *underneath* it thanks to the sticky overlay, making the page look broken.
+
+**Fix**: removed the category chip row entirely from `hub_live/index.html.heex:146-157`. Kept the search bar + desktop-only "Sort by Most followed" hint. The sticky strip dropped to ~60 px.
+
+**The actual lesson**: wrap-capable rows of N+ pills are hostile to sticky positioning. Either (a) move pills *below* the sticky element into the scrolling region, (b) collapse them into a dropdown/sheet on mobile, or (c) drop them. A horizontally-scrolling single row (`flex overflow-x-auto scrollbar-hide`) is fine; wrapping rows of 3-4+ are not.
+
+---
+
+## `position: sticky` gets trapped by `overflow-x-hidden` ancestor (2026-04-24)
+
+The site header (`ds-header bg-white sticky top-0 z-30`) stopped sticking on `/wallet` even though it stuck on every other page. The wallet template wrapped everything — including the header — in:
+
+```heex
+<div class="ds-wallet-root min-h-screen bg-[#FAFAF9] relative overflow-x-hidden">
+  <BlocksterV2Web.DesignSystem.header ... />
+  ...
+</div>
+```
+
+Any `overflow: hidden/auto/scroll` on an ancestor (including `overflow-x-hidden`) turns the nearest scrollable ancestor into the sticky containing block. The header was "sticky" inside a 0-height slot at the top of the wrapper — effectively static.
+
+**Fix**: move `<.header />` OUT of the wrapper.
+
+```heex
+<BlocksterV2Web.DesignSystem.header ... />
+<div class="ds-wallet-root min-h-screen bg-[#FAFAF9] relative overflow-x-hidden">
+  ...
+</div>
+```
+
+**Meta**: if a sticky element stops sticking, the first thing to check is whether an ancestor has `overflow-x-*` or `overflow-y-*`. Tailwind's `overflow-x-clip` does NOT trap sticky (it's a different box-model property) — prefer that if you just need to kill horizontal overflow without breaking sticky children.
+
+---
+
+## `element.scrollLeft = X` silently fails; use `element.scrollTo({left})` (2026-04-24)
+
+Writing `container.scrollLeft = 140` and reading back `container.scrollLeft` returned `0` on the /play difficulty grid (flex container with `-mx-4 px-4 overflow-x-auto` inside a rounded card). Calling `container.scrollTo({ left: 140, behavior: "instant" })` on the same element worked and the value stuck. Observed in Chromium; MDN doesn't document the failure case.
+
+The `ScrollToCenter` hook in `assets/js/app.js` was also racing LiveView's initial diff storm — the hook fires on `mounted()` via `requestAnimationFrame`, but LV emits 3-5 patches during the first second of mount that reset the container's scroll position. A single deferred call wasn't enough.
+
+**Fix pattern for scroll-centering in LV hooks**:
+
+```js
+_center(smooth) {
+  if (container.scrollWidth <= container.clientWidth) return;
+  const selected = container.querySelector('[data-selected="true"]');
+  if (!selected) return;
+  const target = /* ... compute ... */;
+  if (typeof container.scrollTo === "function") {
+    container.scrollTo({ left: target, behavior: smooth ? "smooth" : "instant" });
+  } else {
+    container.scrollLeft = target;
+  }
+},
+mounted() {
+  // Retry schedule beats LV's initial diff storm. Cheaper than rigging up
+  // a "fully mounted" signal and invisible to the user.
+  [0, 120, 300, 600, 1200].forEach(t => setTimeout(() => this._center(false), t));
+},
+updated() {
+  requestAnimationFrame(() => this._center(true));
+}
+```
+
+**Takeaways**:
+1. Never trust `element.scrollLeft = x` on a flex container with asymmetric padding — prefer `scrollTo()`.
+2. LV hooks that need to position scroll on initial render must retry through the first 1-2 seconds.
+
+---
+
+## Send SPL/LP tokens: createAssociatedTokenAccountIdempotent + transferChecked (2026-04-24)
+
+`/wallet` now lets a Web3Auth user send BUX, SOL-LP, and BUX-LP in addition to SOL. The JS hook (`assets/js/hooks/web3auth_withdraw.js`) builds a two-instruction transaction for SPL transfers:
+
+1. **`createAssociatedTokenAccountIdempotent`** (ATA program discriminator `1`) for the recipient's ATA. Safe no-op if the ATA already exists; pays ~0.002 SOL rent from the sender if it doesn't. Always included so we skip a separate `getAccountInfo` round-trip that would race with someone else funding the ATA first.
+2. **`transferChecked`** (Token program discriminator `12`) with the mint's decimals as a guard against display/scale mismatch.
+
+**Why not `@solana/spl-token`**: the app already hand-rolls SPL instructions in `solana_bux_burn.js` to avoid the ~30 KB bundle hit. The two helpers (`deriveAta`, `buildTransferCheckedIx`, `buildCreateAtaIdempotentIx`) total ~50 lines — cheaper than the library import.
+
+**Pre-flight guards** in `_signToken`:
+- Destination pubkey parses.
+- Destination isn't an already-initialized token account (footgun: sending SPL to an ATA owner-address mismatches silently burn).
+- Source ATA exists and has balance ≥ amount.
+- Sender has ≥ 0.001 SOL for tx fees.
+
+**Backend flow** mirrors the SOL send — `wallet_live/index.ex` has token-aware `select_send_token`, `set_send_max`, `validate_send`, `review_send`, and `confirm_send`. `confirm_send` branches: SOL → `web3auth_withdraw_sign`, SPL → `web3auth_withdraw_token_sign` with `{to, amount, token, mint, decimals}` payload. `@send_form.token` carries the active token across the form lifecycle.
+
+**Mint addresses** (devnet, same shape on mainnet once deployed):
+- BUX: `7CuRyw2YkqQhUUFbw6CCnoedHWT8tK2c9UzZQYDGmxVX`
+- bSOL (SOL-LP): `4ppR9BUEKbu5LdtQze8C6ksnKzgeDquucEuQCck38StJ`
+- bBUX (BUX-LP): `CGNFj29F67BJhFmE3eJ2tCkb8ZwbQQ4Fd1xFynMCDMrX`
+
+All three use 9 decimals.
 

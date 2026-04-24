@@ -438,13 +438,50 @@ defmodule BlocksterV2Web.PoolIndexLive do
         <%!-- ══════════════════════════════════════════════════════
              PAGE HEADER + STATS
         ══════════════════════════════════════════════════════ --%>
-        <section class="pt-12 pb-10">
-          <div class="grid grid-cols-12 gap-4 md:gap-8 items-end">
+        <section class="pt-4 pb-5 md:pt-12 md:pb-10">
+          <%!-- Mobile: compact header + one-line paragraph; single "How pools work ↗" link.
+               Desktop keeps the full editorial treatment. --%>
+          <div class="md:hidden mb-4">
+            <div class="flex items-end justify-between gap-3 mb-2">
+              <h1 class="text-[28px] leading-[0.96] font-bold tracking-[-0.022em] text-[#141414]">
+                Liquidity Pools
+              </h1>
+              <.link navigate={~p"/docs/pools"} class="text-[10px] font-mono text-neutral-500 hover:text-[#141414] shrink-0 pb-1 cursor-pointer">
+                How pools work ↗
+              </.link>
+            </div>
+            <p class="text-[12px] leading-[1.45] text-neutral-600">
+              Deposit SOL or BUX into the bankroll. Earn from every losing bet, withdraw anytime.
+            </p>
+            <%!-- Stats as 3-col pills on mobile --%>
+            <div class="grid grid-cols-3 gap-1.5 mt-3">
+              <div class="bg-white rounded-xl border border-neutral-200/70 px-3 py-2.5">
+                <div class="text-[8px] uppercase tracking-[0.14em] text-neutral-500 mb-0.5">TVL</div>
+                <div class="font-mono font-bold text-[14px] text-[#141414] tabular-nums truncate">
+                  {fmt_total_tvl_usd(@pool_stats)}
+                </div>
+              </div>
+              <div class="bg-white rounded-xl border border-neutral-200/70 px-3 py-2.5">
+                <div class="text-[8px] uppercase tracking-[0.14em] text-neutral-500 mb-0.5">Bets</div>
+                <div class="font-mono font-bold text-[14px] text-[#141414] tabular-nums truncate">
+                  {fmt_bets_settled(@pool_stats)}
+                </div>
+              </div>
+              <div class="bg-white rounded-xl border border-neutral-200/70 px-3 py-2.5">
+                <div class="text-[8px] uppercase tracking-[0.14em] text-neutral-500 mb-0.5">Profit</div>
+                <div class="font-mono font-bold text-[14px] text-[#141414] tabular-nums truncate">
+                  {fmt_house_profit_sol(@pool_stats)}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="hidden md:grid grid-cols-12 gap-4 md:gap-8 items-end">
             <div class="col-span-12 md:col-span-7">
               <BlocksterV2Web.DesignSystem.eyebrow class="mb-3">
                 Earn from every bet · On-chain settlement
               </BlocksterV2Web.DesignSystem.eyebrow>
-              <h1 class="text-[60px] md:text-[80px] mb-3 leading-[0.96] font-bold tracking-[-0.022em] text-[#141414]">
+              <h1 class="text-[80px] mb-3 leading-[0.96] font-bold tracking-[-0.022em] text-[#141414]">
                 Liquidity Pools
               </h1>
               <p class="text-[16px] leading-[1.5] text-neutral-600 max-w-[560px]">
@@ -487,12 +524,12 @@ defmodule BlocksterV2Web.PoolIndexLive do
         <%!-- ══════════════════════════════════════════════════════
              TWO BIG VAULT CARDS
         ══════════════════════════════════════════════════════ --%>
-        <section class="pb-12">
-          <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <section class="pb-6 md:pb-12">
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
             <%!-- ───── SOL POOL ───── --%>
             <.link
               navigate={~p"/pool/sol"}
-              class="group relative rounded-3xl p-8 text-white overflow-hidden min-h-[420px] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_30px_60px_-20px_rgba(0,0,0,0.35)] block cursor-pointer"
+              class="group relative rounded-2xl md:rounded-3xl p-5 md:p-8 text-white overflow-hidden min-h-0 md:min-h-[420px] transition-all duration-300 md:hover:-translate-y-1 md:hover:shadow-[0_30px_60px_-20px_rgba(0,0,0,0.35)] block cursor-pointer"
               style="background: linear-gradient(135deg, #00FFA3 0%, #00DC82 50%, #064e3b 130%);"
             >
               <div class="absolute inset-0 opacity-[0.12] pointer-events-none" style="background-image: radial-gradient(circle at 30% 30%, white 1.5px, transparent 1.5px); background-size: 28px 28px;"></div>
@@ -500,14 +537,14 @@ defmodule BlocksterV2Web.PoolIndexLive do
 
               <div class="relative h-full flex flex-col">
                 <%!-- Top: identity + live indicator --%>
-                <div class="flex items-start justify-between mb-10">
-                  <div class="flex items-center gap-3">
-                    <div class="w-14 h-14 rounded-2xl bg-black grid place-items-center ring-1 ring-white/25 shadow-2xl overflow-hidden">
-                      <img src="https://ik.imagekit.io/blockster/solana-sol-logo.png" alt="SOL" class="w-9 h-9 rounded-full" />
+                <div class="flex items-start justify-between mb-4 md:mb-10">
+                  <div class="flex items-center gap-2.5 md:gap-3">
+                    <div class="w-10 h-10 md:w-14 md:h-14 rounded-xl md:rounded-2xl bg-black grid place-items-center ring-1 ring-white/25 shadow-2xl overflow-hidden shrink-0">
+                      <img src="https://ik.imagekit.io/blockster/solana-sol-logo.png" alt="SOL" class="w-6 h-6 md:w-9 md:h-9 rounded-full" />
                     </div>
                     <div>
-                      <div class="text-[10px] uppercase tracking-[0.16em] text-white/70 font-bold mb-0.5">Vault</div>
-                      <div class="font-bold text-[28px] tracking-tight leading-none">SOL Pool</div>
+                      <div class="text-[9px] md:text-[10px] uppercase tracking-[0.16em] text-white/80 font-bold mb-0.5">Vault</div>
+                      <div class="font-bold text-[22px] md:text-[28px] tracking-tight leading-none">SOL Pool</div>
                     </div>
                   </div>
                   <div class="flex items-center gap-1.5 bg-black/25 backdrop-blur ring-1 ring-white/15 rounded-full px-2.5 py-1">
@@ -518,18 +555,18 @@ defmodule BlocksterV2Web.PoolIndexLive do
 
                 <%!-- Big LP price --%>
                 <div class="mb-1">
-                  <div class="text-[10px] uppercase tracking-[0.14em] text-white/60 font-bold mb-1">LP Price</div>
+                  <div class="text-[9px] md:text-[10px] uppercase tracking-[0.14em] text-white/80 font-bold mb-0.5 md:mb-1">LP Price</div>
                   <div class="flex items-baseline gap-2 flex-wrap">
-                    <span class="font-mono font-bold text-[48px] text-white leading-none tracking-tight tabular-nums">
+                    <span class="font-mono font-bold text-[34px] md:text-[48px] text-white leading-none tracking-tight tabular-nums">
                       {fmt_price(vault_lp_price(@pool_stats, "sol"))}
                     </span>
-                    <span class="text-[14px] text-white/70">SOL</span>
-                    <span class="text-[10px] text-white/45 font-mono">since launch</span>
+                    <span class="text-[12px] md:text-[14px] text-white/80">SOL</span>
+                    <span class="text-[10px] text-white/70 font-mono">since launch</span>
                   </div>
                 </div>
 
                 <%!-- Mini sparkline (decorative) --%>
-                <div class="mt-3 mb-6 h-12">
+                <div class="mt-2 mb-3 md:mt-3 md:mb-6 h-8 md:h-12">
                   <svg viewBox="0 0 280 48" class="w-full h-full" preserveAspectRatio="none" aria-hidden="true">
                     <path
                       d="M0,38 L20,32 L40,35 L60,28 L80,30 L100,22 L120,25 L140,18 L160,20 L180,12 L200,15 L220,8 L240,10 L260,5 L280,2"
@@ -548,35 +585,35 @@ defmodule BlocksterV2Web.PoolIndexLive do
                 </div>
 
                 <%!-- Stats grid (2x2) --%>
-                <div class="grid grid-cols-2 gap-3 mb-6">
-                  <div class="bg-white/95 backdrop-blur rounded-xl p-3 ring-1 ring-black/5 shadow-sm">
-                    <div class="text-[9px] uppercase tracking-[0.12em] text-neutral-500 mb-1">TVL</div>
-                    <div class="font-mono font-bold text-[16px] text-[#141414] tabular-nums">
+                <div class="grid grid-cols-2 gap-2 md:gap-3 mb-3 md:mb-6">
+                  <div class="bg-white/95 backdrop-blur rounded-xl p-2.5 md:p-3 ring-1 ring-black/5 shadow-sm">
+                    <div class="text-[9px] uppercase tracking-[0.12em] text-neutral-500 mb-0.5 md:mb-1">TVL</div>
+                    <div class="font-mono font-bold text-[14px] md:text-[16px] text-[#141414] tabular-nums truncate">
                       {fmt_sol(vault_total_balance(@pool_stats, "sol"))} SOL
                     </div>
                     <div class="text-[10px] text-neutral-500 font-mono">
                       ≈ ${fmt_bux_compact(vault_total_balance(@pool_stats, "sol") * 160.0)}
                     </div>
                   </div>
-                  <div class="bg-white/95 backdrop-blur rounded-xl p-3 ring-1 ring-black/5 shadow-sm">
-                    <div class="text-[9px] uppercase tracking-[0.12em] text-neutral-500 mb-1">Supply</div>
-                    <div class="font-mono font-bold text-[16px] text-[#141414] tabular-nums">
+                  <div class="bg-white/95 backdrop-blur rounded-xl p-2.5 md:p-3 ring-1 ring-black/5 shadow-sm">
+                    <div class="text-[9px] uppercase tracking-[0.12em] text-neutral-500 mb-0.5 md:mb-1">Supply</div>
+                    <div class="font-mono font-bold text-[14px] md:text-[16px] text-[#141414] tabular-nums truncate">
                       {fmt_sol(vault_lp_supply(@pool_stats, "sol"))}
                     </div>
                     <div class="text-[10px] text-neutral-500 font-mono">SOL-LP</div>
                   </div>
-                  <div class="bg-white/95 backdrop-blur rounded-xl p-3 ring-1 ring-black/5 shadow-sm">
-                    <div class="text-[9px] uppercase tracking-[0.12em] text-neutral-500 mb-1">Volume</div>
-                    <div class="font-mono font-bold text-[16px] text-[#141414] tabular-nums">
+                  <div class="bg-white/95 backdrop-blur rounded-xl p-2.5 md:p-3 ring-1 ring-black/5 shadow-sm">
+                    <div class="text-[9px] uppercase tracking-[0.12em] text-neutral-500 mb-0.5 md:mb-1">Volume</div>
+                    <div class="font-mono font-bold text-[14px] md:text-[16px] text-[#141414] tabular-nums truncate">
                       {fmt_sol(vault_total_volume(@pool_stats, "sol"))} SOL
                     </div>
                     <div class="text-[10px] text-neutral-500 font-mono">
                       {vault_total_bets(@pool_stats, "sol")} bets
                     </div>
                   </div>
-                  <div class="bg-white/95 backdrop-blur rounded-xl p-3 ring-1 ring-black/5 shadow-sm">
-                    <div class="text-[9px] uppercase tracking-[0.12em] text-neutral-500 mb-1">Profit</div>
-                    <div class="font-mono font-bold text-[16px] text-[#15803d] tabular-nums">
+                  <div class="bg-white/95 backdrop-blur rounded-xl p-2.5 md:p-3 ring-1 ring-black/5 shadow-sm">
+                    <div class="text-[9px] uppercase tracking-[0.12em] text-neutral-500 mb-0.5 md:mb-1">Profit</div>
+                    <div class="font-mono font-bold text-[14px] md:text-[16px] text-[#15803d] tabular-nums truncate">
                       {fmt_house_profit_sol(@pool_stats)} SOL
                     </div>
                     <div class="text-[10px] text-neutral-500 font-mono">house edge 1%</div>
@@ -584,15 +621,15 @@ defmodule BlocksterV2Web.PoolIndexLive do
                 </div>
 
                 <%!-- Your position --%>
-                <div class="bg-white/95 backdrop-blur rounded-xl p-4 ring-1 ring-black/5 shadow-sm mb-5">
+                <div class="bg-white/95 backdrop-blur rounded-xl p-3 md:p-4 ring-1 ring-black/5 shadow-sm mb-3 md:mb-5">
                   <div class="flex items-center justify-between mb-1">
                     <div class="text-[9px] uppercase tracking-[0.12em] text-neutral-500 font-bold">Your position</div>
                     <div class="text-[9px] font-mono text-neutral-500">
                       {if(@sol_pool_share > 0, do: :erlang.float_to_binary(@sol_pool_share / 1.0, decimals: 2) <> "% pool share", else: "— pool share")}
                     </div>
                   </div>
-                  <div class="flex items-baseline gap-2">
-                    <span class="font-mono font-bold text-[22px] text-[#141414] leading-none tabular-nums">
+                  <div class="flex items-baseline gap-2 flex-wrap">
+                    <span class="font-mono font-bold text-[18px] md:text-[22px] text-[#141414] leading-none tabular-nums">
                       {fmt_sol(@user_sol_lp)}
                     </span>
                     <span class="text-[11px] text-neutral-500">SOL-LP</span>
@@ -604,10 +641,10 @@ defmodule BlocksterV2Web.PoolIndexLive do
 
                 <%!-- CTA --%>
                 <div class="mt-auto flex items-center gap-2">
-                  <div class="flex-1 bg-white text-[#064e3b] px-5 py-3.5 rounded-full text-[13px] font-bold text-center group-hover:bg-[#CAFC00] group-hover:text-black transition-colors">
+                  <div class="flex-1 bg-white text-[#064e3b] px-4 py-3 md:px-5 md:py-3.5 rounded-full text-[13px] font-bold text-center group-hover:bg-[#CAFC00] group-hover:text-black transition-colors">
                     Enter SOL Pool →
                   </div>
-                  <div class="text-[10px] font-mono text-white/65">
+                  <div class="text-[10px] font-mono text-white/80">
                     est. APY <span class="font-bold text-white">14.2%</span>
                   </div>
                 </div>
@@ -617,21 +654,21 @@ defmodule BlocksterV2Web.PoolIndexLive do
             <%!-- ───── BUX POOL ───── --%>
             <.link
               navigate={~p"/pool/bux"}
-              class="group relative rounded-3xl p-8 text-black overflow-hidden min-h-[420px] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_30px_60px_-20px_rgba(0,0,0,0.35)] block cursor-pointer"
+              class="group relative rounded-2xl md:rounded-3xl p-5 md:p-8 text-black overflow-hidden min-h-0 md:min-h-[420px] transition-all duration-300 md:hover:-translate-y-1 md:hover:shadow-[0_30px_60px_-20px_rgba(0,0,0,0.35)] block cursor-pointer"
               style="background: linear-gradient(135deg, #CAFC00 0%, #9ED600 50%, #4d6800 130%);"
             >
               <div class="absolute inset-0 opacity-[0.15] pointer-events-none" style="background-image: radial-gradient(circle at 30% 30%, black 1px, transparent 1px); background-size: 28px 28px;"></div>
               <div class="absolute -top-32 -right-32 w-96 h-96 bg-black/10 rounded-full blur-3xl pointer-events-none"></div>
 
               <div class="relative h-full flex flex-col">
-                <div class="flex items-start justify-between mb-10">
-                  <div class="flex items-center gap-3">
-                    <div class="w-14 h-14 rounded-2xl bg-black grid place-items-center ring-1 ring-black/30 shadow-2xl overflow-hidden">
-                      <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="BUX" class="w-9 h-9 rounded-full" />
+                <div class="flex items-start justify-between mb-4 md:mb-10">
+                  <div class="flex items-center gap-2.5 md:gap-3">
+                    <div class="w-10 h-10 md:w-14 md:h-14 rounded-xl md:rounded-2xl bg-black grid place-items-center ring-1 ring-black/30 shadow-2xl overflow-hidden shrink-0">
+                      <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="BUX" class="w-6 h-6 md:w-9 md:h-9 rounded-full" />
                     </div>
                     <div>
-                      <div class="text-[10px] uppercase tracking-[0.16em] text-black/65 font-bold mb-0.5">Vault</div>
-                      <div class="font-bold text-[28px] tracking-tight leading-none">BUX Pool</div>
+                      <div class="text-[9px] md:text-[10px] uppercase tracking-[0.16em] text-black/75 font-bold mb-0.5">Vault</div>
+                      <div class="font-bold text-[22px] md:text-[28px] tracking-tight leading-none">BUX Pool</div>
                     </div>
                   </div>
                   <div class="flex items-center gap-1.5 bg-black/15 backdrop-blur ring-1 ring-black/15 rounded-full px-2.5 py-1">
@@ -641,17 +678,17 @@ defmodule BlocksterV2Web.PoolIndexLive do
                 </div>
 
                 <div class="mb-1">
-                  <div class="text-[10px] uppercase tracking-[0.14em] text-black/60 font-bold mb-1">LP Price</div>
+                  <div class="text-[9px] md:text-[10px] uppercase tracking-[0.14em] text-black/75 font-bold mb-0.5 md:mb-1">LP Price</div>
                   <div class="flex items-baseline gap-2 flex-wrap">
-                    <span class="font-mono font-bold text-[48px] text-black leading-none tracking-tight tabular-nums">
+                    <span class="font-mono font-bold text-[34px] md:text-[48px] text-black leading-none tracking-tight tabular-nums">
                       {fmt_price(vault_lp_price(@pool_stats, "bux"))}
                     </span>
-                    <span class="text-[14px] text-black/65">BUX</span>
-                    <span class="text-[10px] text-black/40 font-mono">since launch</span>
+                    <span class="text-[12px] md:text-[14px] text-black/75">BUX</span>
+                    <span class="text-[10px] text-black/60 font-mono">since launch</span>
                   </div>
                 </div>
 
-                <div class="mt-3 mb-6 h-12">
+                <div class="mt-2 mb-3 md:mt-3 md:mb-6 h-8 md:h-12">
                   <svg viewBox="0 0 280 48" class="w-full h-full" preserveAspectRatio="none" aria-hidden="true">
                     <path
                       d="M0,40 L20,38 L40,32 L60,34 L80,28 L100,30 L120,22 L140,24 L160,16 L180,18 L200,12 L220,14 L240,8 L260,10 L280,4"
@@ -669,50 +706,50 @@ defmodule BlocksterV2Web.PoolIndexLive do
                   </svg>
                 </div>
 
-                <div class="grid grid-cols-2 gap-3 mb-6">
-                  <div class="bg-white/95 backdrop-blur rounded-xl p-3 ring-1 ring-black/5 shadow-sm">
-                    <div class="text-[9px] uppercase tracking-[0.12em] text-neutral-500 mb-1">TVL</div>
-                    <div class="font-mono font-bold text-[16px] text-[#141414] tabular-nums">
+                <div class="grid grid-cols-2 gap-2 md:gap-3 mb-3 md:mb-6">
+                  <div class="bg-white/95 backdrop-blur rounded-xl p-2.5 md:p-3 ring-1 ring-black/5 shadow-sm">
+                    <div class="text-[9px] uppercase tracking-[0.12em] text-neutral-500 mb-0.5 md:mb-1">TVL</div>
+                    <div class="font-mono font-bold text-[14px] md:text-[16px] text-[#141414] tabular-nums truncate">
                       {fmt_bux_compact(vault_total_balance(@pool_stats, "bux"))} BUX
                     </div>
                     <div class="text-[10px] text-neutral-500 font-mono">
                       ≈ ${fmt_bux_compact(vault_total_balance(@pool_stats, "bux") * 0.01)}
                     </div>
                   </div>
-                  <div class="bg-white/95 backdrop-blur rounded-xl p-3 ring-1 ring-black/5 shadow-sm">
-                    <div class="text-[9px] uppercase tracking-[0.12em] text-neutral-500 mb-1">Supply</div>
-                    <div class="font-mono font-bold text-[16px] text-[#141414] tabular-nums">
+                  <div class="bg-white/95 backdrop-blur rounded-xl p-2.5 md:p-3 ring-1 ring-black/5 shadow-sm">
+                    <div class="text-[9px] uppercase tracking-[0.12em] text-neutral-500 mb-0.5 md:mb-1">Supply</div>
+                    <div class="font-mono font-bold text-[14px] md:text-[16px] text-[#141414] tabular-nums truncate">
                       {fmt_bux_compact(vault_lp_supply(@pool_stats, "bux"))}
                     </div>
                     <div class="text-[10px] text-neutral-500 font-mono">BUX-LP</div>
                   </div>
-                  <div class="bg-white/95 backdrop-blur rounded-xl p-3 ring-1 ring-black/5 shadow-sm">
-                    <div class="text-[9px] uppercase tracking-[0.12em] text-neutral-500 mb-1">Volume</div>
-                    <div class="font-mono font-bold text-[16px] text-[#141414] tabular-nums">
+                  <div class="bg-white/95 backdrop-blur rounded-xl p-2.5 md:p-3 ring-1 ring-black/5 shadow-sm">
+                    <div class="text-[9px] uppercase tracking-[0.12em] text-neutral-500 mb-0.5 md:mb-1">Volume</div>
+                    <div class="font-mono font-bold text-[14px] md:text-[16px] text-[#141414] tabular-nums truncate">
                       {fmt_bux_compact(vault_total_volume(@pool_stats, "bux"))} BUX
                     </div>
                     <div class="text-[10px] text-neutral-500 font-mono">
                       {vault_total_bets(@pool_stats, "bux")} bets
                     </div>
                   </div>
-                  <div class="bg-white/95 backdrop-blur rounded-xl p-3 ring-1 ring-black/5 shadow-sm">
-                    <div class="text-[9px] uppercase tracking-[0.12em] text-neutral-500 mb-1">Profit</div>
-                    <div class="font-mono font-bold text-[16px] text-[#15803d] tabular-nums">
+                  <div class="bg-white/95 backdrop-blur rounded-xl p-2.5 md:p-3 ring-1 ring-black/5 shadow-sm">
+                    <div class="text-[9px] uppercase tracking-[0.12em] text-neutral-500 mb-0.5 md:mb-1">Profit</div>
+                    <div class="font-mono font-bold text-[14px] md:text-[16px] text-[#15803d] tabular-nums truncate">
                       + {fmt_bux_compact(vault_house_profit(@pool_stats, "bux"))} BUX
                     </div>
                     <div class="text-[10px] text-neutral-500 font-mono">house edge 1%</div>
                   </div>
                 </div>
 
-                <div class="bg-white/95 backdrop-blur rounded-xl p-4 ring-1 ring-black/5 shadow-sm mb-5">
+                <div class="bg-white/95 backdrop-blur rounded-xl p-3 md:p-4 ring-1 ring-black/5 shadow-sm mb-3 md:mb-5">
                   <div class="flex items-center justify-between mb-1">
                     <div class="text-[9px] uppercase tracking-[0.12em] text-neutral-500 font-bold">Your position</div>
                     <div class="text-[9px] font-mono text-neutral-500">
                       {if(@bux_pool_share > 0, do: :erlang.float_to_binary(@bux_pool_share / 1.0, decimals: 2) <> "% pool share", else: "— pool share")}
                     </div>
                   </div>
-                  <div class="flex items-baseline gap-2">
-                    <span class="font-mono font-bold text-[22px] text-[#141414] leading-none tabular-nums">
+                  <div class="flex items-baseline gap-2 flex-wrap">
+                    <span class="font-mono font-bold text-[18px] md:text-[22px] text-[#141414] leading-none tabular-nums">
                       {fmt_bux_compact(@user_bux_lp)}
                     </span>
                     <span class="text-[11px] text-neutral-500">BUX-LP</span>
@@ -723,10 +760,10 @@ defmodule BlocksterV2Web.PoolIndexLive do
                 </div>
 
                 <div class="mt-auto flex items-center gap-2">
-                  <div class="flex-1 bg-[#0a0a0a] text-[#CAFC00] px-5 py-3.5 rounded-full text-[13px] font-bold text-center group-hover:bg-white group-hover:text-black transition-colors">
+                  <div class="flex-1 bg-[#0a0a0a] text-[#CAFC00] px-4 py-3 md:px-5 md:py-3.5 rounded-full text-[13px] font-bold text-center group-hover:bg-white group-hover:text-black transition-colors">
                     Enter BUX Pool →
                   </div>
-                  <div class="text-[10px] font-mono text-black/65">
+                  <div class="text-[10px] font-mono text-black/75">
                     est. APY <span class="font-bold text-black">18.7%</span>
                   </div>
                 </div>

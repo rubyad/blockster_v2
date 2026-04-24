@@ -9,6 +9,85 @@ Chronological record of all Solana migration changes and post-migration updates 
 
 ---
 
+## Shop Checkout: BUX Burn Rebuild + SOL-First Sweep + Payment UX Overhaul (2026-04-24) ✅
+
+Two-part push: (1) rebuild the dead EVM-era BUX burn hook for Solana so BUX-discounted shop orders work at all, (2) sweep every shop surface to SOL-primary / USD-secondary display. Plus a payment-UX overhaul that closes the "stuck on processing → refresh to see confirmation" race. See also [shop_checkout_plan.md](shop_checkout_plan.md) Phase 13 for the per-file change manifest.
+
+### What shipped
+
+- **`SolanaBuxBurn` JS hook** (`assets/js/hooks/solana_bux_burn.js`) — replaces the dead `BuxPaymentHook` stub (EVM/Thirdweb, broken since Solana migration). Hand-rolled SPL `BurnChecked` instruction (10-byte data: discriminator 15 + `u64` amount LE + `u8` decimals) using only `@solana/web3.js` primitives — no `@solana/spl-token` dep added. Derives the buyer's BUX ATA via `PublicKey.findProgramAddressSync`, signs via `window.__signer`, confirms through `signAndConfirm` (polls `getSignatureStatuses` per CLAUDE.md). Works for both Wallet Standard and Web3Auth signers.
+- **Re-entrant guard on BUX burn retry** (`checkout_live/index.ex:225+`) — if order is already `bux_pending` with `bux_burn_tx_hash` still nil, skip the second `BalanceManager.deduct_bux` call and just re-fire the client event. Closes a double-deduct race where refresh-then-retry on a stuck order would debit Mnesia twice.
+- **Cancel escape hatch** on the `:processing` UI state — new "Cancel & refund BUX" button routes into the existing `bux_payment_error` refund path (credits Mnesia, resets order to `pending`). Previously a dismissed wallet modal lost BUX permanently until the 15-min expiry.
+- **"BUX is non-refundable" warning box removed** — SHOP-14 acknowledgement gate deleted per product call. With the cancel button and refund-on-error in place, the copy overstated the risk. Removed: amber warning card, `I understand` checkbox, `bux_warning_ack` assign, `toggle_bux_warning_ack` handler, gate branch in `initiate_bux_payment`, 4 obsolete tests.
+- **`WEB3AUTH_SOL_CHECKOUT_ENABLED` gate removed** entirely (plus `check_sol_payment_allowed/2` and its test block). Originally from Phase 7 when the `wallet_sign` flow was unproven; Coin Flip / Pool / shop SOL-direct have all exercised it since. `payment_mode_for_user/1` expanded to cover all 5 Web3Auth auth_methods (previously drifted after the 2026-04-23 label fix added `web3auth_google` / `web3auth_apple` — those users silently fell through to `"manual"` mode).
+- **Commit-race fix in `PaymentIntents.mark_funded/3`** — `broadcast_order/1` now fires AFTER `Repo.transaction` returns, not inside. Root cause of "payment confirmed but confirmation page didn't show until refresh": PubSub subscribers on different DB connections saw pre-commit state, so the LV's `handle_info({:order_updated, _})` re-read a non-paid order and skipped the step transition. See [session_learnings.md](session_learnings.md) for the general pattern.
+- **Fast-path funded check** — `sol_payment_submitted` handler now fires `Task.start(fn -> PaymentIntentWatcher.tick_once() end)` inline. Previously waited up to 10s for the watcher's scheduled tick. JS's `signAndConfirm` already confirmed on-chain via `getSignatureStatuses` before pushing the event, so the watcher's settler call is effectively synchronous from the user's perspective.
+- **Fallback polling** (`:poll_intent_status` every 1.5s after `sol_payment_submitted`) — defense against dropped PubSub broadcasts. Each tick re-runs the watcher AND reads the order directly; if we observe status=paid locally, transition to confirmation even without a received broadcast. Stops once `:sol_payment_status == :completed`.
+- **Richer payment-button states** — new `:signing` UI state assigned server-side immediately on `initiate_sol_payment` click. Disabled progress button ("Approve the transaction in your wallet…") replaces the `phx-disable-with` flicker. `:confirming` state shows "Landing on chain…" with "Usually < 3 seconds on Solana" subtext. Status badges: Signing (blue), Confirming (amber), Paid (green), Failed (red).
+- **`record_submitted_tx_sig/2`** + `mark_funded/3` coalesce — settler's `getSignaturesForAddress` is best-effort and can return null right after a tx lands (balance visible, sig not yet indexed). Buyer-side JS already has the canonical sig from `signAndConfirm`; persist it on the intent row before the watcher runs. `mark_funded/3` now coalesces `tx_sig || intent.funded_tx_sig` so the watcher never clobbers a known-good sig with nil.
+- **`Orders.process_paid_order/1` idempotency** — guarded by `fulfillment_notified_at` stamp. Safe to call from both the PubSub path and a mount-time recovery path. If a paid order lands in `checkout_live/index.ex mount` without the stamp (historic race casualty), the mount fires `process_paid_order/1` to clear the cart, send confirmation, credit affiliates, etc. Previous victims: carts polluted with old products because the post-paid side effects never ran.
+- **Order confirmation email rewrite** (`EmailBuilder.order_confirmed/4`) — dedicated template, replaces generic `order_update/4`. Product images (64×64 via ImageKit), per-line breakdown, shipping address card, totals. SOL primary + USD secondary everywhere. Prominent **SOL payment tx card** (full-width clickable block with "View ↗") linking Solscan — BUX burn tx relegated to a tiny mono line under the CTA. Uses `payment_intent.quoted_sol_usd_rate` (locked at pay time) so reprinting an old receipt doesn't drift. Logo swapped to the canonical dark-surface wordmark (`blockster-wordmark-dark-transparent-1000x750.png` per `docs/brand_assets.md`).
+- **Customer confirmation email was never being sent** — `Fulfillment.notify/1` only emailed the fulfillment team + Telegram channel pre-this-push. Added `send_customer_confirmation/1` as a third parallel task. Transactional (no opt-in gate), logged to `notification_email_logs`.
+- **Notification `action_url` fix** — order-confirmed in-app notifications routed to `/shop` (useless). Changed to `/checkout/:order_id` which renders the confirmation panel for paid orders.
+- **Balance refresh on payment complete** — `refresh_token_balances_async/1` runs on `{:order_updated, _}` paid transition: `BuxMinter.sync_user_balances` → `EngagementTracker.get_user_sol_balance` + `get_user_solana_bux_balance` → merge into `@token_balances` + broadcast via `BuxBalanceHook`. Header SOL pill drops by the SOL paid. Previously stale until page refresh.
+
+### SOL-first display sweep
+
+Every user-facing shop surface now shows SOL primary + USD secondary, per the new CLAUDE.md rule. Touched:
+
+- **Cart page** (`cart_live/index.html.heex`): line-item subtotals, BUX discount in both the product card input row and the order summary, suggested-products grid (swapped to `product_price_block`). Removed "Your BUX balance" row from the order summary.
+- **Shop page** (`shop_live/index.html.heex`): already used `product_price_block`; no change needed.
+- **Hub product grids** (`hub_live/show.html.heex`): both Shop-tab grids now use `product_price_block`. Added `@sol_usd_rate` assign + `Shop.prepare_product_for_display/1` prep in mount.
+- **Checkout review step** (left + right columns): line items with strikethrough SOL original, Subtotal, BUX discount, Shipping, Sales tax, Total all dual-currency.
+- **Checkout shipping step** (international/US rate picker): rate buttons now `0.04 SOL · ≈ $5.99` instead of `$5.99`. Right-column summary also SOL-first.
+- **Checkout payment step** (right column "Final total"): Subtotal, BUX discount, Shipping, Total all dual.
+- **BUX burn card copy** ("Your BUX has been burned on chain to apply the X SOL (≈ $10.00) discount"): prose follows SOL-first.
+- **Confirmation panel**: "Total paid" uses `sol_usd_dual` with `payment_intent.quoted_sol_usd_rate` (locked rate, not live) to avoid reprint drift.
+- **Order confirmation email**: all totals + line items SOL-primary as above.
+
+Top-right balance pill: `display_token="SOL"` added to shop / product / cart / checkout headers so users see their SOL balance (not BUX) on shop surfaces.
+
+### Other polish in the same push
+
+- **Payment button click feedback** + fullscreen-width progress buttons replace `phx-disable-with` flicker (see payment-UX overhaul above).
+- **SOL payment decimals**: new `Pricing.format_sol_precise/1` renders 4 decimals always (vs the graduated `format_sol/1` which rounded to 2 at ≥1 SOL). Wired into `sol_usd_dual` and every payment-surface direct call site — shop browse keeps graduated decimals for visual density.
+- **Logos in Pay-your-order cards**: removed square backgrounds behind the BUX + SOL icons; rendered as plain 48px circular images per the "never invent token logos" rule.
+- **Copy-address button** on the ephemeral pubkey now uses the shared `CopyToClipboard` hook (green checkmark + "Copied!" feedback) instead of inline `onclick=navigator.clipboard.writeText(...)`.
+- **Cart icon hidden on mobile** in the top nav (`hidden md:flex`) — prevents 7-digit balance pills from pushing the user dropdown off-screen. Mobile bottom nav's Shop tab covers cart access.
+
+---
+
+## Web3Auth Mobile Redirect + auth_method Drift Fix (2026-04-24) ✅
+
+Enabled X (Twitter) / Google / Apple sign-in on mobile (was blocked: "Sign-in window closed before completing"). Also healed a drift where Google sign-ins displayed as "Email Login" in the user dropdown.
+
+### What shipped
+
+- **`uxMode: "redirect"` on mobile** (`web3auth_hook.js:_ensureInit`). iOS Safari throttles background tabs + mobile Chrome blocks popups after an async gap (`await this._ensureInit()` in the click handler sinks the user-gesture). Mobile now does a full-page redirect to `auth.web3auth.io` instead of a popup. Desktop keeps the popup flow (default) since redirects add friction there.
+- **`_completeRedirectReturn/1`** — the redirect-return path. `mounted()` checks `sessionStorage[REDIRECT_PROVIDER_KEY]` (stashed pre-redirect with the provider name); if present, calls `_ensureInit` → waits for connector settle (SDK auto-connects when `uxMode: REDIRECT` and a session cookie is present) → fires `_completeLogin(provider)` which pushes `web3auth_authenticated`. Provider preserved across page reload without needing LV state.
+- **Google/Apple `auth_method` drift** (`accounts.ex`) — `auth_method_for_provider/1` used to funnel `google`/`apple` into `web3auth_email` so the `put_email_verified` bonus would fire. Side effect: dropdown label logic (`ds_auth_source_label/1`) couldn't tell Google from email, showed "Email Login" for Google users. Fixed: each provider now has its own auth_method value (`web3auth_google`, `web3auth_apple`), with a shared `verified_email_auth_method?/1` predicate that keeps the email_verified logic applied for all three. Schema enums widened in both `validate_inclusion` blocks.
+- **Auto-heal on next login**: `maybe_update_web3auth_fields/2` re-derives `auth_method` on every login, so legacy rows created before the fix (stored as `web3auth_email` despite a Google sign-in) heal on next Google login without manual backfill.
+- **Telegram login status**: still TODO from the JS side. Server endpoint (`POST /api/auth/telegram/verify`) and Web3Auth Custom JWT verifier (`blockster-telegram`) are wired. Missing: Telegram Login Widget embed + `start_telegram_widget` JS handler + widget-callback → `/api/auth/telegram/verify` → `_startJwtLogin` chain. ~40-80 lines deferred. Prereqs also documented: `@BotFather /setdomain <tunnel-hostname>`, bot token + username env vars.
+
+### Dashboard dependency (for mobile redirect)
+
+Web3Auth dashboard → the project's **Whitelisted URLs** must include the current origin the user lands back on after OAuth. Prod is `blockster.com`; dev is whatever Cloudflare tunnel hostname you're on (rotates every `cloudflared` restart unless using a named tunnel). This is a manual dashboard step the runbook ([docs/solana_mainnet_deployment.md](solana_mainnet_deployment.md)) now flags.
+
+---
+
+## Coin Flip + Shop UI Polish (2026-04-24) ✅
+
+Smaller polish fixes shipped alongside the checkout work.
+
+### What shipped
+
+- **Coin Flip `:win_one` mode mask unflipped results** — 5-flip "win one" variant ends as soon as one flip lands correctly. `@results` is pre-generated for all N slots at game init. UI now masks slots past `@current_flip` as a dashed-border `?` glyph so the coin-flip result row doesn't reveal un-flipped outcomes. Recent-games table still shows the full pre-generated sequence (provably-fair verification view).
+- **Play page BUX pool display** — replaced hardcoded "Coming soon" pill with the same `—` em-dash treatment the SOL pool uses when the non-selected token is inactive. BUX vault is funded now.
+- **User dropdown address UX** — split the copy-everything button into: (1) `<a href=solscan.io/account/…?cluster=devnet target=_blank>` wrapping the icon + truncated address, (2) separate `<button phx-hook=CopyToClipboard>` "COPY" pill on the right. Previously clicking anywhere copied; now clicking the address goes to Solscan and COPY is scoped to the pill.
+- **Footer copy** — "The best of crypto × AI, **every Friday**. No spam, no shilling." → dropped the "every Friday" qualifier.
+
+---
+
 ## Social Login Phases 0–4 + CoinFlip State Reconcilers (2026-04-20) ✅
 
 Foundational push toward social login (Web3Auth email/Google/X). Landed all pre-UI infrastructure: prototype validation, on-chain rent_payer upgrade, JS signer abstraction, backend JWT verifier, settler multi-signer build path. Also hardened CoinFlip against Mnesia/on-chain state drift this work exposed. UI/modal work deferred to Phase 5.
@@ -3197,4 +3276,86 @@ Also:
 - **`^existing = w.wallet_address ->` inside a `case` is invalid** — variable pinning doesn't work as a pattern-match tie-in. Use a guard: `same when same == w.wallet_address ->`.
 - **TypeScript `tsc --noEmit` runs silently on success.** No output IS the success signal. Confirmed by intentionally introducing a syntax error during development.
 - **Phase 1 baseline → Phase 2 final**: 3266 / 76 / 211 → 3307 / 69 / 211. **+41 tests, −7 failures.** Full-suite flake noise is ±10-20; module-level runs remain stable.
+
+---
+
+## Session 2026-04-24 — Performance audit + mobile tightening + Wallet SPL send
+
+Long multi-part session on `feat/solana-migration`. Performance audit, mobile-first redesign of every primary LiveView, plus new SPL-token + LP-token send capability on `/wallet`. Not deployed.
+
+### Performance audit
+- **`docs/performance_audit_2026_04_24.md`** — full write-up. TTFB 150-300 ms and FCP 300-500 ms consistent across every route. Initial HTML payloads 70-249 KB. `start_async` used correctly on the hot user path. February audit's N+1 fixes (`with_bux_earned`, cart preloads, `EventsComponent` full scan) still hold.
+- **10 quick wins identified**; highest-leverage:
+  1. `/shop` hero `Web Banner 3.png` shipped 697 KB with no ImageKit `?tr=` transform. **Fixed this session** (`?tr=w-1600,q-85,f-auto`).
+  2. `BuxMinter.sync_user_balances/2` broadcasts three times per refresh (BUX-only, SOL-only, combined) — triple re-render on every balance subscriber. Flagged.
+  3. `/airdrop` `:timer.send_interval(1000, …)` — 60 re-renders/min per viewer. Flagged.
+  4. `widget-69` duplicate DOM IDs from `inline_ad_slot` rendering twice (desktop + mobile wrappers). Flagged.
+  5. `EngagementTracker` pushes every 2 s — 30 round-trips/minute per open article. Flagged.
+  6. `/play` mount submits an on-chain commitment every visit via `CoinFlipGame.get_or_init_game` — burns SOL on drive-by visits. Flagged.
+  7. Stale `priv/static/assets/js/app-21f441de…js` (3.86 MB) in Docker image.
+  8. Web3Auth modal drags React + i18next into the main bundle — dynamic-import on click would save 200-400 KB gzipped.
+- Measurement files at `.playwright-mcp/perf/*.json`.
+
+### Mobile redesign pass
+Same principles across every primary page: shrink hero h1s (60-80 → 28-32 px), hide verbose descriptions at `md:` breakpoints, convert divider-separated stat rows to dark-pill 2×2 grids on colored backgrounds (contrast fix), collapse sticky chrome, reduce section padding. Every change gated behind `md:` so desktop is untouched.
+
+**`/play` (`coin_flip_live.ex`)** — biggest single redesign. Mobile page 3,573 px → **2,006 px**, CTA `y=1,850 → y=607` (fully above fold). Changes:
+- Compact mobile header (`Coin Flip` + SOL/BUX toggle inline).
+- Difficulty grid → horizontal scroll with `phx-hook="ScrollToCenter"` + `data-selected="true"` so the default 1.98× tile centers on load.
+- `½ / 2× / MAX` inlined in amount row; 6-button quick-amounts removed on mobile.
+- Potential profit + multiplier rows aligned; multiplier black (not green) on the right.
+- Reclaim banner moved inside the game card.
+- Provably-fair `<details>` hidden on mobile so CTA sits under the prediction chip.
+- Confetti disabled (`confetti_pieces = []` at line 2047).
+- Result state: Verify fairness + Try again stack on a full-width row on mobile so they never split across two lines (`flex-col md:flex-row`, `flex-1 md:flex-initial`, `whitespace-nowrap`).
+- House balance inline with DIFFICULTY label on mobile.
+
+**`/pool` + `/pool/:vault_type` (`pool_index_live.ex`, `pool_detail_live.ex`)** — user feedback: "numbers on colored headers are not easy to read on mobile." Fix: on pool-detail colored hero, 4-stat row becomes a 2×2 grid of `bg-black/25 backdrop-blur ring-1 ring-white/15` pills on mobile. White numbers on dark pills have strong contrast; desktop keeps airy divider layout. Icon `w-20 → w-12`, h1 `56/68 → 32`, LP price `64 → 38`. Pool-index hero + vault cards tightened (padding, `min-h-[420px]` dropped on mobile, stats `text-[16] → text-[14]`).
+
+**`/shop` + `/shop/:slug`** — compact hero, `?tr=w-1600,q-85,f-auto` on the 697 KB banner, product-detail breadcrumb + title shrunk on mobile.
+
+**`/hubs` + `/hub/:slug`** —
+- Hub index: pills under the sticky search bar removed entirely (user: "they make it way too deep and hubs go under it"). Grid tried 1-col, settled on `grid-cols-2` on mobile per user preference.
+- Hub cards (`design_system.ex hub_card/1`): `min-height: 240px` dropped on mobile, `p-5 → p-3.5`, title `20 → 15`, description `line-clamp-2 → line-clamp-3`, Visit-hub pill stacks on its own row below counters on mobile (was wrapping to two lines).
+- Hub-show banner (`design_system.ex hub_banner/1`) shrunk: icon `80 → 48`, name h1 `56 → 32`, description `18 → 13`, breadcrumb contrast `white/60 → white/80`. Live Activity sidebar widget hidden on mobile — saved ~220 px of below-fold noise.
+- **Real hub descriptions backfilled** from production blockster.com/hubs via `priv/repo/update_hub_descriptions.exs`. 21 of 42 hubs matched + updated in dev DB.
+
+**`/wallet`** — full overhaul:
+- Padding tightened across hero + balance card.
+- BUX given equal billing to SOL (same 84px number + label treatment instead of a small pill).
+- Divider between SOL and BUX.
+- "Balances reflect confirmed on-chain state…" row removed.
+- Sticky header was broken by `overflow-x-hidden` on wrapper — moved `<.header />` outside. See session_learnings.md for the sticky/overflow-x gotcha.
+- **LP positions section added** — SOL-LP and BUX-LP rows with same big-number treatment (28/56 px), value in underlying + USD + LP price. Always visible (zero state shows muted grey + "Deposit ↗" CTA). LP balances via `BuxMinter.get_lp_balance/2`; LP prices via `BuxMinter.get_pool_stats/0`.
+- **Send BUX/LP capability** — token picker in Send card, token-aware `@send_form.token`, backend dispatches `web3auth_withdraw_token_sign` with `{to, amount, token, mint, decimals}` for SPL variants. JS hook extended with `deriveAta`, `buildCreateAtaIdempotentIx`, `buildTransferCheckedIx`. Two-ix tx: create recipient ATA idempotent + transferChecked. Actual on-chain transfer unsigned this session to preserve test SOL/BUX.
+
+**`/member/:slug`** — hero compressed (h1 `44 → 26`, avatar + username stack tighter), wallet-address line truncates gracefully. **Verify-email + Verify-phone banners** were cramped (icon + text + button on one flex-wrap row pushed the text column to 140 px wide). Fix: `flex flex-col md:flex-row`, button gets full-width row below on mobile.
+
+### Site-wide content changes
+- **Footer tagline**: "All in on Solana." → "Hustle hard. All in on crypto." (both tagline + paragraph + signed-out homepage paragraph).
+- **"How it works" page removed** entirely — `/how-it-works` route, `PostLive.HowItWorks` + `HowItWorksComponent` + templates, footer links (both `design_system.ex` and `layouts.ex`), and the `og_meta_plug` allowlist entry.
+- **New `/about` page** (`about_live.{ex,html.heex}`) — dark hero + founder grid (Lidia Yadlos / Erik Spivak / Adam Todd). Made-up bios + Unsplash headshots with grayscale-to-color hover. "About" link added and removed from footer per user direction ("remove About from footer for now we will add back later").
+
+### Bug fixes this session (full narratives in `docs/session_learnings.md`)
+- **Coin Flip `BetTooLarge` 6016**: client `calculate_max_bet` off by 1-3 lamports at high multipliers (float round-trip between settler ↔ Elixir ↔ JS). 10-lamport safety buffer at `coin_flip_live.ex:2490-2513`.
+- **Sticky header on `/wallet`** broken by `overflow-x-hidden` ancestor — moved header out of wrapper.
+- **`ScrollToCenter` hook**: `element.scrollLeft = X` silently failed on the flex container with asymmetric padding; switched to `scrollTo({left, behavior})` and added retry schedule `[0, 120, 300, 600, 1200]` ms to beat LV's initial diff storm.
+
+### Mint addresses used (BUX + LP send)
+- BUX: `7CuRyw2YkqQhUUFbw6CCnoedHWT8tK2c9UzZQYDGmxVX`
+- bSOL (SOL-LP): `4ppR9BUEKbu5LdtQze8C6ksnKzgeDquucEuQCck38StJ`
+- bBUX (BUX-LP): `CGNFj29F67BJhFmE3eJ2tCkb8ZwbQQ4Fd1xFynMCDMrX`
+
+All three use 9 decimals on chain.
+
+### Files touched
+
+Modified (Elixir / HEEx / JS):
+`assets/js/app.js`, `assets/js/hooks/web3auth_withdraw.js`, `lib/blockster_v2_web/components/design_system.ex`, `lib/blockster_v2_web/components/layouts.ex`, `lib/blockster_v2_web/live/coin_flip_live.ex`, `lib/blockster_v2_web/live/hub_live/index.html.heex`, `lib/blockster_v2_web/live/member_live/show.html.heex`, `lib/blockster_v2_web/live/pool_detail_live.ex`, `lib/blockster_v2_web/live/pool_index_live.ex`, `lib/blockster_v2_web/live/shop_live/index.html.heex`, `lib/blockster_v2_web/live/shop_live/show.html.heex`, `lib/blockster_v2_web/live/wallet_live/index.ex`, `lib/blockster_v2_web/live/wallet_live/index.html.heex`, `lib/blockster_v2_web/plugs/og_meta_plug.ex`, `lib/blockster_v2_web/router.ex`.
+
+New:
+`docs/performance_audit_2026_04_24.md`, `docs/play_mobile_redesign.md`, `lib/blockster_v2_web/live/about_live.ex`, `lib/blockster_v2_web/live/about_live.html.heex`, `priv/repo/update_hub_descriptions.exs`.
+
+Deleted (How-it-works):
+`lib/blockster_v2_web/live/post_live/how_it_works.ex`, `…/how_it_works.html.heex`, `…/how_it_works_component.ex`, `…/how_it_works_component.html.heex`.
 

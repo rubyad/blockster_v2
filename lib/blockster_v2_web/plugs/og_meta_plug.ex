@@ -13,7 +13,7 @@ defmodule BlocksterV2Web.Plugs.OgMetaPlug do
 
   # Single-segment routes that are NOT post slugs
   @non_post_routes ~w(
-    login play airdrop how-it-works privacy terms cookies events hubs shop
+    login play airdrop about privacy terms cookies events hubs shop
     shop-landing waitlist new onboarding admin profile settings
   )
 

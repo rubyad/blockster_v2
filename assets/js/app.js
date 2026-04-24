@@ -78,6 +78,7 @@ import { BalanceFetcherHook } from "./balance_fetcher.js";
 import { WalletTransferHook } from "./wallet_transfer.js";
 import { SolanaWallet } from "./hooks/solana_wallet.js";
 import { BuxPaymentHook } from "./hooks/bux_payment.js";
+import { SolanaBuxBurn } from "./hooks/solana_bux_burn.js";
 // DEPRECATED (EVM): RoguePaymentHook - Rogue Chain native token shop payment. No longer used by any LiveView.
 import { RoguePaymentHook } from "./hooks/rogue_payment.js";
 import { SolPaymentHook } from "./hooks/sol_payment.js"
@@ -486,19 +487,40 @@ let ScrollToBottom = {
   }
 };
 
-// ScrollToCenter - scrolls selected child into center of scrollable container
+// ScrollToCenter - scrolls selected child into center of scrollable container.
+// Fires on mount AND whenever LV patches the container (selection change, state
+// transition). Skips if the container isn't actually horizontally scrollable
+// (e.g. when the grid is rendered as `md:grid` on desktop).
+//
+// Uses scrollTo() instead of direct `.scrollLeft = x` — the latter silently
+// fails to apply on some flex/overflow combinations (observed on the /play
+// difficulty grid with `-mx-4 px-4 overflow-x-auto` inside a rounded card).
 let ScrollToCenter = {
+  _center(smooth = false) {
+    const container = this.el;
+    if (container.scrollWidth <= container.clientWidth) return;
+    const selected = container.querySelector('[data-selected="true"]');
+    if (!selected) return;
+    const containerRect = container.getBoundingClientRect();
+    const selectedRect = selected.getBoundingClientRect();
+    const target = container.scrollLeft + (selectedRect.left - containerRect.left) - (containerRect.width / 2) + (selectedRect.width / 2);
+    if (typeof container.scrollTo === "function") {
+      container.scrollTo({ left: target, behavior: smooth ? "smooth" : "instant" });
+    } else {
+      container.scrollLeft = target;
+    }
+  },
   mounted() {
-    requestAnimationFrame(() => {
-      const container = this.el;
-      const selected = container.querySelector('[data-selected="true"]');
-      if (selected) {
-        const containerRect = container.getBoundingClientRect();
-        const selectedRect = selected.getBoundingClientRect();
-        const scrollLeft = container.scrollLeft + (selectedRect.left - containerRect.left) - (containerRect.width / 2) + (selectedRect.width / 2);
-        container.scrollLeft = scrollLeft;
-      }
-    });
+    // LiveView emits several diffs during initial mount (start_async results,
+    // PubSub subscribes, balance syncs) and any patch that touches the
+    // container's subtree resets scrollLeft. Retry a few times until it
+    // holds — cheaper than rigging up a ready signal and invisible to the
+    // user.
+    const tries = [0, 120, 300, 600, 1200];
+    tries.forEach(t => setTimeout(() => this._center(false), t));
+  },
+  updated() {
+    requestAnimationFrame(() => this._center(true));
   }
 };
 
@@ -678,7 +700,7 @@ const liveSocket = new LiveSocket("/live", Socket, {
       wallet_address: walletAddress
     };
   },
-  hooks: { TipTapEditor, FeaturedImageUpload, ContentFeaturedImageUpload, HubLogoUpload, HubLogoFormUpload, TwitterWidgets, TagInput, Autocomplete, CopyToClipboard, AutoFocus, ClaimCleanup, InfiniteScroll, TimeTracker, EngagementTracker, PhoneNumberFormatter, BannerUpload, BannerAdminUpload, BannerDrag, TextBlockDrag, TextBlockDragResize, ButtonDrag, AdminControlsDrag, ProductImageUpload, TokenInput, ProductDescriptionEditor, ArtistImageUpload, CoinFlip, BuxBoosterOnchain, CoinFlipSolana, PoolHook, RtSkyscraperWidget, FsSkyscraperWidget, RtChartWidget, RtSquareCompactWidget, RtTickerWidget, FsTickerWidget, RtLeaderboardWidget, FsHeroWidget, CfDemoCycle, CfLiveCycle, DepositBuxInput, VideoWatchTracker, FingerprintHook, ConnectWalletHook, BalanceFetcherHook, WalletTransferHook, BuxPaymentHook, RoguePaymentHook, SolPaymentHook, NotificationToastHook, EventTracker, AirdropDepositHook, AirdropSolanaHook, PriceChart, FsA2CombinedAd, FsKineticAd, MobileNavHighlight, DsMobileNavHighlight, OpenInWallet, DesktopNavHighlight, CategoryNavHighlight, ScrollToBottom, ScrollToCenter, TaglineRotator, SolanaWallet, Web3Auth, Web3AuthWithdraw, Web3AuthExport, PasteFromClipboard, ScrollIntoView: { mounted() { this.el.scrollIntoView({ behavior: "smooth", block: "start" }); } } },
+  hooks: { TipTapEditor, FeaturedImageUpload, ContentFeaturedImageUpload, HubLogoUpload, HubLogoFormUpload, TwitterWidgets, TagInput, Autocomplete, CopyToClipboard, AutoFocus, ClaimCleanup, InfiniteScroll, TimeTracker, EngagementTracker, PhoneNumberFormatter, BannerUpload, BannerAdminUpload, BannerDrag, TextBlockDrag, TextBlockDragResize, ButtonDrag, AdminControlsDrag, ProductImageUpload, TokenInput, ProductDescriptionEditor, ArtistImageUpload, CoinFlip, BuxBoosterOnchain, CoinFlipSolana, PoolHook, RtSkyscraperWidget, FsSkyscraperWidget, RtChartWidget, RtSquareCompactWidget, RtTickerWidget, FsTickerWidget, RtLeaderboardWidget, FsHeroWidget, CfDemoCycle, CfLiveCycle, DepositBuxInput, VideoWatchTracker, FingerprintHook, ConnectWalletHook, BalanceFetcherHook, WalletTransferHook, BuxPaymentHook, SolanaBuxBurn, RoguePaymentHook, SolPaymentHook, NotificationToastHook, EventTracker, AirdropDepositHook, AirdropSolanaHook, PriceChart, FsA2CombinedAd, FsKineticAd, MobileNavHighlight, DsMobileNavHighlight, OpenInWallet, DesktopNavHighlight, CategoryNavHighlight, ScrollToBottom, ScrollToCenter, TaglineRotator, SolanaWallet, Web3Auth, Web3AuthWithdraw, Web3AuthExport, PasteFromClipboard, ScrollIntoView: { mounted() { this.el.scrollIntoView({ behavior: "smooth", block: "start" }); } } },
 });
 
 // connect if there are any LiveViews on the page

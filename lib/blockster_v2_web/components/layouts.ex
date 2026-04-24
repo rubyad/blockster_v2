@@ -931,7 +931,6 @@ defmodule BlocksterV2Web.Layouts do
           <div>
             <h3 class="font-haas_bold_75 text-white mb-4">Explore</h3>
             <ul class="space-y-3">
-              <li><.link navigate={~p"/how-it-works"} class="text-sm font-haas_roman_55 text-[#E8EAEC] hover:text-white transition-colors cursor-pointer">How it Works</.link></li>
               <li><.link navigate={~p"/shop"} class="text-sm font-haas_roman_55 text-[#E8EAEC] hover:text-white transition-colors cursor-pointer">Shop</.link></li>
               <li><.link navigate={~p"/play"} class="text-sm font-haas_roman_55 text-[#E8EAEC] hover:text-white transition-colors cursor-pointer">BUX Booster</.link></li>
             </ul>

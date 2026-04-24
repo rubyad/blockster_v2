@@ -167,6 +167,7 @@ defmodule BlocksterV2Web.Router do
       live "/privacy", LegalLive.Privacy, :index
       live "/terms", LegalLive.Terms, :index
       live "/cookies", LegalLive.Cookies, :index
+      live "/about", AboutLive, :index
 
       # Gitbook-style technical docs.
       live "/docs", DocsLive.Index, :index
@@ -180,7 +181,6 @@ defmodule BlocksterV2Web.Router do
     live_session :default,
       on_mount: [BlocksterV2Web.SearchHook, BlocksterV2Web.UserAuth, BlocksterV2Web.BuxBalanceHook, BlocksterV2Web.NotificationHook, BlocksterV2Web.NewsletterHook],
       layout: {BlocksterV2Web.Layouts, :app} do
-      live "/how-it-works", PostLive.HowItWorks, :index
       live "/events", EventLive.Index, :index
       live "/event/:slug", EventLive.Show, :show
       live "/hubs/admin", HubLive.Admin, :index

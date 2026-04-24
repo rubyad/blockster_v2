@@ -528,111 +528,131 @@ defmodule BlocksterV2Web.PoolDetailLive do
         <div class="absolute inset-0 opacity-[0.10] pointer-events-none" style="background-image: radial-gradient(circle at 30% 30%, white 1.5px, transparent 1.5px); background-size: 32px 32px;"></div>
         <div class="absolute top-0 right-0 w-1/2 h-full pointer-events-none" style="background: radial-gradient(ellipse at top right, rgba(255,255,255,0.15), transparent 60%);"></div>
 
-        <div class="max-w-[1280px] mx-auto px-6 py-12 relative">
+        <div class="max-w-[1280px] mx-auto px-4 py-5 md:px-6 md:py-12 relative">
           <%!-- Breadcrumb --%>
-          <div class="mb-8 flex items-center gap-2 text-[11px] text-white/60">
+          <div class="mb-4 md:mb-8 flex items-center gap-2 text-[11px] text-white/75">
             <.link navigate={~p"/pool"} class="hover:text-white transition-colors cursor-pointer">Pool</.link>
             <span>/</span>
-            <span class="text-white/85"><%= @token %> Pool</span>
+            <span class="text-white"><%= @token %> Pool</span>
           </div>
 
           <div class="grid grid-cols-12 gap-4 md:gap-8 items-start">
             <%!-- Left 7 col: identity + hero LP price + stats row --%>
             <div class="col-span-12 md:col-span-7">
-              <div class="flex items-center gap-5 mb-6">
-                <div class="w-20 h-20 rounded-2xl bg-black grid place-items-center ring-1 ring-white/25 shadow-2xl overflow-hidden">
+              <div class="flex items-center gap-3 md:gap-5 mb-4 md:mb-6">
+                <div class="w-12 h-12 md:w-20 md:h-20 rounded-xl md:rounded-2xl bg-black grid place-items-center ring-1 ring-white/25 shadow-2xl overflow-hidden shrink-0">
                   <img
                     src={if @token == "SOL", do: "https://ik.imagekit.io/blockster/solana-sol-logo.png", else: "https://ik.imagekit.io/blockster/blockster-icon.png"}
                     alt={@token}
-                    class="w-12 h-12 rounded-full"
+                    class="w-7 h-7 md:w-12 md:h-12 rounded-full"
                   />
                 </div>
                 <div>
-                  <div class="flex items-center gap-2 mb-1">
-                    <span class="text-[10px] uppercase tracking-[0.16em] text-white/85 font-bold">Bankroll Vault</span>
-                    <span class="inline-flex items-center gap-1 bg-[#CAFC00] text-black px-2 py-0.5 rounded-full text-[10px] font-bold">
+                  <div class="flex items-center gap-2 mb-0.5 md:mb-1">
+                    <span class="text-[9px] md:text-[10px] uppercase tracking-[0.16em] text-white font-bold">Bankroll Vault</span>
+                    <span class="inline-flex items-center gap-1 bg-[#CAFC00] text-black px-2 py-0.5 rounded-full text-[9px] md:text-[10px] font-bold">
                       <span class="w-1.5 h-1.5 rounded-full bg-black animate-pulse"></span>
                       Live
                     </span>
                   </div>
-                  <h1 class="font-bold text-[56px] md:text-[68px] tracking-[-0.025em] leading-[0.95]"><%= @token %> Pool</h1>
+                  <h1 class="font-bold text-[32px] md:text-[68px] tracking-[-0.025em] leading-[0.95]"><%= @token %> Pool</h1>
                 </div>
               </div>
 
               <%!-- LP price hero --%>
-              <div class="mb-7">
-                <div class="text-[10px] uppercase tracking-[0.14em] text-white/85 font-bold mb-2">Current LP price</div>
-                <div class="flex items-baseline gap-3 flex-wrap">
-                  <span class="font-mono font-bold text-[64px] text-white leading-none tracking-tight tabular-nums">
+              <div class="mb-4 md:mb-7">
+                <div class="text-[9px] md:text-[10px] uppercase tracking-[0.14em] text-white font-bold mb-1 md:mb-2">Current LP price</div>
+                <div class="flex items-baseline gap-2 md:gap-3 flex-wrap">
+                  <span class="font-mono font-bold text-[38px] md:text-[64px] text-white leading-none tracking-tight tabular-nums">
                     <%= if @pool_loading, do: "—", else: format_lp_price(@lp_price) %>
                   </span>
-                  <span class="text-[18px] text-white/85"><%= @token %></span>
+                  <span class="text-[14px] md:text-[18px] text-white/90"><%= @token %></span>
                   <span
                     :if={@chart_price_stats && @chart_price_stats.change_pct}
-                    class={"ml-2 inline-flex items-center gap-1 text-[14px] font-mono font-bold " <> if(@chart_price_stats.change_pct >= 0, do: "text-[#CAFC00]", else: "text-red-300")}
+                    class={"ml-1 md:ml-2 inline-flex items-center gap-1 text-[12px] md:text-[14px] font-mono font-bold " <> if(@chart_price_stats.change_pct >= 0, do: "text-[#CAFC00]", else: "text-red-200")}
                   >
                     <%= change_arrow(@chart_price_stats.change_pct) %> <%= format_change_pct(@chart_price_stats.change_pct) %>
                   </span>
-                  <span class="text-[11px] text-white/80 font-mono">24h</span>
+                  <span class="text-[10px] md:text-[11px] text-white/85 font-mono">24h</span>
                 </div>
               </div>
 
-              <%!-- Stats row --%>
-              <div class="flex items-center flex-wrap gap-x-8 gap-y-3">
+              <%!-- Stats row — on mobile render as a 2×2 grid of dark pills so
+                   numbers have strong contrast against the bright vault color.
+                   Desktop keeps the airy divider layout. --%>
+              <div class="md:hidden grid grid-cols-2 gap-2">
+                <div class="bg-black/25 backdrop-blur ring-1 ring-white/15 rounded-xl px-3 py-2">
+                  <div class="font-mono font-bold text-[18px] text-white leading-none tabular-nums"><%= format_tvl(@tvl) %></div>
+                  <div class="text-[9px] uppercase tracking-[0.14em] text-white/80 mt-1">TVL · <%= @token %></div>
+                </div>
+                <div class="bg-black/25 backdrop-blur ring-1 ring-white/15 rounded-xl px-3 py-2">
+                  <div class="font-mono font-bold text-[18px] text-white leading-none tabular-nums"><%= format_number(@lp_supply) %></div>
+                  <div class="text-[9px] uppercase tracking-[0.14em] text-white/80 mt-1"><%= @lp_token %> supply</div>
+                </div>
+                <div class="bg-black/25 backdrop-blur ring-1 ring-white/15 rounded-xl px-3 py-2">
+                  <div class="font-mono font-bold text-[18px] text-[#CAFC00] leading-none tabular-nums"><%= @est_apy %><span class="text-[12px]">%</span></div>
+                  <div class="text-[9px] uppercase tracking-[0.14em] text-white/80 mt-1">Est. APY</div>
+                </div>
+                <div class="bg-black/25 backdrop-blur ring-1 ring-white/15 rounded-xl px-3 py-2">
+                  <div class="font-mono font-bold text-[18px] text-white leading-none tabular-nums"><%= @bets_24h %></div>
+                  <div class="text-[9px] uppercase tracking-[0.14em] text-white/80 mt-1">Bets · 24h</div>
+                </div>
+              </div>
+              <div class="hidden md:flex items-center flex-wrap gap-x-8 gap-y-3">
                 <div>
                   <div class="font-mono font-bold text-[24px] text-white leading-none tabular-nums"><%= format_tvl(@tvl) %></div>
-                  <div class="text-[10px] uppercase tracking-[0.14em] text-white/85 mt-1.5">TVL · <%= @token %></div>
+                  <div class="text-[10px] uppercase tracking-[0.14em] text-white/90 mt-1.5">TVL · <%= @token %></div>
                 </div>
                 <div class="w-px h-10 bg-white/30"></div>
                 <div>
                   <div class="font-mono font-bold text-[24px] text-white leading-none tabular-nums"><%= format_number(@lp_supply) %></div>
-                  <div class="text-[10px] uppercase tracking-[0.14em] text-white/85 mt-1.5"><%= @lp_token %> supply</div>
+                  <div class="text-[10px] uppercase tracking-[0.14em] text-white/90 mt-1.5"><%= @lp_token %> supply</div>
                 </div>
                 <div class="w-px h-10 bg-white/30"></div>
                 <div>
                   <div class="font-mono font-bold text-[24px] text-[#CAFC00] leading-none tabular-nums"><%= @est_apy %><span class="text-[14px]">%</span></div>
-                  <div class="text-[10px] uppercase tracking-[0.14em] text-white/85 mt-1.5">Est. APY</div>
+                  <div class="text-[10px] uppercase tracking-[0.14em] text-white/90 mt-1.5">Est. APY</div>
                 </div>
                 <div class="w-px h-10 bg-white/30"></div>
                 <div>
                   <div class="font-mono font-bold text-[24px] text-white leading-none tabular-nums"><%= @bets_24h %></div>
-                  <div class="text-[10px] uppercase tracking-[0.14em] text-white/85 mt-1.5">Bets · 24h</div>
+                  <div class="text-[10px] uppercase tracking-[0.14em] text-white/90 mt-1.5">Bets · 24h</div>
                 </div>
               </div>
             </div>
 
             <%!-- Right 5 col: your position card --%>
-            <div class="col-span-12 md:col-span-5 mt-2">
-              <div class="bg-white/95 backdrop-blur rounded-2xl p-5 ring-1 ring-black/5 shadow-2xl">
-                <div class="flex items-center justify-between mb-3">
+            <div class="col-span-12 md:col-span-5 mt-3 md:mt-2">
+              <div class="bg-white/95 backdrop-blur rounded-2xl p-3.5 md:p-5 ring-1 ring-black/5 shadow-2xl">
+                <div class="flex items-center justify-between mb-2 md:mb-3">
                   <div class="text-[10px] font-bold uppercase tracking-[0.14em] text-neutral-500">Your position</div>
                   <span class="text-[9px] font-mono text-neutral-500">
                     <%= if @current_share_pct > 0, do: :erlang.float_to_binary(@current_share_pct, decimals: 2) <> "% pool share", else: "— pool share" %>
                   </span>
                 </div>
-                <div class="flex items-baseline gap-2 mb-1">
-                  <span class="font-mono font-bold text-[36px] text-[#141414] leading-none tabular-nums"><%= format_lp(@user_lp) %></span>
-                  <span class="text-[12px] text-neutral-500"><%= @lp_token %></span>
+                <div class="flex items-baseline gap-2 mb-0.5 md:mb-1">
+                  <span class="font-mono font-bold text-[26px] md:text-[36px] text-[#141414] leading-none tabular-nums"><%= format_lp(@user_lp) %></span>
+                  <span class="text-[11px] md:text-[12px] text-neutral-500"><%= @lp_token %></span>
                 </div>
-                <div class="text-[11px] text-neutral-500 font-mono mb-4">
+                <div class="text-[10px] md:text-[11px] text-neutral-500 font-mono mb-3 md:mb-4">
                   <%= position_value_line(@user_lp, @lp_price, @token) %>
                 </div>
-                <div class="grid grid-cols-3 gap-2 pt-3 border-t border-neutral-200">
+                <div class="grid grid-cols-3 gap-2 pt-2.5 md:pt-3 border-t border-neutral-200">
                   <div>
                     <div class="text-[9px] uppercase tracking-[0.12em] text-neutral-500">Cost basis</div>
-                    <div class="font-mono font-bold text-[14px] text-[#141414]">
+                    <div class="font-mono font-bold text-[13px] md:text-[14px] text-[#141414] whitespace-nowrap overflow-hidden text-ellipsis">
                       <%= format_cost_basis(@position_summary, @token) %>
                     </div>
                   </div>
                   <div>
                     <div class="text-[9px] uppercase tracking-[0.12em] text-neutral-500">Unrealized P/L</div>
-                    <div class={"font-mono font-bold text-[14px] " <> pnl_color(@position_summary)}>
+                    <div class={"font-mono font-bold text-[13px] md:text-[14px] whitespace-nowrap overflow-hidden text-ellipsis " <> pnl_color(@position_summary)}>
                       <%= format_pnl(@position_summary, @token) %>
                     </div>
                   </div>
                   <div>
                     <div class="text-[9px] uppercase tracking-[0.12em] text-neutral-500">Realized P/L</div>
-                    <div class={"font-mono font-bold text-[14px] " <> realized_color(@position_summary)}>
+                    <div class={"font-mono font-bold text-[13px] md:text-[14px] whitespace-nowrap overflow-hidden text-ellipsis " <> realized_color(@position_summary)}>
                       <%= format_realized_gain(@position_summary, @token) %>
                     </div>
                   </div>

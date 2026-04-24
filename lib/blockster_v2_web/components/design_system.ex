@@ -464,10 +464,13 @@ defmodule BlocksterV2Web.DesignSystem do
               <% end %>
             </div>
 
-            <%!-- Cart icon --%>
+            <%!-- Cart icon (desktop only — mobile bottom nav's Shop tab covers
+                 cart access; keeping the icon here on mobile pushes the
+                 balance pill + user dropdown off-screen when balances grow
+                 to 6+ digits). --%>
             <.link
               navigate={~p"/cart"}
-              class="relative w-9 h-9 flex items-center justify-center rounded-full bg-neutral-100 hover:bg-neutral-200 transition-colors"
+              class="relative w-9 h-9 hidden md:flex items-center justify-center rounded-full bg-neutral-100 hover:bg-neutral-200 transition-colors"
               aria-label="Cart"
             >
               <svg class="w-4 h-4 text-[#141414]" viewBox="0 0 24 24" fill="currentColor">
@@ -540,29 +543,42 @@ defmodule BlocksterV2Web.DesignSystem do
                     </div>
                   </div>
 
-                  <%!-- Copy-address affordance --%>
-                  <button
-                    type="button"
-                    id="ds-user-copy-address"
-                    phx-hook="CopyToClipboard"
-                    data-copy-text={@current_user.wallet_address}
-                    class="group mt-3 w-full flex items-center gap-2 pl-2.5 pr-2 py-1.5 rounded-lg bg-neutral-50 hover:bg-neutral-100 transition-colors cursor-pointer"
-                    aria-label="Copy wallet address"
-                  >
-                    <svg class="w-3 h-3 text-neutral-400 copy-icon-default flex-shrink-0" viewBox="0 0 20 20" fill="none" aria-hidden="true">
-                      <rect x="7" y="7" width="9" height="9" rx="1.5" stroke="currentColor" stroke-width="1.5"/>
-                      <path d="M13 7V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v7a1 1 0 0 0 1 1h2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-                    </svg>
-                    <svg class="w-3 h-3 text-[#22C55E] copy-icon hidden flex-shrink-0" viewBox="0 0 20 20" fill="none" aria-hidden="true">
-                      <path d="M4 10l4 4 8-8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                    </svg>
-                    <code class="flex-1 min-w-0 text-[10.5px] font-mono text-neutral-500 group-hover:text-[#141414] transition-colors text-left truncate tabular-nums">
-                      <%= ds_truncate_addr(@current_user.wallet_address) %>
-                    </code>
-                    <span class="copy-text text-[9px] uppercase tracking-[0.14em] font-bold font-mono text-neutral-400 group-hover:text-[#141414] transition-colors flex-shrink-0">
-                      copy
-                    </span>
-                  </button>
+                  <%!-- Wallet address: link to Solscan; adjacent COPY button --%>
+                  <div class="group mt-3 w-full flex items-center gap-2 pl-2.5 pr-1 py-1.5 rounded-lg bg-neutral-50 hover:bg-neutral-100 transition-colors">
+                    <a
+                      href={"https://solscan.io/account/#{@current_user.wallet_address}?cluster=devnet"}
+                      target="_blank"
+                      rel="noopener"
+                      class="flex items-center gap-2 flex-1 min-w-0 cursor-pointer"
+                      aria-label="View wallet on Solscan"
+                    >
+                      <svg class="w-3 h-3 text-neutral-400 group-hover:text-[#141414] transition-colors flex-shrink-0" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                        <path d="M7 13l6-6M13 7H8m5 0v5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                      </svg>
+                      <code class="flex-1 min-w-0 text-[10.5px] font-mono text-neutral-500 group-hover:text-[#141414] transition-colors text-left truncate tabular-nums">
+                        <%= ds_truncate_addr(@current_user.wallet_address) %>
+                      </code>
+                    </a>
+                    <button
+                      type="button"
+                      id="ds-user-copy-address"
+                      phx-hook="CopyToClipboard"
+                      data-copy-text={@current_user.wallet_address}
+                      class="copy-btn flex items-center gap-1 px-1.5 py-1 rounded-md hover:bg-white transition-colors cursor-pointer flex-shrink-0"
+                      aria-label="Copy wallet address"
+                    >
+                      <svg class="w-3 h-3 text-neutral-400 copy-icon-default" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                        <rect x="7" y="7" width="9" height="9" rx="1.5" stroke="currentColor" stroke-width="1.5"/>
+                        <path d="M13 7V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v7a1 1 0 0 0 1 1h2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                      </svg>
+                      <svg class="w-3 h-3 text-[#22C55E] copy-icon hidden" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                        <path d="M4 10l4 4 8-8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                      </svg>
+                      <span class="copy-text text-[9px] uppercase tracking-[0.14em] font-bold font-mono text-neutral-400 hover:text-[#141414] transition-colors">
+                        copy
+                      </span>
+                    </button>
+                  </div>
                 </div>
 
                 <%!-- ── Balances panel ───────────────────────────────────── --%>
@@ -1106,10 +1122,10 @@ defmodule BlocksterV2Web.DesignSystem do
               <.logo size="22px" variant="dark" />
             </div>
             <h3 class="font-bold text-[28px] leading-[1.1] text-white max-w-[360px] tracking-tight mb-4">
-              All in on Solana.
+              Hustle hard. All in on crypto.
             </h3>
             <p class="text-white/55 text-[13px] leading-relaxed max-w-[360px]">
-              The home feed of the Solana ecosystem. Builders, protocols, culture — daily.
+              The home feed of crypto. Builders, protocols, culture — daily.
             </p>
             <div class="mt-5 flex items-start gap-2 text-[11px] text-white/40 leading-relaxed max-w-[360px]">
               <svg class="w-3 h-3 mt-0.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -1126,7 +1142,6 @@ defmodule BlocksterV2Web.DesignSystem do
             <ul class="space-y-2.5 text-[13px]">
               <li><.link navigate={~p"/"} class="text-white/70 hover:text-white transition-colors">Latest</.link></li>
               <li><.link navigate={~p"/hubs"} class="text-white/70 hover:text-white transition-colors">Hubs</.link></li>
-              <li><.link navigate={~p"/how-it-works"} class="text-white/70 hover:text-white transition-colors">How it works</.link></li>
               <li><.link navigate={~p"/docs"} class="text-white/70 hover:text-white transition-colors">Docs</.link></li>
             </ul>
           </div>
@@ -1147,7 +1162,7 @@ defmodule BlocksterV2Web.DesignSystem do
           <div class="col-span-12 md:col-span-3">
             <div class="text-[10px] uppercase tracking-[0.14em] text-white/40 font-bold mb-4">Stay in the loop</div>
             <p class="text-[13px] text-white/60 leading-relaxed mb-3">
-              The best of crypto × AI, every Friday. No spam, no shilling.
+              The best of crypto × AI. No spam, no shilling.
             </p>
             <form class="flex items-center gap-2" phx-submit="newsletter_subscribe">
               <input
@@ -1652,27 +1667,27 @@ defmodule BlocksterV2Web.DesignSystem do
     <.link
       navigate={@href}
       class={[
-        "ds-hub-card group block rounded-2xl p-5 text-white relative overflow-hidden",
-        "transition-all duration-200 hover:-translate-y-0.5 hover:shadow-xl",
+        "ds-hub-card group block rounded-2xl p-3.5 md:p-5 text-white relative overflow-hidden",
+        "transition-all duration-200 md:hover:-translate-y-0.5 md:hover:shadow-xl",
         @class
       ]}
-      style={"background: linear-gradient(135deg, #{@primary} 0%, #{@secondary} 100%); min-height: 240px;"}
+      style={"background: linear-gradient(135deg, #{@primary} 0%, #{@secondary} 100%);"}
     >
       <%!-- Top-right radial highlight --%>
       <div
         class="absolute inset-0 pointer-events-none"
         style="background: radial-gradient(circle at 80% 20%, rgba(255,255,255,0.18), transparent 60%);"
       ></div>
-      <div class="relative z-10 h-full flex flex-col" style="min-height: 200px;">
-        <div class="flex items-center justify-between mb-8">
-          <div class="w-9 h-9 rounded-md bg-white/15 backdrop-blur grid place-items-center ring-1 ring-white/20">
+      <div class="relative z-10 flex flex-col gap-3 md:min-h-[200px] md:gap-0">
+        <div class="flex items-center justify-between md:mb-8">
+          <div class="w-7 h-7 md:w-9 md:h-9 rounded-md bg-white/15 backdrop-blur grid place-items-center ring-1 ring-white/20">
             <%= cond do %>
               <% @logo_url -> %>
-                <img src={@logo_url} alt={@name} class="w-5 h-5 rounded" />
+                <img src={@logo_url} alt={@name} class="w-4 h-4 md:w-5 md:h-5 rounded" />
               <% @ticker -> %>
-                <span class="text-white font-bold text-[14px]">{@ticker}</span>
+                <span class="text-white font-bold text-[11px] md:text-[14px]">{@ticker}</span>
               <% true -> %>
-                <span class="text-white font-bold text-[14px]">{String.first(@name)}</span>
+                <span class="text-white font-bold text-[11px] md:text-[14px]">{String.first(@name)}</span>
             <% end %>
           </div>
           <%= if @category do %>
@@ -1681,26 +1696,28 @@ defmodule BlocksterV2Web.DesignSystem do
             </div>
           <% end %>
         </div>
-        <h3 class="font-bold text-[20px] tracking-tight mb-1">{@name}</h3>
+        <h3 class="font-bold text-[15px] md:text-[20px] tracking-tight mb-0.5 md:mb-1">{@name}</h3>
         <%= if @description do %>
-          <p class="text-white/75 text-[11px] line-clamp-2 mb-4 mt-auto">{@description}</p>
+          <p class="text-white/80 text-[11px] leading-snug line-clamp-3 md:line-clamp-2 md:mb-4 md:mt-auto">{@description}</p>
         <% end %>
-        <div class="flex items-center justify-between mt-auto">
-          <div class="flex items-center gap-3">
+        <%!-- Mobile: counters row + full-width-ish Visit button stacked.
+             Desktop: counters left, Visit-hub pill right. --%>
+        <div class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between md:mt-auto">
+          <div class="flex items-center gap-2.5 md:gap-3">
             <%= if @post_count do %>
-              <div>
-                <span class="text-[14px] font-bold tabular-nums">{@post_count}</span>
-                <span class="text-[10px] text-white/65">posts</span>
+              <div class="flex items-baseline gap-1">
+                <span class="text-[13px] md:text-[14px] font-bold tabular-nums">{@post_count}</span>
+                <span class="text-[10px] text-white/75">posts</span>
               </div>
             <% end %>
             <%= if @reader_count do %>
-              <div>
-                <span class="text-[14px] font-bold tabular-nums">{@reader_count}</span>
-                <span class="text-[10px] text-white/65">readers</span>
+              <div class="flex items-baseline gap-1">
+                <span class="text-[13px] md:text-[14px] font-bold tabular-nums">{@reader_count}</span>
+                <span class="text-[10px] text-white/75">readers</span>
               </div>
             <% end %>
           </div>
-          <span class="bg-black/25 backdrop-blur text-white text-[10px] font-bold px-2.5 py-1 rounded-full ring-1 ring-white/20 group-hover:bg-black/40 transition-colors">
+          <span class="bg-black/25 backdrop-blur text-white text-[10px] font-bold px-2.5 py-1 rounded-full ring-1 ring-white/20 group-hover:bg-black/40 transition-colors whitespace-nowrap text-center self-start md:self-auto">
             Visit hub
           </span>
         </div>
@@ -2018,10 +2035,10 @@ defmodule BlocksterV2Web.DesignSystem do
             Welcome to Blockster
           </div>
           <h2 class="font-bold tracking-[-0.022em] leading-[1.04] text-white text-[32px] md:text-[58px] mb-5 max-w-[640px]">
-            All in on Solana. <span class="text-white/45">The center of the ecosystem.</span>
+            Hustle hard. <span class="text-white/45">All in on crypto.</span>
           </h2>
           <p class="text-white/65 text-[15px] md:text-[16px] leading-[1.55] max-w-[520px] mb-6 md:mb-7">
-            Blockster is a Solana publication. Solana is the most active chain in crypto — we cover the builders, the protocols, the drops, and everything moving on-chain. Read the stories. Follow the ecosystem. Earn BUX for every article you engage with.
+            Blockster is a crypto publication. We cover the builders, the protocols, the drops, and everything moving on-chain. Read the stories. Follow the ecosystem. Earn BUX for every article you engage with.
           </p>
           <div class="flex items-center gap-3 flex-wrap">
             <button
@@ -4306,57 +4323,57 @@ defmodule BlocksterV2Web.DesignSystem do
       <%!-- Top-right blur glow --%>
       <div class="absolute top-0 right-0 w-1/2 h-full pointer-events-none" style="background: radial-gradient(ellipse at top right, rgba(255,255,255,0.12), transparent 60%);"></div>
 
-      <div class="max-w-[1280px] mx-auto px-6 py-12 relative">
+      <div class="max-w-[1280px] mx-auto px-4 py-5 md:px-6 md:py-12 relative">
         <%!-- Breadcrumb --%>
-        <div class="mb-8 flex items-center gap-2 text-[11px] text-white/60">
+        <div class="mb-3 md:mb-8 flex items-center gap-2 text-[11px] text-white/80">
           <.link navigate={~p"/hubs"} class="hover:text-white transition-colors">Hubs</.link>
           <span>/</span>
-          <span class="text-white/85">{@hub.name}</span>
+          <span class="text-white">{@hub.name}</span>
         </div>
 
-        <div class="grid grid-cols-12 gap-4 md:gap-8 items-start">
+        <div class="grid grid-cols-12 gap-3 md:gap-8 items-start">
           <div class="col-span-12 md:col-span-8">
             <%!-- Identity block --%>
-            <div class="flex items-center gap-5 mb-6">
-              <div class="w-20 h-20 rounded-2xl bg-white/15 backdrop-blur grid place-items-center ring-1 ring-white/25 shadow-2xl">
+            <div class="flex items-center gap-3 md:gap-5 mb-3 md:mb-6">
+              <div class="w-12 h-12 md:w-20 md:h-20 rounded-xl md:rounded-2xl bg-white/15 backdrop-blur grid place-items-center ring-1 ring-white/25 shadow-2xl shrink-0">
                 <%= if @hub.logo_url do %>
-                  <img src={@hub.logo_url} alt={@hub.name} class="w-12 h-12 object-contain rounded-lg" />
+                  <img src={@hub.logo_url} alt={@hub.name} class="w-7 h-7 md:w-12 md:h-12 object-contain rounded-md md:rounded-lg" />
                 <% else %>
-                  <span class="text-[24px] font-bold text-white">
+                  <span class="text-[16px] md:text-[24px] font-bold text-white">
                     {String.first(@hub.token || @hub.name)}
                   </span>
                 <% end %>
               </div>
               <div>
-                <div class="flex items-center gap-2 mb-1">
-                  <span class="text-[10px] uppercase tracking-[0.16em] text-white/65 font-bold">{@hub.name} Hub</span>
+                <div class="flex items-center gap-2 mb-0.5 md:mb-1">
+                  <span class="text-[9px] md:text-[10px] uppercase tracking-[0.16em] text-white/85 font-bold">{@hub.name} Hub</span>
                 </div>
-                <h1 class="font-bold text-[56px] md:text-[68px] tracking-[-0.025em] leading-[0.95]">{@hub.name}</h1>
+                <h1 class="font-bold text-[32px] md:text-[68px] tracking-[-0.025em] leading-[0.95]">{@hub.name}</h1>
               </div>
             </div>
 
             <%!-- Description --%>
             <%= if @hub.description do %>
-              <p class="text-white/85 text-[18px] leading-[1.5] max-w-[640px] mb-8">
+              <p class="text-white/90 text-[13px] md:text-[18px] leading-[1.5] max-w-[640px] mb-4 md:mb-8">
                 {@hub.description}
               </p>
             <% end %>
 
             <%!-- Stats row --%>
-            <div class="flex items-center flex-wrap gap-x-8 gap-y-3 mb-7">
+            <div class="flex items-center flex-wrap gap-x-5 gap-y-2 md:gap-x-8 md:gap-y-3 mb-4 md:mb-7">
               <div>
-                <div class="font-mono font-bold text-[28px] text-white leading-none">{compact_number(@post_count)}</div>
-                <div class="text-[10px] uppercase tracking-[0.14em] text-white/55 mt-1.5">Posts</div>
+                <div class="font-mono font-bold text-[20px] md:text-[28px] text-white leading-none">{compact_number(@post_count)}</div>
+                <div class="text-[9px] md:text-[10px] uppercase tracking-[0.14em] text-white/75 mt-1 md:mt-1.5">Posts</div>
               </div>
-              <div class="w-px h-10 bg-white/15"></div>
+              <div class="w-px h-7 md:h-10 bg-white/25"></div>
               <div>
-                <div class="font-mono font-bold text-[28px] text-white leading-none">{compact_number(@follower_count)}</div>
-                <div class="text-[10px] uppercase tracking-[0.14em] text-white/55 mt-1.5">Followers</div>
+                <div class="font-mono font-bold text-[20px] md:text-[28px] text-white leading-none">{compact_number(@follower_count)}</div>
+                <div class="text-[9px] md:text-[10px] uppercase tracking-[0.14em] text-white/75 mt-1 md:mt-1.5">Followers</div>
               </div>
             </div>
 
             <%!-- CTAs + social icons --%>
-            <div class="flex items-center flex-wrap gap-3">
+            <div class="flex items-center flex-wrap gap-2 md:gap-3">
               <%= if @user_follows_hub do %>
                 <button phx-click="toggle_follow" class="inline-flex items-center gap-2 bg-white text-black px-5 py-3 rounded-full text-[14px] font-bold hover:bg-white/90 transition-colors cursor-pointer">
                   <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path fill-rule="evenodd" d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12Zm13.36-1.814a.75.75 0 1 0-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 0 0-1.06 1.06l2.25 2.25a.75.75 0 0 0 1.14-.094l3.75-5.25Z" clip-rule="evenodd" /></svg>
@@ -4420,8 +4437,10 @@ defmodule BlocksterV2Web.DesignSystem do
             </div>
           </div>
 
-          <%!-- Right column: live activity widget (placeholder) --%>
-          <div class="col-span-12 md:col-span-4 mt-2">
+          <%!-- Right column: live activity widget — desktop only. Saves ~220 px
+               on mobile where the activity feed is low-utility and forces the
+               user to scroll past it to reach the post list. --%>
+          <div class="hidden md:block col-span-12 md:col-span-4 mt-2">
             <div class="bg-white/[0.07] backdrop-blur rounded-2xl p-5 ring-1 ring-white/15 shadow-2xl">
               <div class="flex items-center justify-between mb-4">
                 <div class="flex items-center gap-1.5">

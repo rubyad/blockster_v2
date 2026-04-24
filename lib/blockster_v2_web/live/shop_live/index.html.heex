@@ -1,6 +1,7 @@
 <BlocksterV2Web.DesignSystem.header
   current_user={@current_user}
   active="shop"
+  display_token="SOL"
   bux_balance={Map.get(assigns, :bux_balance, 0)}
   token_balances={Map.get(assigns, :token_balances, %{})}
   cart_item_count={Map.get(assigns, :cart_item_count, 0)}
@@ -20,27 +21,28 @@
      FULL-WIDTH HERO BANNER
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ --%>
 <section class="relative overflow-hidden bg-neutral-900">
-  <img src="https://ik.imagekit.io/blockster/Web%20Banner%203.png" alt="" class="absolute inset-0 w-full h-full object-cover opacity-70" />
+  <img src="https://ik.imagekit.io/blockster/Web%20Banner%203.png?tr=w-1600,q-85,f-auto" alt="" class="absolute inset-0 w-full h-full object-cover opacity-70" />
   <div class="absolute inset-0 bg-gradient-to-r from-black/85 via-black/40 to-transparent"></div>
-  <div class="max-w-[1280px] mx-auto px-6 relative">
-    <div class="py-20 md:py-28">
-      <div class="text-[10px] font-bold tracking-[0.16em] uppercase text-[#CAFC00] mb-3">Spend the BUX you earned</div>
-      <h1 class="font-bold tracking-[-0.022em] leading-[1.04] text-white text-[44px] md:text-[64px] max-w-[640px] mb-4">Crypto-inspired streetwear & gadgets</h1>
-      <p class="text-white/75 text-[15px] md:text-[16px] leading-relaxed font-medium max-w-[460px] mb-7">Apparel, hardware wallets, and event passes from your favorite hubs. Pay in SOL, redeem BUX for up to 50% off.</p>
-      <div class="inline-flex items-center gap-3">
-        <div class="inline-flex items-center gap-2 bg-white/10 backdrop-blur ring-1 ring-white/15 text-white px-3 py-1.5 rounded-full text-[11px] font-medium">
+  <div class="max-w-[1280px] mx-auto px-4 md:px-6 relative">
+    <div class="py-8 md:py-28">
+      <div class="text-[10px] font-bold tracking-[0.16em] uppercase text-[#CAFC00] mb-2 md:mb-3">Spend the BUX you earned</div>
+      <h1 class="font-bold tracking-[-0.022em] leading-[1.04] text-white text-[26px] md:text-[64px] max-w-[640px] mb-3 md:mb-4">Crypto-inspired streetwear & gadgets</h1>
+      <p class="hidden md:block text-white/75 text-[15px] md:text-[16px] leading-relaxed font-medium max-w-[460px] mb-7">Apparel, hardware wallets, and event passes from your favorite hubs. Pay in SOL, redeem BUX for up to 50% off.</p>
+      <p class="md:hidden text-white/75 text-[12px] leading-relaxed font-medium mb-3">Pay in SOL, redeem BUX for up to 50% off.</p>
+      <div class="inline-flex items-center gap-2 md:gap-3 flex-wrap">
+        <div class="inline-flex items-center gap-2 bg-white/10 backdrop-blur ring-1 ring-white/15 text-white px-2.5 py-1 md:px-3 md:py-1.5 rounded-full text-[10px] md:text-[11px] font-medium">
           <span class="w-1.5 h-1.5 rounded-full bg-[#CAFC00]"></span>
-          <span class="font-mono"><%= @total_slots %></span> products in stock
+          <span class="font-mono"><%= @total_slots %></span> in stock
         </div>
-        <div class="inline-flex items-center gap-2 bg-white/10 backdrop-blur ring-1 ring-white/15 text-white px-3 py-1.5 rounded-full text-[11px] font-medium">
-          <span>Redeem BUX for up to 50% off</span>
+        <div class="inline-flex items-center gap-2 bg-white/10 backdrop-blur ring-1 ring-white/15 text-white px-2.5 py-1 md:px-3 md:py-1.5 rounded-full text-[10px] md:text-[11px] font-medium">
+          <span>Up to 50% off with BUX</span>
         </div>
       </div>
     </div>
   </div>
 </section>
 
-<main class="max-w-[1280px] mx-auto px-6 py-10">
+<main class="max-w-[1280px] mx-auto px-4 md:px-6 py-5 md:py-10">
   <div class="flex gap-8">
 
     <%!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

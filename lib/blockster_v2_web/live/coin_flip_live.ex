@@ -208,13 +208,41 @@ defmodule BlocksterV2Web.CoinFlipLive do
         <%!-- CF-04: `relative z-0` pins the hero's own stacking context below
              the site header's `z-30`, so the stat cards stop bleeding
              through the sticky header on scroll-to-top. --%>
-        <section id="ds-play-hero" class="pt-12 pb-8 relative z-0">
-          <div class="grid grid-cols-12 gap-4 md:gap-8 items-end">
+        <section id="ds-play-hero" class="pt-2 pb-2 md:pt-12 md:pb-8 relative z-0">
+          <%!-- Mobile: ultra-compact one-row header with token toggle inline.
+               Tokens move here so the difficulty row can start as close to
+               the top of the card as possible. --%>
+          <div class="md:hidden flex items-center justify-between gap-3">
+            <h1 class="text-[28px] leading-[0.96] font-bold tracking-[-0.022em] text-[#141414]">Coin Flip</h1>
+            <div class="flex items-center gap-1.5 shrink-0 pb-0.5">
+              <%= for token <- @tokens do %>
+                <button
+                  type="button"
+                  phx-click="select_token"
+                  phx-value-token={token}
+                  class={[
+                    "flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-[11px] font-bold transition-colors cursor-pointer",
+                    if(@selected_token == token, do: "bg-[#0a0a0a] text-white", else: "bg-white border border-neutral-200 text-neutral-500")
+                  ]}
+                >
+                  <%= if token == "SOL" do %>
+                    <img src="https://ik.imagekit.io/blockster/solana-sol-logo.png" alt="SOL" class="w-3.5 h-3.5 rounded-full" />
+                  <% else %>
+                    <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="BUX" class="w-3.5 h-3.5 rounded-full" />
+                  <% end %>
+                  <%= token %>
+                </button>
+              <% end %>
+            </div>
+          </div>
+
+          <%!-- Desktop: full marketing hero + 3-stat card grid. --%>
+          <div class="hidden md:grid grid-cols-12 gap-4 md:gap-8 items-end">
             <div class="col-span-12 md:col-span-7">
               <BlocksterV2Web.DesignSystem.eyebrow class="mb-3">
                 Provably-fair · On-chain · Sub-1% house edge
               </BlocksterV2Web.DesignSystem.eyebrow>
-              <h1 class="text-[60px] md:text-[80px] mb-3 leading-[0.96] font-bold tracking-[-0.022em] text-[#141414]">Coin Flip</h1>
+              <h1 class="text-[80px] mb-3 leading-[0.96] font-bold tracking-[-0.022em] text-[#141414]">Coin Flip</h1>
               <p class="text-[16px] leading-[1.5] text-neutral-600 max-w-[520px]">
                 Pick a side, place a bet, watch it settle on chain in under a second. Every flip is verifiable. Every payout is funded by the public bankroll.
               </p>
@@ -235,24 +263,9 @@ defmodule BlocksterV2Web.CoinFlipLive do
                 </div>
                 <div class="bg-white rounded-2xl border border-neutral-200/70 p-4 text-right shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
                   <div class="text-[9px] uppercase tracking-[0.14em] text-neutral-500 mb-1">BUX Pool</div>
-                  <%!-- CF-05: BUX vault is unfunded on devnet; raw "—" reads as
-                       a rendering bug. Brand-color "Coming soon" pill
-                       communicates state and vanishes automatically once the
-                       vault is funded (non-nil, non-zero balance). --%>
-                  <%
-                    bux_value =
-                      if @selected_token == "BUX" and is_number(@house_balance) and @house_balance > 0,
-                        do: format_balance(@house_balance)
-                  %>
-                  <%= if bux_value do %>
-                    <div class="font-mono font-bold text-[18px] text-[#141414]"><%= bux_value %></div>
-                  <% else %>
-                    <div class="flex justify-end">
-                      <span class="inline-flex items-center gap-1 bg-[#CAFC00] text-[#141414] text-[10px] font-bold uppercase tracking-[0.12em] px-2 py-1 rounded-full">
-                        Coming soon
-                      </span>
-                    </div>
-                  <% end %>
+                  <div class="font-mono font-bold text-[18px] text-[#141414]">
+                    <%= if @selected_token == "BUX", do: format_balance(@house_balance), else: "—" %>
+                  </div>
                   <.link navigate={~p"/pool/bux"} class="text-[10px] text-[#22C55E] font-mono hover:underline">View pool ↗</.link>
                 </div>
                 <div class="bg-white rounded-2xl border border-neutral-200/70 p-4 text-right shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
@@ -265,21 +278,10 @@ defmodule BlocksterV2Web.CoinFlipLive do
           </div>
         </section>
 
-        <%!-- Expired bet reclaim banner --%>
-        <%= if @has_expired_bet do %>
-          <div class="mb-6 bg-amber-50 border border-amber-200 rounded-2xl px-5 py-4 flex items-center justify-between gap-3">
-            <div class="flex items-center gap-2 text-sm text-amber-800">
-              <svg class="w-4 h-4 text-amber-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
-              <span>You have a stuck bet older than 5 minutes.</span>
-            </div>
-            <button type="button" phx-click="reclaim_stuck_bet" class="shrink-0 px-4 py-2 bg-[#0a0a0a] text-white text-xs font-bold rounded-full hover:bg-[#1a1a22] transition-all cursor-pointer">
-              Reclaim
-            </button>
-          </div>
-        <% end %>
-
         <%!-- ══════════════════════════════════════════════════════
              GAME CARD + SIDEBAR (3-state conditional)
+             Reclaim banner moved INSIDE the :idle card (see below) so
+             it doesn't push the game further down on mobile.
         ══════════════════════════════════════════════════════ --%>
         <section id="ds-play-game" class="pb-8">
           <div class="grid grid-cols-12 gap-6 items-start">
@@ -297,59 +299,82 @@ defmodule BlocksterV2Web.CoinFlipLive do
               <%= if @game_state == :idle do %>
                 <%!-- STATE 1: Place bet --%>
 
-                <%!-- Token selector + balance row --%>
-                <div class="px-6 pt-5 pb-4 border-b border-neutral-100 flex items-center justify-between flex-wrap gap-3">
-                  <div class="flex items-center gap-2">
+                <%!-- Expired bet banner (inside card so mobile doesn't lose a full row above the fold) --%>
+                <%= if @has_expired_bet do %>
+                  <div class="bg-amber-50 border-b border-amber-200 px-5 py-2.5 md:px-6 md:py-3 flex items-center justify-between gap-3">
+                    <div class="flex items-center gap-2 text-[12px] md:text-sm text-amber-800 min-w-0">
+                      <svg class="w-4 h-4 text-amber-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+                      <span class="truncate">Stuck bet &gt; 5 min.</span>
+                    </div>
+                    <button type="button" phx-click="reclaim_stuck_bet" class="shrink-0 px-3 py-1.5 bg-[#0a0a0a] text-white text-[11px] font-bold rounded-full hover:bg-[#1a1a22] transition-all cursor-pointer">
+                      Reclaim
+                    </button>
+                  </div>
+                <% end %>
+
+                <%!-- Token selector + balance row — desktop only.
+                     Mobile: tokens live in the page header (above) and the
+                     balance/house row is hidden to free vertical space. --%>
+                <div class="hidden md:flex px-4 pt-3 pb-3 md:px-6 md:pt-5 md:pb-4 border-b border-neutral-100 items-center justify-between flex-wrap gap-2">
+                  <div class="flex items-center gap-1.5 md:gap-2">
                     <%= for token <- @tokens do %>
                       <button
                         type="button"
                         phx-click="select_token"
                         phx-value-token={token}
                         class={[
-                          "flex items-center gap-2 px-3 py-2 rounded-full text-[12px] font-bold transition-colors cursor-pointer",
+                          "flex items-center gap-1.5 md:gap-2 px-2.5 md:px-3 py-1.5 md:py-2 rounded-full text-[11px] md:text-[12px] font-bold transition-colors cursor-pointer",
                           if(@selected_token == token, do: "bg-[#0a0a0a] text-white", else: "bg-white border border-neutral-200 text-neutral-500 hover:border-[#141414] hover:text-[#141414]")
                         ]}
                       >
                         <%= if token == "SOL" do %>
-                          <img src="https://ik.imagekit.io/blockster/solana-sol-logo.png" alt="SOL" class="w-4 h-4 rounded-full" />
+                          <img src="https://ik.imagekit.io/blockster/solana-sol-logo.png" alt="SOL" class="w-3.5 h-3.5 md:w-4 md:h-4 rounded-full" />
                         <% else %>
-                          <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="BUX" class="w-4 h-4 rounded-full" />
+                          <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="BUX" class="w-3.5 h-3.5 md:w-4 md:h-4 rounded-full" />
                         <% end %>
                         <%= token %>
                       </button>
                     <% end %>
                   </div>
-                  <div class="flex items-center gap-4 text-[11px]">
+                  <div class="flex items-center gap-2 md:gap-4 text-[10px] md:text-[11px]">
                     <div>
-                      <span class="text-neutral-500">Your balance: </span>
+                      <span class="text-neutral-500 hidden md:inline">Your balance: </span>
+                      <span class="text-neutral-500 md:hidden">You: </span>
                       <span class="font-mono font-bold text-[#141414]">
-                        <%= format_balance(Map.get(@balances, @selected_token, 0)) %> <%= @selected_token %>
+                        <%= format_balance(Map.get(@balances, @selected_token, 0)) %>
                       </span>
                     </div>
                     <div>
                       <span class="text-neutral-500">House: </span>
                       <.link navigate={~p"/pool/#{String.downcase(@selected_token)}"} class="font-mono font-bold text-[#141414] hover:text-[#22C55E] transition-colors">
-                        <%= format_balance(@house_balance) %> <%= @selected_token %> ↗
+                        <%= format_balance(@house_balance) %> ↗
                       </.link>
                     </div>
                   </div>
                 </div>
 
-                <%!-- Difficulty selector --%>
-                <div class="px-6 pt-5 pb-2">
-                  <div class="flex items-center justify-between mb-3">
+                <%!-- Difficulty selector — horizontal scroll on mobile (like old design),
+                     full 9-col grid on desktop. --%>
+                <div class="px-4 pt-4 pb-2 md:px-6 md:pt-5">
+                  <div class="flex items-center justify-between mb-2 md:mb-3 gap-2">
                     <div class="text-[10px] font-bold uppercase tracking-[0.14em] text-neutral-500">Difficulty</div>
+                    <%!-- Desktop shows hint; mobile shows live house balance here
+                         since the balance row above is hidden on mobile. --%>
                     <div class="text-[10px] text-neutral-500 hidden sm:block">Higher difficulty = bigger payout · lower odds</div>
+                    <.link navigate={~p"/pool/#{String.downcase(@selected_token)}"} class="md:hidden text-[10px] text-neutral-500 shrink-0 whitespace-nowrap hover:text-[#141414] transition-colors">
+                      House <span class="font-mono font-bold text-[#141414]"><%= format_balance(@house_balance) %> <%= @selected_token %></span> ↗
+                    </.link>
                   </div>
-                  <div id="difficulty-grid" class="grid grid-cols-5 md:grid-cols-9 gap-1.5">
+                  <div id="difficulty-grid" phx-hook="ScrollToCenter" class="flex md:grid md:grid-cols-9 gap-1.5 overflow-x-auto scrollbar-hide md:overflow-visible -mx-4 px-4 md:mx-0 md:px-0">
                     <%= for opt <- @difficulty_options do %>
                       <% is_active = @selected_difficulty == opt.level %>
                       <button
                         type="button"
                         phx-click="select_difficulty"
                         phx-value-level={opt.level}
+                        data-selected={if is_active, do: "true", else: "false"}
                         class={[
-                          "py-2.5 px-1 rounded-xl border text-center transition-all cursor-pointer",
+                          "py-2 px-1 rounded-xl border text-center transition-all cursor-pointer shrink-0 min-w-[60px] md:min-w-0 md:py-2.5",
                           if(is_active, do: "bg-[#0a0a0a] border-[#0a0a0a] text-white", else: "bg-white border-neutral-200 text-neutral-500 hover:border-[#141414] hover:text-[#141414]")
                         ]}
                       >
@@ -368,18 +393,27 @@ defmodule BlocksterV2Web.CoinFlipLive do
                 </div>
 
                 <%!-- Bet amount --%>
-                <div class="px-6 pt-6 pb-2">
-                  <div class="flex items-center justify-between mb-3">
+                <div class="px-4 pt-3 pb-2 md:px-6 md:pt-6">
+                  <%!-- Header row: both viewports show label left, actions right.
+                       Mobile keeps ½/2× inline inside the input (tight), while
+                       the MAX chip sits in this header row so the user can see
+                       their cap without looking at the input. --%>
+                  <div class="flex items-center justify-between mb-2 md:mb-3 gap-2">
                     <div class="text-[10px] font-bold uppercase tracking-[0.14em] text-neutral-500">Bet amount</div>
-                    <div class="flex items-center gap-1.5">
+                    <%!-- Desktop: ½ / 2× / MAX stack --%>
+                    <div class="hidden md:flex items-center gap-1.5">
                       <button type="button" phx-click="halve_bet" class="px-2.5 py-1 rounded-full bg-neutral-100 border border-neutral-200 font-mono text-[10px] font-bold text-neutral-500 hover:border-[#141414] hover:text-[#141414] hover:bg-white transition-all cursor-pointer">½</button>
                       <button type="button" phx-click="double_bet" class="px-2.5 py-1 rounded-full bg-neutral-100 border border-neutral-200 font-mono text-[10px] font-bold text-neutral-500 hover:border-[#141414] hover:text-[#141414] hover:bg-white transition-all cursor-pointer">2×</button>
                       <button type="button" phx-click="set_max_bet" class="px-2.5 py-1 rounded-full bg-[#0a0a0a] border border-[#0a0a0a] font-mono text-[10px] font-bold text-[#CAFC00] cursor-pointer">
                         MAX <%= format_bet_amount(@max_bet) %>
                       </button>
                     </div>
+                    <%!-- Mobile: MAX button only, alongside the label --%>
+                    <button type="button" phx-click="set_max_bet" class="md:hidden px-2.5 py-1 rounded-full bg-[#0a0a0a] border border-[#0a0a0a] font-mono text-[10px] font-bold text-[#CAFC00] cursor-pointer shrink-0 whitespace-nowrap">
+                      MAX <%= format_bet_amount(@max_bet) %>
+                    </button>
                   </div>
-                  <div class="bg-neutral-50 border border-neutral-200 rounded-2xl px-5 py-4 flex items-center gap-3">
+                  <div class="bg-neutral-50 border border-neutral-200 rounded-2xl px-4 py-3 md:px-5 md:py-4 flex items-center gap-2 md:gap-3">
                     <input
                       type="text"
                       inputmode="decimal"
@@ -387,12 +421,19 @@ defmodule BlocksterV2Web.CoinFlipLive do
                       phx-keyup="update_bet_amount"
                       phx-debounce="150"
                       autocomplete="off"
-                      class="flex-1 min-w-0 bg-transparent border-0 font-mono text-[28px] font-bold text-[#141414] tracking-[-0.02em] focus:outline-none"
+                      class="flex-1 min-w-0 bg-transparent border-0 font-mono text-[22px] md:text-[28px] font-bold text-[#141414] tracking-[-0.02em] focus:outline-none"
                     />
-                    <div class="text-[14px] text-neutral-500"><%= @selected_token %></div>
+                    <%!-- Mobile: ½ / 2× still inline next to input for one-hand tweaks;
+                         MAX lives with the label row above. --%>
+                    <div class="flex md:hidden items-center gap-1 shrink-0">
+                      <button type="button" phx-click="halve_bet" class="px-2 py-1 rounded-full bg-white border border-neutral-200 font-mono text-[10px] font-bold text-neutral-500 cursor-pointer">½</button>
+                      <button type="button" phx-click="double_bet" class="px-2 py-1 rounded-full bg-white border border-neutral-200 font-mono text-[10px] font-bold text-neutral-500 cursor-pointer">2×</button>
+                    </div>
+                    <div class="text-[12px] md:text-[14px] text-neutral-500 shrink-0"><%= @selected_token %></div>
                   </div>
-                  <%!-- Quick presets --%>
-                  <div class="flex items-center gap-2 mt-3 flex-wrap">
+                  <%!-- Quick presets — desktop only. On mobile the ½/2×/MAX controls
+                       plus free-form input cover the same ground without a second row. --%>
+                  <div class="hidden md:flex items-center gap-2 mt-3 flex-wrap">
                     <%= for preset <- stake_presets(@selected_token) do %>
                       <button
                         type="button"
@@ -409,21 +450,22 @@ defmodule BlocksterV2Web.CoinFlipLive do
                   </div>
                 </div>
 
-                <%!-- Potential profit --%>
-                <div class="px-6 pt-5">
-                  <div class="bg-[#22C55E]/[0.08] border border-[#22C55E]/25 rounded-2xl p-5 flex items-center justify-between">
-                    <div>
-                      <div class="text-[10px] font-bold uppercase tracking-[0.14em] text-[#15803d] mb-1">Potential profit</div>
-                      <div class="font-mono font-bold text-[28px] text-[#15803d] leading-none">
+                <%!-- Potential profit + multiplier. Labels aligned on one row,
+                     amounts aligned on the next row — same size both sides. --%>
+                <div class="px-4 pt-3 md:px-6 md:pt-5">
+                  <div class="bg-[#22C55E]/[0.08] border border-[#22C55E]/25 rounded-xl md:rounded-2xl p-3 md:p-5 flex items-start justify-between gap-3">
+                    <div class="min-w-0">
+                      <div class="text-[9px] md:text-[10px] font-bold uppercase tracking-[0.14em] text-[#15803d] mb-0.5 md:mb-1">Potential profit</div>
+                      <div class="font-mono font-bold text-[22px] md:text-[32px] text-[#15803d] leading-none">
                         + <%= format_balance(@bet_amount * get_multiplier(@selected_difficulty) - @bet_amount) %> <%= @selected_token %>
                       </div>
-                      <div class="text-[11px] text-[#15803d]/70 mt-1">
-                        Total payout: <%= format_balance(@bet_amount * get_multiplier(@selected_difficulty)) %> <%= @selected_token %>
+                      <div class="text-[10px] md:text-[11px] text-[#15803d]/70 mt-1 truncate">
+                        Payout: <%= format_balance(@bet_amount * get_multiplier(@selected_difficulty)) %> <%= @selected_token %>
                       </div>
                     </div>
-                    <div class="text-right">
-                      <div class="text-[10px] font-bold uppercase tracking-[0.14em] text-[#15803d]/70 mb-1">Multiplier</div>
-                      <div class="font-mono font-bold text-[36px] text-[#15803d] leading-none"><%= get_multiplier(@selected_difficulty) %>×</div>
+                    <div class="text-right shrink-0">
+                      <div class="text-[9px] md:text-[10px] font-bold uppercase tracking-[0.14em] text-neutral-500 mb-0.5 md:mb-1">Multiplier</div>
+                      <div class="font-mono font-bold text-[22px] md:text-[32px] text-[#141414] leading-none"><%= get_multiplier(@selected_difficulty) %>×</div>
                     </div>
                   </div>
                 </div>
@@ -438,8 +480,8 @@ defmodule BlocksterV2Web.CoinFlipLive do
                 <% end %>
 
                 <%!-- Prediction selectors --%>
-                <div class="px-6 pt-6">
-                  <div class="flex items-center justify-between mb-3 gap-2">
+                <div class="px-4 pt-3 md:px-6 md:pt-6">
+                  <div class="flex items-center justify-between mb-2 md:mb-3 gap-2">
                     <div class="text-[10px] font-bold uppercase tracking-[0.14em] text-neutral-500">
                       Pick your side · <%= get_predictions_needed(@selected_difficulty) %> flip<%= if get_predictions_needed(@selected_difficulty) > 1, do: "s" %>
                       <%= if get_mode(@selected_difficulty) == :win_one, do: " · win one", else: " · win all" %>
@@ -450,7 +492,7 @@ defmodule BlocksterV2Web.CoinFlipLive do
                   </div>
                   <% num_flips = get_predictions_needed(@selected_difficulty) %>
                   <% sizes = get_prediction_size_classes(num_flips) %>
-                  <div class="flex items-center justify-center gap-3 flex-wrap">
+                  <div class="flex items-center justify-center gap-2 md:gap-3 flex-wrap">
                     <%= for i <- 1..num_flips do %>
                       <button
                         type="button"
@@ -483,10 +525,13 @@ defmodule BlocksterV2Web.CoinFlipLive do
                   </div>
                 </div>
 
-                <%!-- Provably fair details --%>
-                <div class="px-6 pt-5 pb-2">
+                <%!-- Provably fair details — desktop only. On mobile we want
+                     the Place Bet CTA directly under the prediction chips so
+                     the full flow (difficulty → amount → predict → bet)
+                     fits above the fold. --%>
+                <div class="hidden md:block px-4 pt-3 pb-1 md:px-6 md:pt-5 md:pb-2">
                   <details class="bg-neutral-50 border border-neutral-200 rounded-xl">
-                    <summary class="cursor-pointer px-4 py-3 flex items-center justify-between list-none">
+                    <summary class="cursor-pointer px-3 py-2 md:px-4 md:py-3 flex items-center justify-between list-none">
                       <div class="flex items-center gap-2">
                         <div class="w-1.5 h-1.5 rounded-full bg-[#22C55E] pulse-dot"></div>
                         <span class="text-[11px] font-bold text-[#141414]">Provably fair · Server seed locked</span>
@@ -526,12 +571,12 @@ defmodule BlocksterV2Web.CoinFlipLive do
                 </div>
 
                 <%!-- Place bet button --%>
-                <div class="p-6">
+                <div class="p-4 md:p-6">
                   <button
                     type="button"
                     phx-click="start_game"
                     disabled={Enum.any?(@predictions, &is_nil/1)}
-                    class="w-full bg-[#0a0a0a] text-white py-4 rounded-2xl text-[15px] font-bold hover:bg-[#1a1a22] transition-colors flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                    class="w-full bg-[#0a0a0a] text-white py-3 md:py-4 rounded-2xl text-[14px] md:text-[15px] font-bold hover:bg-[#1a1a22] transition-colors flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <%= if Enum.all?(@predictions, &(!is_nil(&1))) do %>
                       Place Bet · <%= format_bet_amount(@bet_amount) %> <%= @selected_token %>
@@ -552,26 +597,26 @@ defmodule BlocksterV2Web.CoinFlipLive do
                 <%!-- STATE 2: Bet in progress --%>
 
                 <%!-- Locked bet header --%>
-                <div class="px-6 pt-5 pb-4 border-b border-neutral-100 flex items-center justify-between flex-wrap gap-3">
-                  <div class="flex items-center gap-3">
+                <div class="px-4 pt-3 pb-3 md:px-6 md:pt-5 md:pb-4 border-b border-neutral-100 flex items-center justify-between flex-wrap gap-2 md:gap-3">
+                  <div class="flex items-center gap-2 md:gap-3">
                     <%= if @selected_token == "SOL" do %>
-                      <img src="https://ik.imagekit.io/blockster/solana-sol-logo.png" alt="SOL" class="w-9 h-9 rounded-full" />
+                      <img src="https://ik.imagekit.io/blockster/solana-sol-logo.png" alt="SOL" class="w-7 h-7 md:w-9 md:h-9 rounded-full" />
                     <% else %>
-                      <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="BUX" class="w-9 h-9 rounded-full" />
+                      <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="BUX" class="w-7 h-7 md:w-9 md:h-9 rounded-full" />
                     <% end %>
                     <div>
-                      <div class="text-[10px] uppercase tracking-[0.14em] text-neutral-500">Bet placed</div>
-                      <div class="font-mono font-bold text-[20px] text-[#141414] leading-none"><%= format_balance(@current_bet) %> <%= @selected_token %></div>
+                      <div class="text-[9px] md:text-[10px] uppercase tracking-[0.14em] text-neutral-500">Bet placed</div>
+                      <div class="font-mono font-bold text-[16px] md:text-[20px] text-[#141414] leading-none"><%= format_balance(@current_bet) %> <%= @selected_token %></div>
                     </div>
                   </div>
-                  <div class="flex items-center gap-3 text-[11px]">
-                    <div class="text-neutral-500">Multiplier <span class="font-mono font-bold text-[#141414]"><%= get_multiplier(@selected_difficulty) %>×</span></div>
-                    <div class="text-neutral-500">Potential <span class="font-mono font-bold text-[#22C55E]">+ <%= format_balance(@current_bet * get_multiplier(@selected_difficulty) - @current_bet) %> <%= @selected_token %></span></div>
+                  <div class="flex items-center gap-2 md:gap-3 text-[10px] md:text-[11px]">
+                    <div class="text-neutral-500"><span class="hidden md:inline">Multiplier </span><span class="md:hidden">×</span><span class="font-mono font-bold text-[#141414]"><%= get_multiplier(@selected_difficulty) %>×</span></div>
+                    <div class="text-neutral-500"><span class="hidden md:inline">Potential </span><span class="font-mono font-bold text-[#22C55E]">+ <%= format_balance(@current_bet * get_multiplier(@selected_difficulty) - @current_bet) %> <%= @selected_token %></span></div>
                   </div>
                 </div>
 
                 <%!-- Spinning coin area --%>
-                <div class="px-6 pt-12 pb-8 grid place-items-center relative">
+                <div class="px-4 pt-6 pb-4 md:px-6 md:pt-12 md:pb-8 grid place-items-center relative">
                   <div class="absolute inset-0 pointer-events-none">
                     <div class="absolute top-8 left-12 w-32 h-32 bg-[#facc15]/15 rounded-full blur-3xl"></div>
                     <div class="absolute bottom-8 right-12 w-40 h-40 bg-[#7D00FF]/10 rounded-full blur-3xl"></div>
@@ -580,8 +625,8 @@ defmodule BlocksterV2Web.CoinFlipLive do
                   <% big_sizes = get_coin_size_classes(1) %>
                   <div class="relative">
                     <%= if @game_state == :awaiting_tx do %>
-                      <div class="w-44 h-44 rounded-full grid place-items-center bg-purple-100 animate-pulse">
-                        <svg class="w-16 h-16 text-purple-600 animate-spin" fill="none" viewBox="0 0 24 24">
+                      <div class="w-28 h-28 md:w-44 md:h-44 rounded-full grid place-items-center bg-purple-100 animate-pulse">
+                        <svg class="w-10 h-10 md:w-16 md:h-16 text-purple-600 animate-spin" fill="none" viewBox="0 0 24 24">
                           <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                           <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                         </svg>
@@ -622,7 +667,7 @@ defmodule BlocksterV2Web.CoinFlipLive do
                     <% end %>
                     <div class="absolute -inset-4 rounded-full border-2 border-dashed border-neutral-200 animate-spin" style="animation-duration: 8s;"></div>
                   </div>
-                  <div class="mt-8 text-center">
+                  <div class="mt-4 md:mt-8 text-center">
                     <div class="text-[10px] font-bold uppercase tracking-[0.16em] text-[#141414] flex items-center justify-center gap-2">
                       <span class="w-1.5 h-1.5 rounded-full bg-[#22C55E] pulse-dot"></span>
                       <%= cond do %>
@@ -631,14 +676,14 @@ defmodule BlocksterV2Web.CoinFlipLive do
                         <% true -> %> Flipping coin · <%= @current_flip %> of <%= num_flips %>
                       <% end %>
                     </div>
-                    <div class="text-[12px] text-neutral-500 mt-1.5">Confirming on Solana · ~0.4s</div>
+                    <div class="text-[11px] md:text-[12px] text-neutral-500 mt-1 md:mt-1.5">Confirming on Solana · ~0.4s</div>
                   </div>
                 </div>
 
                 <%!-- Predictions / results stacked --%>
-                <div class="px-6 pt-2 pb-6">
-                  <div class="bg-neutral-50 border border-neutral-200 rounded-2xl p-5 space-y-5">
-                    <% mini_sizes = %{outer: "w-12 h-12", inner: "w-8 h-8", emoji: "text-lg"} %>
+                <div class="px-4 pt-1 pb-4 md:px-6 md:pt-2 md:pb-6">
+                  <div class="bg-neutral-50 border border-neutral-200 rounded-2xl p-3 space-y-3 md:p-5 md:space-y-5">
+                    <% mini_sizes = %{outer: "w-10 h-10 md:w-12 md:h-12", inner: "w-7 h-7 md:w-8 md:h-8", emoji: "text-base md:text-lg"} %>
                     <div>
                       <div class="text-[10px] font-bold uppercase tracking-[0.14em] text-neutral-500 mb-3 text-center">Your predictions</div>
                       <div class="flex items-center justify-center gap-3 flex-wrap">
@@ -678,7 +723,7 @@ defmodule BlocksterV2Web.CoinFlipLive do
                 </div>
 
                 <%!-- Tx status strip --%>
-                <div class="border-t border-neutral-100 bg-neutral-50/70 px-6 py-3">
+                <div class="border-t border-neutral-100 bg-neutral-50/70 px-4 py-2 md:px-6 md:py-3">
                   <div class="flex items-center justify-between text-[10px] font-mono">
                     <div class="flex items-center gap-2">
                       <span class="w-1 h-1 rounded-full bg-[#22C55E]"></span>
@@ -717,39 +762,39 @@ defmodule BlocksterV2Web.CoinFlipLive do
                        celebratory +X SOL headline for money that hasn't
                        actually landed in their wallet. Losses are unchanged —
                        the balance already moved at bet placement. --%>
-                  <div class="bg-gradient-to-r from-[#22C55E]/12 via-[#CAFC00]/15 to-[#22C55E]/12 border-b border-[#22C55E]/25 px-6 py-6 text-center">
-                    <div class="text-[10px] font-bold uppercase tracking-[0.18em] text-[#15803d] mb-2">You Won</div>
+                  <div class="bg-gradient-to-r from-[#22C55E]/12 via-[#CAFC00]/15 to-[#22C55E]/12 border-b border-[#22C55E]/25 px-4 py-4 md:px-6 md:py-6 text-center">
+                    <div class="text-[9px] md:text-[10px] font-bold uppercase tracking-[0.18em] text-[#15803d] mb-1 md:mb-2">You Won</div>
                     <%= if @settlement_status == :settled do %>
-                      <div class="font-mono font-bold text-[56px] md:text-[64px] text-[#15803d] leading-none tracking-tight">
+                      <div class="font-mono font-bold text-[36px] md:text-[64px] text-[#15803d] leading-none tracking-tight">
                         + <%= format_balance(@payout - @placed_stake) %> <%= @selected_token %>
                       </div>
-                      <div class="text-[12px] text-[#15803d]/70 mt-2">
+                      <div class="text-[11px] md:text-[12px] text-[#15803d]/70 mt-1 md:mt-2">
                         Total payout <%= format_balance(@payout) %> <%= @selected_token %> · <%= get_multiplier(@selected_difficulty) %>× multiplier
                       </div>
                     <% else %>
-                      <div class="font-mono font-bold text-[56px] md:text-[64px] text-[#15803d]/40 leading-none tracking-tight">
+                      <div class="font-mono font-bold text-[36px] md:text-[64px] text-[#15803d]/40 leading-none tracking-tight">
                         + <%= format_balance(@payout - @placed_stake) %> <%= @selected_token %>
                       </div>
-                      <div class="inline-flex items-center gap-2 mt-2 text-[11px] uppercase tracking-[0.14em] text-[#15803d]/70 font-bold">
+                      <div class="inline-flex items-center gap-2 mt-1 md:mt-2 text-[10px] md:text-[11px] uppercase tracking-[0.14em] text-[#15803d]/70 font-bold">
                         <svg class="animate-spin w-3 h-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/></svg>
                         Confirming on chain…
                       </div>
                     <% end %>
                   </div>
                 <% else %>
-                  <div class="bg-gradient-to-r from-[#EF4444]/8 to-[#EF4444]/8 border-b border-[#EF4444]/20 px-6 py-6 text-center">
-                    <div class="text-[10px] font-bold uppercase tracking-[0.18em] text-[#7f1d1d] mb-2">No win this time</div>
-                    <div class="font-mono font-bold text-[40px] md:text-[48px] text-[#7f1d1d] leading-none tracking-tight">
+                  <div class="bg-gradient-to-r from-[#EF4444]/8 to-[#EF4444]/8 border-b border-[#EF4444]/20 px-4 py-4 md:px-6 md:py-6 text-center">
+                    <div class="text-[9px] md:text-[10px] font-bold uppercase tracking-[0.18em] text-[#7f1d1d] mb-1 md:mb-2">No win this time</div>
+                    <div class="font-mono font-bold text-[32px] md:text-[48px] text-[#7f1d1d] leading-none tracking-tight">
                       − <%= format_balance(@placed_stake) %> <%= @selected_token %>
                     </div>
-                    <div class="text-[12px] text-[#7f1d1d]/70 mt-2">Stake returned to bankroll</div>
+                    <div class="text-[11px] md:text-[12px] text-[#7f1d1d]/70 mt-1 md:mt-2">Stake returned to bankroll</div>
                   </div>
                 <% end %>
 
                 <%!-- Predictions vs Results grid (large) --%>
                 <% num_flips = get_predictions_needed(@selected_difficulty) %>
-                <% big_sizes = %{outer: "w-14 h-14 sm:w-16 sm:h-16", inner: "w-10 h-10 sm:w-12 sm:h-12", emoji: "text-xl sm:text-2xl"} %>
-                <div class="px-6 pt-8 pb-6 space-y-6">
+                <% big_sizes = %{outer: "w-11 h-11 sm:w-16 sm:h-16", inner: "w-8 h-8 sm:w-12 sm:h-12", emoji: "text-base sm:text-2xl"} %>
+                <div class="px-4 pt-3 pb-3 space-y-3 md:px-6 md:pt-8 md:pb-6 md:space-y-6">
                   <div>
                     <div class="text-[10px] font-bold uppercase tracking-[0.14em] text-neutral-500 mb-3 text-center">Your predictions</div>
                     <div class="flex items-center justify-center gap-3 flex-wrap">
@@ -771,17 +816,27 @@ defmodule BlocksterV2Web.CoinFlipLive do
                       <%= for i <- 1..num_flips do %>
                         <% result = Enum.at(@results, i - 1) %>
                         <% pred = Enum.at(@predictions, i - 1) %>
-                        <%= if result do %>
-                          <% matched = result == pred %>
-                          <div class={[big_sizes.outer, "rounded-full flex items-center justify-center shadow-md ring-2 ring-offset-2 ring-offset-white", if(result == :heads, do: "casino-chip-heads", else: "casino-chip-tails"), if(matched, do: "ring-[#22C55E]", else: "ring-[#EF4444]")]}>
-                            <div class={[big_sizes.inner, "rounded-full flex items-center justify-center border-2 border-white shadow-inner", if(result == :heads, do: "bg-coin-heads", else: "bg-gray-700")]}>
-                              <span class={big_sizes.emoji}><%= if result == :heads, do: "🚀", else: "💩" %></span>
+                        <%!-- In :win_one mode the game ends early on the first
+                             correct flip; @results holds the pre-generated
+                             outcomes for every slot but only flips up through
+                             @current_flip actually happened. Mask the rest as
+                             "?" so the UI never reveals an un-flipped coin. --%>
+                        <%= cond do %>
+                          <% i > @current_flip -> %>
+                            <div class={[big_sizes.outer, "rounded-full flex items-center justify-center bg-neutral-100 border border-dashed border-neutral-300"]}>
+                              <span class="text-neutral-400 font-mono font-bold text-xl">?</span>
                             </div>
-                          </div>
-                        <% else %>
-                          <div class={[big_sizes.outer, "rounded-full flex items-center justify-center bg-neutral-100"]}>
-                            <span class="text-neutral-400">-</span>
-                          </div>
+                          <% result -> %>
+                            <% matched = result == pred %>
+                            <div class={[big_sizes.outer, "rounded-full flex items-center justify-center shadow-md ring-2 ring-offset-2 ring-offset-white", if(result == :heads, do: "casino-chip-heads", else: "casino-chip-tails"), if(matched, do: "ring-[#22C55E]", else: "ring-[#EF4444]")]}>
+                              <div class={[big_sizes.inner, "rounded-full flex items-center justify-center border-2 border-white shadow-inner", if(result == :heads, do: "bg-coin-heads", else: "bg-gray-700")]}>
+                                <span class={big_sizes.emoji}><%= if result == :heads, do: "🚀", else: "💩" %></span>
+                              </div>
+                            </div>
+                          <% true -> %>
+                            <div class={[big_sizes.outer, "rounded-full flex items-center justify-center bg-neutral-100"]}>
+                              <span class="text-neutral-400">-</span>
+                            </div>
                         <% end %>
                       <% end %>
                     </div>
@@ -789,12 +844,12 @@ defmodule BlocksterV2Web.CoinFlipLive do
                 </div>
 
                 <%!-- Settlement status + actions --%>
-                <div class="px-6 pb-6">
+                <div class="px-4 pb-4 md:px-6 md:pb-6">
                   <div class={[
-                    "rounded-2xl p-5 flex items-center justify-between flex-wrap gap-3",
+                    "rounded-2xl p-3 md:p-5 flex flex-col md:flex-row md:items-center md:justify-between gap-3 md:gap-3",
                     if(@won, do: "bg-[#22C55E]/[0.08] border border-[#22C55E]/25", else: "bg-neutral-50 border border-neutral-200")
                   ]}>
-                    <div class="flex items-center gap-3">
+                    <div class="flex items-center gap-3 min-w-0">
                       <%= case @settlement_status do %>
                         <% :settled -> %>
                           <div class="w-9 h-9 rounded-full bg-[#22C55E] grid place-items-center">
@@ -849,23 +904,26 @@ defmodule BlocksterV2Web.CoinFlipLive do
                         <% _ -> %>
                       <% end %>
                     </div>
-                    <div class="flex items-center gap-2">
+                    <%!-- Buttons: on mobile each flexes to share the row so
+                         they never wrap onto two lines. On desktop they keep
+                         content-width pills. --%>
+                    <div class="flex items-center gap-2 w-full md:w-auto shrink-0">
                       <%= if @onchain_game_id do %>
                         <button type="button" phx-click="show_fairness_modal" phx-value-game-id={@onchain_game_id} class={[
-                          "px-4 py-2.5 rounded-full text-[12px] font-bold transition-colors cursor-pointer border",
+                          "flex-1 md:flex-initial px-3 md:px-4 py-2 md:py-2.5 rounded-full text-[11px] md:text-[12px] font-bold transition-colors cursor-pointer border whitespace-nowrap",
                           if(@won, do: "bg-white border-[#22C55E]/30 text-[#15803d] hover:border-[#15803d]", else: "bg-white border-neutral-300 text-neutral-700 hover:border-[#141414]")
                         ]}>
                           Verify fairness
                         </button>
                       <% end %>
                       <%= if @settlement_status in [:settled, :failed, :timeout, :manual_review] do %>
-                        <button type="button" phx-click="reset_game" class="bg-[#0a0a0a] text-white px-5 py-2.5 rounded-full text-[12px] font-bold hover:bg-[#1a1a22] transition-colors flex items-center gap-2 cursor-pointer">
+                        <button type="button" phx-click="reset_game" class="flex-1 md:flex-initial bg-[#0a0a0a] text-white px-3 md:px-5 py-2 md:py-2.5 rounded-full text-[11px] md:text-[12px] font-bold hover:bg-[#1a1a22] transition-colors flex items-center justify-center gap-1.5 md:gap-2 cursor-pointer whitespace-nowrap">
                           <%= cond do
                             @settlement_status == :settled and @won -> "Play again"
                             @settlement_status == :settled -> "Try again"
                             true -> "Place another bet"
                           end %>
-                          <svg class="w-3.5 h-3.5" viewBox="0 0 20 20" fill="none"><path d="M3 10h12m0 0l-4-4m4 4l-4 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                          <svg class="w-3 h-3 md:w-3.5 md:h-3.5" viewBox="0 0 20 20" fill="none"><path d="M3 10h12m0 0l-4-4m4 4l-4 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
                         </button>
                       <% end %>
                     </div>
@@ -947,8 +1005,9 @@ defmodule BlocksterV2Web.CoinFlipLive do
                 </div>
                 <% end %>
 
-                <%!-- Two modes legend --%>
-                <div class="bg-neutral-50 border border-neutral-200/70 rounded-2xl p-5">
+                <%!-- Two modes legend — desktop only; mobile users see the
+                     mode label on each difficulty tile. --%>
+                <div class="hidden lg:block bg-neutral-50 border border-neutral-200/70 rounded-2xl p-5">
                   <div class="text-[10px] font-bold uppercase tracking-[0.14em] text-neutral-500 mb-3">Two modes</div>
                   <div class="space-y-3 text-[11px] text-neutral-600 leading-snug">
                     <div>
@@ -1080,9 +1139,11 @@ defmodule BlocksterV2Web.CoinFlipLive do
         </section>
 
         <%!-- ══════════════════════════════════════════════════════
-             RECENT GAMES TABLE
+             RECENT GAMES TABLE — desktop only. Mobile users get the
+             compact sidebar "Your recent games" card above, which
+             stacks right below the game card on small viewports.
         ══════════════════════════════════════════════════════ --%>
-        <section id="ds-play-recent" class="pt-12 pb-12 border-t border-neutral-200/70 mt-8">
+        <section id="ds-play-recent" class="hidden md:block pt-12 pb-12 border-t border-neutral-200/70 mt-8">
           <div class="flex items-baseline justify-between mb-6 flex-wrap gap-3">
             <div>
               <BlocksterV2Web.DesignSystem.eyebrow class="mb-1">Your last bets</BlocksterV2Web.DesignSystem.eyebrow>
@@ -1984,7 +2045,7 @@ defmodule BlocksterV2Web.CoinFlipLive do
       })
 
       user_stats = load_user_stats(user_id, token_type)
-      confetti_pieces = if won, do: generate_confetti_data(100), else: []
+      confetti_pieces = []
 
       # Settle in background. Fire-and-forget (spawn) so the next bet does
       # not block on settlement.
@@ -2310,11 +2371,11 @@ defmodule BlocksterV2Web.CoinFlipLive do
 
   defp get_prediction_size_classes(num_flips) do
     case num_flips do
-      1 -> %{outer: "w-20 h-20 sm:w-20 sm:h-20", inner: "w-14 h-14 sm:w-14 sm:h-14", emoji: "text-3xl sm:text-3xl"}
-      2 -> %{outer: "w-18 h-18 sm:w-18 sm:h-18", inner: "w-12 h-12 sm:w-12 sm:h-12", emoji: "text-2xl sm:text-2xl"}
-      3 -> %{outer: "w-16 h-16 sm:w-16 sm:h-16", inner: "w-11 h-11 sm:w-10 sm:h-10", emoji: "text-2xl sm:text-2xl"}
-      4 -> %{outer: "w-14 h-14 sm:w-16 sm:h-16", inner: "w-10 h-10 sm:w-10 sm:h-10", emoji: "text-xl sm:text-2xl"}
-      _ -> %{outer: "w-12 h-12 sm:w-16 sm:h-16", inner: "w-8 h-8 sm:w-10 sm:h-10", emoji: "text-xl sm:text-2xl"}
+      1 -> %{outer: "w-14 h-14 sm:w-20 sm:h-20", inner: "w-10 h-10 sm:w-14 sm:h-14", emoji: "text-2xl sm:text-3xl"}
+      2 -> %{outer: "w-14 h-14 sm:w-18 sm:h-18", inner: "w-10 h-10 sm:w-12 sm:h-12", emoji: "text-xl sm:text-2xl"}
+      3 -> %{outer: "w-12 h-12 sm:w-16 sm:h-16", inner: "w-8 h-8 sm:w-10 sm:h-10", emoji: "text-lg sm:text-2xl"}
+      4 -> %{outer: "w-11 h-11 sm:w-16 sm:h-16", inner: "w-7 h-7 sm:w-10 sm:h-10", emoji: "text-base sm:text-2xl"}
+      _ -> %{outer: "w-10 h-10 sm:w-16 sm:h-16", inner: "w-7 h-7 sm:w-10 sm:h-10", emoji: "text-base sm:text-2xl"}
     end
   end
 
@@ -2431,6 +2492,15 @@ defmodule BlocksterV2Web.CoinFlipLive do
     # Rust: base = (net_lamports * max_bet_bps) / 10000
     #        max_bet = (base * 20000) / multiplier_bps
     # Each div truncates. Float math skips intermediate truncation → off by 1+ lamport.
+    #
+    # Safety buffer: subtract 10 atomic units (lamports for SOL / base units for BUX)
+    # from the computed max. The client's `house_balance` arrives from the settler
+    # as a SOL float, which loses a few lamports of precision through the JSON
+    # round-trip. When the user clicks MAX the resulting `bet_amount` float can
+    # then round back UP to a lamport count 1-3 over the chain's actual max
+    # (especially at high multipliers where the `* 20000 / multiplier_bps` step
+    # amplifies the drift). A 10-lamport haircut is invisible to the player
+    # (≈ $0.000002 on SOL) but eliminates the BetTooLarge error.
     difficulty = Enum.find(@difficulty_options, &(&1.level == difficulty_level))
 
     if difficulty do
@@ -2438,7 +2508,7 @@ defmodule BlocksterV2Web.CoinFlipLive do
       net_lamports = trunc(house_balance * 1.0e9)
       base = div(net_lamports * 100, 10000)
       max_bet_lamports = div(base * 20000, multiplier_bp)
-      max_bet_lamports / 1.0e9
+      max(0, max_bet_lamports - 10) / 1.0e9
     else
       0.0
     end

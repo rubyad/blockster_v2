@@ -29,35 +29,38 @@
   announcement_banner={assigns[:announcement_banner]}
 />
 
-<main class="max-w-[1280px] mx-auto px-6">
+<main class="max-w-[1280px] mx-auto px-4 md:px-6">
 
   <%!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
        PAGE HERO
   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ --%>
-  <section class="pt-16 pb-12">
-    <div class="grid grid-cols-12 gap-4 md:gap-8 items-end">
+  <section class="pt-4 pb-5 md:pt-16 md:pb-12">
+    <div class="grid grid-cols-12 gap-3 md:gap-8 items-end">
       <div class="col-span-12 md:col-span-8">
-        <BlocksterV2Web.DesignSystem.eyebrow class="mb-3">Browse</BlocksterV2Web.DesignSystem.eyebrow>
-        <h1 class="font-bold text-[64px] md:text-[80px] mb-5 leading-[0.96] tracking-[-0.022em] text-[#141414]">Hubs</h1>
-        <p class="text-[18px] leading-[1.5] text-neutral-600 max-w-[520px]">
+        <BlocksterV2Web.DesignSystem.eyebrow class="mb-2 md:mb-3">Browse</BlocksterV2Web.DesignSystem.eyebrow>
+        <h1 class="font-bold text-[30px] md:text-[80px] mb-2 md:mb-5 leading-[0.96] tracking-[-0.022em] text-[#141414]">Hubs</h1>
+        <p class="hidden md:block text-[18px] leading-[1.5] text-neutral-600 max-w-[520px]">
           {@total_hub_count} publications at the intersection of crypto and AI. Follow the ones you care about, earn BUX from every story you read, and shape your own daily edition.
+        </p>
+        <p class="md:hidden text-[13px] leading-[1.45] text-neutral-600">
+          {@total_hub_count} publications. Follow the ones you care about.
         </p>
       </div>
       <div class="col-span-12 md:col-span-4">
-        <div class="grid grid-cols-3 gap-3">
-          <div class="text-right">
-            <div class="font-mono font-bold text-[28px] text-[#141414] leading-none">
+        <div class="grid grid-cols-3 gap-2 md:gap-3 mt-2 md:mt-0">
+          <div class="text-left md:text-right">
+            <div class="font-mono font-bold text-[22px] md:text-[28px] text-[#141414] leading-none">
               {compact_number(@total_hub_count)}
             </div>
-            <div class="text-[10px] uppercase tracking-[0.14em] text-neutral-500 mt-1.5">Hubs</div>
+            <div class="text-[9px] md:text-[10px] uppercase tracking-[0.14em] text-neutral-500 mt-1 md:mt-1.5">Hubs</div>
           </div>
-          <div class="text-right">
-            <div class="font-mono font-bold text-[28px] text-[#141414] leading-none">
+          <div class="text-left md:text-right">
+            <div class="font-mono font-bold text-[22px] md:text-[28px] text-[#141414] leading-none">
               {compact_number(@total_post_count)}
             </div>
             <%!-- HUBS-02: pluralise the label to match the count so "1 Articles"
                  doesn't render. --%>
-            <div class="text-[10px] uppercase tracking-[0.14em] text-neutral-500 mt-1.5">
+            <div class="text-[9px] md:text-[10px] uppercase tracking-[0.14em] text-neutral-500 mt-1 md:mt-1.5">
               <%= if @total_post_count == 1, do: "Article", else: "Articles" %>
             </div>
           </div>
@@ -66,11 +69,11 @@
                the dashboard doesn't surface a stat that reads as broken
                (the previous "—" fallback). --%>
           <%= if @total_bux_paid > 0 do %>
-            <div class="text-right">
-              <div class="font-mono font-bold text-[28px] text-[#141414] leading-none">
+            <div class="text-left md:text-right">
+              <div class="font-mono font-bold text-[22px] md:text-[28px] text-[#141414] leading-none">
                 {compact_number(@total_bux_paid)}
               </div>
-              <div class="text-[10px] uppercase tracking-[0.14em] text-neutral-500 mt-1.5">BUX Paid</div>
+              <div class="text-[9px] md:text-[10px] uppercase tracking-[0.14em] text-neutral-500 mt-1 md:mt-1.5">BUX Paid</div>
             </div>
           <% end %>
         </div>
@@ -116,10 +119,12 @@
   <%!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
        SEARCH + FILTERS
   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ --%>
-  <section class="pb-8 sticky top-[88px] bg-[#fafaf9]/95 backdrop-blur z-10 -mx-6 px-6 pt-2">
-    <div class="bg-white rounded-2xl border border-neutral-200/70 shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-4">
-      <%!-- Search input --%>
-      <div class="flex items-center gap-3 mb-4">
+  <section class="pb-5 md:pb-8 sticky top-[88px] bg-[#fafaf9]/95 backdrop-blur z-10 -mx-4 md:-mx-6 px-4 md:px-6 pt-2">
+    <div class="bg-white rounded-2xl border border-neutral-200/70 shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-3 md:p-4">
+      <%!-- Search input — category pills removed per product direction.
+           The pills were eating half the mobile viewport before the hub
+           grid even started. Keep search; sort affordance desktop-only. --%>
+      <div class="flex items-center gap-3">
         <div class="relative flex-1">
           <svg class="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <circle cx="11" cy="11" r="8" />
@@ -140,18 +145,6 @@
           <span class="text-neutral-300">▾</span>
         </div>
       </div>
-      <%!-- Category chips --%>
-      <div class="flex items-center gap-2 flex-wrap">
-        <%= for category <- @categories do %>
-          <BlocksterV2Web.DesignSystem.chip
-            variant={if(@active_category == String.downcase(category) || (@active_category == "all" && category == "All"), do: "active", else: "default")}
-            phx-click="filter_category"
-            phx-value-category={String.downcase(category)}
-          >
-            {category}
-          </BlocksterV2Web.DesignSystem.chip>
-        <% end %>
-      </div>
     </div>
   </section>
 
@@ -164,7 +157,7 @@
         <p class="text-neutral-500">No hubs match "<span class="font-bold text-neutral-700">{@search_query}</span>"</p>
       </div>
     <% else %>
-      <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+      <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-4">
         <%= for hub <- @hubs do %>
           <BlocksterV2Web.DesignSystem.hub_card
             href={~p"/hub/#{hub.slug}"}
