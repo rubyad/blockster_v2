@@ -31,8 +31,13 @@ defmodule BlocksterV2Web.HubLive.Show do
           Blog.list_video_posts_by_hub(hub.id, limit: 10, tag_name: tag)
           |> Blog.with_bux_earned()
 
-        # Hub products for Shop tab
+        # Hub products for Shop tab. `list_products_by_hub/1` already maps
+        # each row through `prepare_product_for_display/1` before returning,
+        # so a second `Enum.map(&prepare_product_for_display/1)` blew up with
+        # `key :variants not found` — the display map has no `:variants`.
         hub_products = Shop.list_products_by_hub(hub.id)
+
+        sol_usd_rate = BlocksterV2.Shop.Pricing.sol_usd_rate()
 
         # Follow state
         user_follows_hub =
@@ -58,6 +63,7 @@ defmodule BlocksterV2Web.HubLive.Show do
          |> assign(:mosaic_posts, mosaic_posts)
          |> assign(:videos_posts, videos_posts)
          |> assign(:hub_products, hub_products)
+         |> assign(:sol_usd_rate, sol_usd_rate)
          |> assign(:user_follows_hub, user_follows_hub)
          |> assign(:follower_count, follower_count)
          |> assign(:page_title, "#{hub.name} Hub")

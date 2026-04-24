@@ -13,6 +13,7 @@ defmodule BlocksterV2Web.HubLive.ShowTest do
 
   alias BlocksterV2.Repo
   alias BlocksterV2.Blog.{Hub, Post}
+  alias BlocksterV2.Shop.{Product, ProductVariant, ProductImage}
 
   # Use struct-based insert to bypass changeset's generate_slug (which overwrites slug from name)
   defp insert_hub(attrs) do
@@ -173,6 +174,57 @@ defmodule BlocksterV2Web.HubLive.ShowTest do
 
       assert html =~ "Hub merch"
       assert html =~ "No products yet"
+    end
+
+    # Regression: the hub mount used to pipe `Shop.list_products_by_hub/1`
+    # through `Enum.map(&Shop.prepare_product_for_display/1)`, but
+    # `list_products_by_hub` already applies that transform internally —
+    # so the double-map blew up with `KeyError: key :variants not found`
+    # on the display map the first call returned. The test in the
+    # previous block seeds NO products so the `Enum.map` was a no-op and
+    # the bug stayed hidden; this one seeds a product so the mount
+    # actually exercises the transform.
+    test "mounts with hub products without KeyError on :variants", %{conn: conn} do
+      hub = insert_hub(%{slug: "hub-with-products", tag_name: "hub_with_products"})
+
+      product =
+        Repo.insert!(%Product{
+          title: "Don't Trust, Verify Hoodie",
+          handle: "dont-trust-verify-hoodie-#{System.unique_integer([:positive])}",
+          status: "active",
+          vendor: "Flare",
+          hub_id: hub.id
+        })
+
+      Repo.insert!(%ProductVariant{
+        product_id: product.id,
+        title: "M",
+        price: Decimal.new("45.00"),
+        position: 0
+      })
+
+      Repo.insert!(%ProductImage{
+        product_id: product.id,
+        src: "https://example.com/hoodie.jpg",
+        position: 0
+      })
+
+      {:ok, view, _html} = live(conn, ~p"/hub/hub-with-products")
+
+      # Landing on /hub/:slug used to raise before the shop tab was
+      # even clicked because the products list was computed at mount.
+      # Clicking shop now renders the product card too. Select by the
+      # top-nav wrapper so the fallback "View all" link (same phx-value)
+      # at the bottom of a populated shop section isn't a 2-element
+      # ambiguous match.
+      html =
+        view
+        |> element(~s|.ds-hub-tabs button[phx-value-tab="shop"]|)
+        |> render_click()
+
+      assert html =~ "Don&#39;t Trust, Verify Hoodie"
+      assert html =~ "https://example.com/hoodie.jpg"
+      refute html =~ "No products yet"
     end
 
     test "switch_tab to events shows empty state per D15", %{conn: conn} do
