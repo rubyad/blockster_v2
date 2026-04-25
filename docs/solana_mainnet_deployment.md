@@ -4,7 +4,48 @@ Complete step-by-step instructions to deploy Blockster V2 on Solana mainnet.
 
 **Prerequisites**: All code changes are on `feat/solana-migration` branch and tested on devnet.
 
-**Last substantive update**: 2026-04-23 — Phase 13 removed the `WEB3AUTH_SOL_CHECKOUT_ENABLED` gate. Web3Auth users now pay SOL-priced orders the same way Wallet Standard users do (`payment_mode="wallet_sign"`; `SolPaymentHook` via `signAndConfirm` handles both signer sources). Only `SOCIAL_LOGIN_ENABLED` remains as the master rollout switch. 2026-04-21 context still relevant: Phase 0–10 Web3Auth social login shipped (see `docs/solana_build_history.md` 2026-04-20 + 2026-04-21 entries). Email sign-in runs through an in-app OTP flow (NOT Web3Auth's `EMAIL_PASSWORDLESS` popup) that issues a JWT consumed by Web3Auth's `CUSTOM` connector — requires a second dashboard verifier named `blockster-email`. Email-ownership-is-account-ownership design: any sign-in where the email matches an existing user merges that account into the new Web3Auth-derived Solana wallet (legacy BUX minted to new wallet via settler). Onboarding simplified — single "Get started" CTA, `migrate_email` step retired. See [docs/social_login_plan.md](social_login_plan.md) Appendices D + E for the session narratives.
+**Last substantive update**: 2026-04-25 — pre-deploy code prerequisites landed. See "Code prerequisites" block below for the full list. 2026-04-23 context: Phase 13 removed the `WEB3AUTH_SOL_CHECKOUT_ENABLED` gate. Web3Auth users now pay SOL-priced orders the same way Wallet Standard users do (`payment_mode="wallet_sign"`; `SolPaymentHook` via `signAndConfirm` handles both signer sources). Only `SOCIAL_LOGIN_ENABLED` remains as the master rollout switch. 2026-04-21 context still relevant: Phase 0–10 Web3Auth social login shipped (see `docs/solana_build_history.md` 2026-04-20 + 2026-04-21 entries). Email sign-in runs through an in-app OTP flow (NOT Web3Auth's `EMAIL_PASSWORDLESS` popup) that issues a JWT consumed by Web3Auth's `CUSTOM` connector — requires a second dashboard verifier named `blockster-email`. Email-ownership-is-account-ownership design: any sign-in where the email matches an existing user merges that account into the new Web3Auth-derived Solana wallet (legacy BUX minted to new wallet via settler). Onboarding simplified — single "Get started" CTA, `migrate_email` step retired. See [docs/social_login_plan.md](social_login_plan.md) Appendices D + E for the session narratives.
+
+---
+
+## Code prerequisites (landed 2026-04-25)
+
+Before this runbook is safe to execute, the following code-level deploy blockers must be in place. All of these landed on `feat/solana-migration` ahead of mainnet:
+
+- ✅ **`window.__SOLANA_RPC_URL` wired from server-side env** — `lib/blockster_v2_web/components/layouts/root.html.heex` injects `<script>window.__SOLANA_RPC_URL = "<%= System.get_env("SOLANA_RPC_URL") %>"</script>` so the 7 client-side hooks (coin flip, pool, sol payment, BUX burn, airdrop, web3auth withdraw, web3auth modal) consume the configured RPC instead of falling back to a hardcoded devnet URL. Without this, every Wallet Standard tx on mainnet would silently submit to devnet.
+- ✅ **All 30 hardcoded `?cluster=devnet` Solscan links replaced** with calls to `BlocksterV2Web.Solscan.tx_url/1`, `account_url/1`, `token_url/1`, `home_url/0`. The helper branches on `WEB3AUTH_CHAIN_ID` — `0x65` returns mainnet URLs, anything else falls back to devnet. Non-legacy `lib/` is now devnet-free; the `legacy/` pre-redesign templates are intentionally left as-is.
+- ✅ **Devnet defaults raise in `:prod`** — `wallet_auth_events.ex` `default_chain_id`/`default_network`/`default_rpc_url` raise loudly if their env var is empty in `:prod`, falling back to dev defaults only in `:dev`/`:test`. A missed `flyctl secrets set` surfaces immediately instead of silently routing mainnet traffic to devnet.
+- ✅ **`SOCIAL_LOGIN_ENABLED` defaults to `false`** — both `web3auth_config/0` and `social_login_enabled?/0` use `"false"` as the safe default. Even if Step 6's `--stage` set is forgotten, the social-login UI stays hidden.
+- ✅ **Settler `/burn` endpoint deleted** — `contracts/blockster-settler/src/routes/mint.ts` was a misleading TODO stub that never burned anything on-chain. Removed entirely; the actual burn flow is client-side via `assets/js/hooks/solana_bux_burn.js` (SPL `BurnChecked` from the buyer's ATA).
+- ✅ **`contracts/blockster-settler/fly.toml` checked in** — replaces the auto-generated config from `flyctl launch`. Reviewable + reproducible across deploys.
+- ✅ **Stale `app-21f441de633c332460d74811d210643d.js` artifact deleted** — 3.86 MB Feb-stale build that was still shipping in the Docker image. Removed from `priv/static/assets/js/`.
+
+**Test-suite status (2026-04-25 endpoint)**: `mix test` clean-shell run (no concurrent `bin/dev`) reports `3365 tests, 172 failures, 211 skipped`. The audit's PR 2e baseline was `3307 / 69 / 211`. Delta from baseline: +58 tests (most from the 5cb2cc2 in-flight commit + new Solscan helper), +103 failures. The +103 are predominantly pre-existing stale-copy assertions catalogued in `docs/bug_audit_2026_04_22.md` Phase 3 Notes (cart_live "Pay with USD via Helio" footer, MemberLive.ShowTest fixture mismatches, OnboardingLiveTest copy drift, HeaderTest layout assertions). They were known + documented at audit time and aren't deploy-blocking — but per CLAUDE.md they DO need explicit user sign-off before `flyctl deploy`. Triage list:
+
+```bash
+# Top-failing test modules in clean run:
+#  27 BlocksterV2Web.MemberLive.ShowTest        (stale fixtures — audit follow-up PR 3c)
+#  16 BlocksterV2Web.ShopLive.IndexTest         (stale "$65.00" / footer copy — audit follow-up PR 3d)
+#   9 BlocksterV2Web.OnboardingLiveTest         (post-redesign copy drift)
+#   7 BlocksterV2Web.DesignSystem.HeaderTest    (header re-shape from c9bfd9a wallet-UX work)
+#   5 BlocksterV2Web.HubLive.IndexTest          (audit-known stale)
+#   5 BlocksterV2Web.CoinFlipLiveTest           (legacy assertions vs new mobile layout)
+```
+
+Re-verify with:
+
+```bash
+# 1. window.__SOLANA_RPC_URL wired
+grep -n "__SOLANA_RPC_URL" lib/blockster_v2_web/components/layouts/root.html.heex
+# 2. No hardcoded devnet (legacy templates excluded)
+grep -rn "?cluster=devnet" lib/ | grep -v "/legacy/" | grep -v "solscan.ex"
+# 3. Solscan helper present
+test -f lib/blockster_v2_web/solscan.ex && echo "ok"
+# 4. /burn endpoint gone
+grep -n 'router.post."/burn"' contracts/blockster-settler/src/routes/mint.ts
+# 5. Settler fly.toml present
+test -f contracts/blockster-settler/fly.toml && echo "ok"
+```
 
 ---
 
@@ -152,31 +193,24 @@ solana config set --url https://YOUR_QUICKNODE_MAINNET_URL
 
 ## Step 2: Create BUX Token on Mainnet
 
-**Option A**: Reuse the same mint keypair (same address as devnet):
+**Decision (2026-04-25)**: Reuse the same `keypairs/mint-authority.json` and `keypairs/bux-mint.json` as devnet. The same `6b4n...` authority and `7CuRyw2YkqQhUUFbw6CCnoedHWT8tK2c9UzZQYDGmxVX` mint address show up on mainnet — operators see one address everywhere, the bot rotation has already cached the authority pubkey, and `docs/addresses.md` doesn't need a per-network split.
+
 ```bash
 cd contracts/blockster-settler
-npx ts-node scripts/create-bux-token.ts
+SOLANA_RPC_URL=https://YOUR_QUICKNODE_MAINNET_URL npx ts-node scripts/create-bux-token.ts
 ```
 
 This creates the BUX SPL token on mainnet with:
-- Mint address: derived from `keypairs/bux-mint.json`
-- Mint authority: `6b4nMSTWJ1yxZZVmqokf6QrVoF9euvBSdB11fC3qfuv1`
+- Mint address: `7CuRyw2YkqQhUUFbw6CCnoedHWT8tK2c9UzZQYDGmxVX` (derived from `keypairs/bux-mint.json`)
+- Mint authority: `6b4nMSTWJ1yxZZVmqokf6QrVoF9euvBSdB11fC3qfuv1` (derived from `keypairs/mint-authority.json`)
 - Decimals: 9
 - Freeze authority: disabled
 
-**Option B**: Create a new mint keypair for mainnet (different address):
-```bash
-solana-keygen new -o keypairs/bux-mint-mainnet.json
-# Update create-bux-token.ts to use the new keypair
-```
+The same address on mainnet will be a fresh, empty token — no carryover BUX balances. Bot wallets that rotated on devnet keep their Solana pubkeys; their on-chain BUX balance starts at 0 on mainnet and accrues from new mints.
 
-**IMPORTANT**: Record the mainnet BUX mint address. You'll need it for all subsequent steps.
+**IMPORTANT**: Record the mainnet BUX mint address (it's the same `7CuRyw...` value but capture it explicitly). You'll need it for all subsequent steps.
 
-**Environment variable needed**: `SOLANA_RPC_URL` must point to mainnet before running.
-
-```bash
-SOLANA_RPC_URL=https://YOUR_QUICKNODE_MAINNET_URL npx ts-node scripts/create-bux-token.ts
-```
+**Alternative (NOT chosen)**: Generate a new mainnet-only mint keypair via `solana-keygen new -o keypairs/bux-mint-mainnet.json` and update `create-bux-token.ts` to read from it. Discarded — different addresses per network creates more places to typo than it saves.
 
 ---
 
@@ -416,6 +450,8 @@ flyctl secrets set \
 
 `WEB3AUTH_CLIENT_ID` comes from the Web3Auth dashboard — create a **separate Sapphire Mainnet** project for production (DO NOT reuse the Sapphire Devnet project). Whitelist `https://blockster.com` as the authorized origin. Set up the same four social Connections (Email Passwordless — left on but unused, keep enabled in case of fallback; Google; Apple; Twitter) PLUS two Custom JWT verifiers described below.
 
+> **Mobile redirect whitelist (2026-04-24)**: the Web3Auth hook now uses `uxMode: "redirect"` on mobile UAs (iOS Safari + Android Chrome popups are unreliable). The user's browser navigates to `auth.web3auth.io` and back. This means **every origin a user lands back on after OAuth must be whitelisted** in the dashboard. For prod, that's `https://blockster.com`. For staging/dev, add the cloudflared tunnel hostname you're testing on (named tunnels keep a stable hostname; the default rotates per restart). Without the whitelist entry, mobile sign-ins fail post-redirect with a Web3Auth-side `unauthorized origin` error.
+
 `WEB3AUTH_NETWORK=SAPPHIRE_MAINNET` + `WEB3AUTH_CHAIN_ID=0x65` tell the client-side hook to point at mainnet. Devnet was `SAPPHIRE_DEVNET` + `0x67` — these are ws-embed-specific IDs, not the `0x1`/`0x2`/`0x3` from Web3Auth's public Solana docs. See `docs/web3auth_integration.md` §1.
 
 `WEB3AUTH_JWT_SIGNING_KEY_PATH` points at a Fly-mounted RSA private key file that the backend uses to sign JWTs for BOTH Custom JWT verifiers (email OTP + Telegram widget). The dev path (`priv/web3auth_keys/signing_key.json`, boot-generated) is NOT safe for prod — see "Provision the Web3Auth JWT signing key" below.
@@ -612,6 +648,52 @@ This runs ~30 seconds after the main app boots (the coordinator's `:initialize` 
 **Cost**: ~2 SOL one-time, charged to the authority wallet (`6b4n...`) as the rate-limited bot mint queue creates ATAs for the 1000 rotated bots over the following minutes/hours. The mint queue runs at one mint per 500ms, so the surge is paced — not a single burst.
 
 **Confirm rotation succeeded** (see [Step 8](#step-8-post-deploy-verification)).
+
+---
+
+## Step 7.5: AIRDROP-02 Winner Address Backfill
+
+**Required before public launch.** PR 2e (commits `cd44d3c`/`256c763`) ships a one-shot migration that rewrites legacy EVM-style winner addresses in `airdrop_winners` to Solana base58 by following each row's `merged_into_user_id` chain. The migration is gated on operator backup — it does NOT run automatically on `release_command = '/app/bin/migrate'` (it would, but you should ALWAYS back up first).
+
+### 1. Back up the table
+
+```bash
+flyctl ssh console --app blockster-v2 -C "pg_dump --table=airdrop_winners --data-only $DATABASE_URL > /tmp/airdrop_winners_premigration_$(date +%Y%m%d_%H%M).sql"
+flyctl ssh sftp get /tmp/airdrop_winners_premigration_*.sql --app blockster-v2
+```
+
+Confirm the file is non-empty before proceeding.
+
+### 2. Dry-run the backfill
+
+```bash
+flyctl ssh console --app blockster-v2 -C "AIRDROP_WINNER_BACKFILL_DRY_RUN=1 bin/blockster_v2 rpc 'BlocksterV2.Airdrop.WinnerAddressBackfill.run(BlocksterV2.Repo) |> IO.inspect()'"
+```
+
+The output reports per-row decisions (rewrite to Solana, skip, unresolvable). Review the count; flag any "unresolvable" rows for manual review BEFORE running for real.
+
+### 3. Run the backfill
+
+```bash
+flyctl ssh console --app blockster-v2 -C "bin/blockster_v2 rpc 'BlocksterV2.Airdrop.WinnerAddressBackfill.run(BlocksterV2.Repo) |> IO.inspect()'"
+```
+
+Idempotent — re-running produces zero writes for already-Solana rows. Module preserves the original wallet in `external_wallet` so the audit trail survives.
+
+### 4. Verify
+
+```bash
+flyctl ssh console --app blockster-v2 -C "bin/blockster_v2 rpc '
+import Ecto.Query
+alias BlocksterV2.Repo
+remaining = Repo.one(from w in \"airdrop_winners\", where: like(w.wallet_address, \"0x%\"), select: count(w.id))
+IO.puts(\"EVM-style addresses remaining: #{remaining}\")
+'"
+```
+
+Expected: `0`. If non-zero, those rows have no resolvable Solana wallet — they need manual reconciliation before they render on `/airdrop`.
+
+> Do NOT combine this backfill with other migrations in the same deploy — it's the only reason for sequencing this step between Step 7 (Deploy Main App) and Step 8 (Verification).
 
 ---
 
@@ -886,14 +968,22 @@ solana program deploy \
 
 ### Updating Solscan Links
 
-After mainnet deploy, remove `?cluster=devnet` from all Solscan links. Search and replace in:
-- `lib/blockster_v2_web/live/airdrop_live.ex`
-- `lib/blockster_v2_web/live/member_live/show.html.heex`
-- `lib/blockster_v2_web/components/layouts.ex`
+**Already automated as of 2026-04-25.** All Solscan link rendering goes through `BlocksterV2Web.Solscan` (`lib/blockster_v2_web/solscan.ex`). The helper checks `WEB3AUTH_CHAIN_ID`:
+
+- `0x65` → `https://solscan.io/...` (no cluster query, mainnet)
+- anything else → `https://solscan.io/...?cluster=devnet`
+
+Setting `WEB3AUTH_CHAIN_ID=0x65` in Step 6 flips every Solscan link site-wide automatically. No code edit, no grep-and-replace. Affected sites: pool/coin-flip activity rows, airdrop verification panel, admin user table, member profile, wallet self-custody panel, footer "BUX on Solscan", design-system user dropdown, docs pages.
+
+If you ever revert the `WEB3AUTH_CHAIN_ID` env (or it's lost), the cluster falls back to devnet — confirmed safe behavior, not a deploy-breaker. To audit any new code adding raw Solscan URLs:
 
 ```bash
-grep -r "cluster=devnet" lib/ --include="*.ex" --include="*.heex" -l
+grep -rn "?cluster=devnet" lib/ | grep -v "/legacy/" | grep -v "solscan.ex"
 ```
+
+Should return zero hits. If non-zero, route the new code through `BlocksterV2Web.Solscan` before merging.
+
+The narrative copy on `/docs` (e.g. "deployed on Solana devnet today") also branches on `BlocksterV2Web.Solscan.mainnet?/0` — flips to "deployed on Solana mainnet" when `WEB3AUTH_CHAIN_ID=0x65` is set.
 
 ---
 
