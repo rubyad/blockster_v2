@@ -1,0 +1,47 @@
+# fly.toml app configuration file for blockster-settler
+#
+# Solana settler service — BUX minting, bet settlement, airdrop ops,
+# shop payment-intent derivation + sweep. Replaces the legacy bux-minter
+# (Rogue Chain EVM). Signs with the mint authority keypair from
+# MINT_AUTHORITY_KEYPAIR (paste the JSON array from
+# contracts/blockster-settler/keypairs/mint-authority.json).
+#
+# Secrets required (set via `flyctl secrets set --stage --app blockster-settler`):
+#   SOLANA_RPC_URL           — QuickNode mainnet RPC endpoint
+#   SETTLER_API_SECRET       — shared secret with the main app
+#   MINT_AUTHORITY_KEYPAIR   — JSON array of secret key bytes
+#   BUX_MINT_ADDRESS         — mainnet BUX SPL mint address
+#   BANKROLL_PROGRAM_ID      — 49up2uzZANpjTC3sgggbZazdHBii2vY9mVK3vk5dT2tm
+#   AIRDROP_PROGRAM_ID       — wxiuLBuqxem5ETmGDndiW8MMkxKXp5jVsNCqdZgmjaG
+#   PAYMENT_INTENT_SEED      — 32-byte hex HKDF seed for shop checkout intents
+#   SOL_TREASURY_ADDRESS     — pubkey that receives swept shop revenue
+#
+# See docs/solana_mainnet_deployment.md for the full provisioning runbook.
+
+app = 'blockster-settler'
+primary_region = 'iad'
+kill_signal = 'SIGTERM'
+
+[build]
+
+[env]
+  PORT = '3000'
+  SOLANA_NETWORK = 'mainnet-beta'
+
+[http_service]
+  internal_port = 3000
+  force_https = true
+  auto_stop_machines = 'stop'
+  auto_start_machines = true
+  min_machines_running = 1
+  processes = ['app']
+
+  [http_service.concurrency]
+    type = 'connections'
+    hard_limit = 200
+    soft_limit = 100
+
+[[vm]]
+  size = 'shared-cpu-1x'
+  memory = '256mb'
+  cpus = 1

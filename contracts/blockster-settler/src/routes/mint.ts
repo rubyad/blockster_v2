@@ -41,38 +41,11 @@ router.post("/mint", async (req: Request, res: Response) => {
   }
 });
 
-/**
- * POST /burn
- * Body: { wallet, amount, userId }
- *
- * Transfers BUX from user to treasury (for shop checkout).
- * This builds and submits a transfer using the mint authority
- * (requires prior delegation/approval from user).
- *
- * For now, returns unsigned TX for user signing.
- */
-router.post("/burn", async (req: Request, res: Response) => {
-  try {
-    const { wallet, amount } = req.body;
-
-    if (!wallet || !amount) {
-      return res.status(400).json({ error: "Missing wallet or amount" });
-    }
-
-    // For BUX burns in shop checkout, the Elixir backend deducts from Mnesia
-    // and calls this endpoint to burn on-chain async.
-    // TODO: Implement actual burn/transfer when treasury wallet is configured
-
-    res.json({
-      success: true,
-      message: "Burn acknowledged (on-chain transfer pending treasury setup)",
-      wallet,
-      amount,
-    });
-  } catch (err: any) {
-    console.error("Burn error:", err.message);
-    res.status(500).json({ error: err.message });
-  }
-});
+// NOTE: BUX burn for shop checkout happens client-side in
+// assets/js/hooks/solana_bux_burn.js — the buyer signs an SPL BurnChecked
+// instruction directly from their own ATA. The settler is NOT in the burn
+// path. The previous /burn endpoint here was a non-functional stub that
+// always returned success without doing anything on-chain; removed to avoid
+// misleading future operators.
 
 export default router;
