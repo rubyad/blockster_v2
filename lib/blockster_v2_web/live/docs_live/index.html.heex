@@ -87,7 +87,7 @@
 
   <BlocksterV2Web.DocsComponents.section id="addresses" title="Canonical addresses">
     <p>
-      These are the on-chain addresses that back everything in these docs. They are deployed on Solana devnet today and will be re-deployed to mainnet with the same seed derivations (PDAs) at launch.
+      These are the on-chain addresses that back everything in these docs. <%= if BlocksterV2Web.Solscan.mainnet?() do %>They are deployed on Solana mainnet.<% else %>They are deployed on Solana devnet today and will be re-deployed to mainnet with the same seed derivations (PDAs) at launch.<% end %>
     </p>
 
     <BlocksterV2Web.DocsComponents.kv_table
@@ -117,7 +117,7 @@
 
     <BlocksterV2Web.DocsComponents.callout kind="note" title="Verify on Solscan">
       <p>
-        Paste any address above into <a href="https://solscan.io/?cluster=devnet" target="_blank" rel="noopener">solscan.io (devnet)</a> to see the live account state, instruction history, and token balances. Every deposit, bet, settlement, and withdrawal is public.
+        Paste any address above into <a href={BlocksterV2Web.Solscan.home_url()} target="_blank" rel="noopener">solscan.io<%= unless BlocksterV2Web.Solscan.mainnet?() do %> (devnet)<% end %></a> to see the live account state, instruction history, and token balances. Every deposit, bet, settlement, and withdrawal is public.
       </p>
     </BlocksterV2Web.DocsComponents.callout>
   </BlocksterV2Web.DocsComponents.section>

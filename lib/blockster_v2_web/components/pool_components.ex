@@ -435,7 +435,7 @@ defmodule BlocksterV2Web.PoolComponents do
         </div>
         <div class="min-w-0">
           <%= if @activity["game"] && valid_sig?(@activity["commitment_sig"]) do %>
-            <a href={"https://solscan.io/tx/#{@activity["commitment_sig"]}?cluster=devnet"} target="_blank" class="text-[12px] font-bold text-[#141414] leading-tight hover:underline cursor-pointer block truncate" title="View commitment tx">
+            <a href={BlocksterV2Web.Solscan.tx_url(@activity["commitment_sig"])} target="_blank" class="text-[12px] font-bold text-[#141414] leading-tight hover:underline cursor-pointer block truncate" title="View commitment tx">
               <%= row_primary_label(@activity) %>
             </a>
           <% else %>
@@ -452,7 +452,7 @@ defmodule BlocksterV2Web.PoolComponents do
       <%!-- Col 2: wallet avatar + short wallet --%>
       <div class="flex items-center gap-2 min-w-0">
         <%= if @activity["full_wallet"] do %>
-          <a href={"https://solscan.io/account/#{@activity["full_wallet"]}?cluster=devnet"} target="_blank" class="flex items-center gap-2 hover:opacity-80 cursor-pointer min-w-0">
+          <a href={BlocksterV2Web.Solscan.account_url(@activity["full_wallet"])} target="_blank" class="flex items-center gap-2 hover:opacity-80 cursor-pointer min-w-0">
             <div class="w-6 h-6 rounded-full grid place-items-center text-[8px] font-bold text-[#E8E4DD] shrink-0" style="background: linear-gradient(135deg, #1a1a22 0%, #2a2a35 100%);">
               <%= row_avatar_initials(@activity["wallet"]) %>
             </div>
@@ -471,7 +471,7 @@ defmodule BlocksterV2Web.PoolComponents do
       <%!-- Col 3: profit + bet sub-line --%>
       <div class="text-right">
         <%= if @activity["game_id"] && valid_sig?(@activity["settlement_sig"]) do %>
-          <a href={"https://solscan.io/tx/#{@activity["settlement_sig"]}?cluster=devnet"} target="_blank" title="View settlement tx" class={[
+          <a href={BlocksterV2Web.Solscan.tx_url(@activity["settlement_sig"])} target="_blank" title="View settlement tx" class={[
             "font-mono font-bold text-[13px] tabular-nums hover:underline cursor-pointer",
             profit_text_color(@activity["type"])
           ]}>
@@ -487,7 +487,7 @@ defmodule BlocksterV2Web.PoolComponents do
         <% end %>
         <%= cond do %>
           <% @activity["bet"] && valid_sig?(@activity["bet_sig"]) -> %>
-            <a href={"https://solscan.io/tx/#{@activity["bet_sig"]}?cluster=devnet"} target="_blank" title="View bet tx" class="text-[10px] text-neutral-500 font-mono hover:underline cursor-pointer block mt-0.5">
+            <a href={BlocksterV2Web.Solscan.tx_url(@activity["bet_sig"])} target="_blank" title="View bet tx" class="text-[10px] text-neutral-500 font-mono hover:underline cursor-pointer block mt-0.5">
               bet <%= @activity["bet"] %>
             </a>
           <% @activity["bet"] -> %>
@@ -506,12 +506,12 @@ defmodule BlocksterV2Web.PoolComponents do
       <%!-- Col 4: tx short link + optional fairness verify --%>
       <div class="text-right">
         <%= if @activity["tx_sig"] && !@activity["game_id"] do %>
-          <a href={"https://solscan.io/tx/#{@activity["tx_sig"]}?cluster=devnet"} target="_blank" class="text-[10px] font-mono text-neutral-400 hover:text-[#141414] cursor-pointer">
+          <a href={BlocksterV2Web.Solscan.tx_url(@activity["tx_sig"])} target="_blank" class="text-[10px] font-mono text-neutral-400 hover:text-[#141414] cursor-pointer">
             <%= row_short_sig(@activity["tx_sig"]) %>
           </a>
         <% end %>
         <%= if @activity["game_id"] && valid_sig?(@activity["settlement_sig"]) do %>
-          <a href={"https://solscan.io/tx/#{@activity["settlement_sig"]}?cluster=devnet"} target="_blank" class="text-[10px] font-mono text-neutral-400 hover:text-[#141414] cursor-pointer block">
+          <a href={BlocksterV2Web.Solscan.tx_url(@activity["settlement_sig"])} target="_blank" class="text-[10px] font-mono text-neutral-400 hover:text-[#141414] cursor-pointer block">
             <%= row_short_sig(@activity["settlement_sig"]) %>
           </a>
         <% end %>

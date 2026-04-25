@@ -729,7 +729,7 @@ defmodule BlocksterV2Web.CoinFlipLive do
                       <span class="w-1 h-1 rounded-full bg-[#22C55E]"></span>
                       <span class="text-neutral-500">Tx submitted </span>
                       <%= if @bet_sig do %>
-                        <a href={"https://solscan.io/tx/#{@bet_sig}?cluster=devnet"} target="_blank" class="text-[#141414] hover:underline">· <%= String.slice(@bet_sig, 0, 4) %>…<%= String.slice(@bet_sig, -4, 4) %> ↗</a>
+                        <a href={BlocksterV2Web.Solscan.tx_url(@bet_sig)} target="_blank" class="text-[#141414] hover:underline">· <%= String.slice(@bet_sig, 0, 4) %>…<%= String.slice(@bet_sig, -4, 4) %> ↗</a>
                       <% end %>
                     </div>
                     <div class="flex items-center gap-1.5">
@@ -858,7 +858,7 @@ defmodule BlocksterV2Web.CoinFlipLive do
                           <div>
                             <div class={["text-[10px] font-bold uppercase tracking-[0.14em] mb-0.5", if(@won, do: "text-[#15803d]", else: "text-neutral-500")]}>Settled on chain</div>
                             <%= if @settlement_sig do %>
-                              <a href={"https://solscan.io/tx/#{@settlement_sig}?cluster=devnet"} target="_blank" class={["text-[12px] font-mono hover:underline", if(@won, do: "text-[#15803d]", else: "text-[#141414]")]}>
+                              <a href={BlocksterV2Web.Solscan.tx_url(@settlement_sig)} target="_blank" class={["text-[12px] font-mono hover:underline", if(@won, do: "text-[#15803d]", else: "text-[#141414]")]}>
                                 <%= String.slice(@settlement_sig, 0, 4) %>…<%= String.slice(@settlement_sig, -4, 4) %> ↗
                               </a>
                             <% end %>
@@ -1178,7 +1178,7 @@ defmodule BlocksterV2Web.CoinFlipLive do
                         <tr id={"game-#{game.game_id}"} class={["hover:bg-neutral-50 transition-colors", if(game.won, do: "bg-[#22C55E]/[0.03]", else: "bg-[#EF4444]/[0.03]")]}>
                           <td class="px-5 py-3 font-mono text-[11px] text-neutral-500">
                             <%= if game.commitment_sig do %>
-                              <a href={"https://solscan.io/tx/#{game.commitment_sig}?cluster=devnet"} target="_blank" class="hover:text-[#141414] hover:underline cursor-pointer">#<%= game.nonce %></a>
+                              <a href={BlocksterV2Web.Solscan.tx_url(game.commitment_sig)} target="_blank" class="hover:text-[#141414] hover:underline cursor-pointer">#<%= game.nonce %></a>
                             <% else %>
                               #<%= game.nonce %>
                             <% end %>
@@ -1214,7 +1214,7 @@ defmodule BlocksterV2Web.CoinFlipLive do
                           </td>
                           <td class="px-5 py-3 text-right">
                             <%= if game.settlement_sig do %>
-                              <a href={"https://solscan.io/tx/#{game.settlement_sig}?cluster=devnet"} target="_blank" class={["font-mono font-bold text-[12px] hover:underline cursor-pointer", if(game.won, do: "text-[#22C55E]", else: "text-[#EF4444]")]}>
+                              <a href={BlocksterV2Web.Solscan.tx_url(game.settlement_sig)} target="_blank" class={["font-mono font-bold text-[12px] hover:underline cursor-pointer", if(game.won, do: "text-[#22C55E]", else: "text-[#EF4444]")]}>
                                 <%= if game.won, do: "+ #{format_balance(game.payout - game.bet_amount)}", else: "− #{format_balance(game.bet_amount)}" %> <%= String.upcase(to_string(game.vault_type)) %>
                               </a>
                             <% else %>

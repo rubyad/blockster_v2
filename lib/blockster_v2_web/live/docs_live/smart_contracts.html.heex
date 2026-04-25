@@ -38,7 +38,7 @@
       title="Identity"
       rows={[
         {"Program ID", "49up2uzZANpjTC3sgggbZazdHBii2vY9mVK3vk5dT2tm"},
-        {"Cluster", "devnet (mainnet launch pending)"},
+        {"Cluster", if(BlocksterV2Web.Solscan.mainnet?(), do: "mainnet", else: "devnet (mainnet launch pending)")},
         {"Framework", "Anchor 0.30+ (Rust)"},
         {"Crate", "contracts/blockster-bankroll/programs/blockster-bankroll"},
         {"Settler service", "contracts/blockster-settler (Node/TypeScript)"},
@@ -451,7 +451,7 @@ pub struct ReferralState {
     <BlocksterV2Web.DocsComponents.kv_table
       title="Upgrade authority facts"
       rows={[
-        {"Held by", "Settler keypair (devnet); will migrate to 2-of-3 multisig for mainnet"},
+        {"Held by", if(BlocksterV2Web.Solscan.mainnet?(), do: "Settler keypair; planned migration to 2-of-3 multisig", else: "Settler keypair (devnet); will migrate to 2-of-3 multisig for mainnet")},
         {"Rotation", "Solana CLI solana program set-upgrade-authority"},
         {"Disabling upgrades", "Possible via solana program set-upgrade-authority --final (irreversible)"},
         {"Compromise scenario", "Attacker could redeploy malicious bytecode and drain vaults. Mitigated by multisig hold on mainnet."}

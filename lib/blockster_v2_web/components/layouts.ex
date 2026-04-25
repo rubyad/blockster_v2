@@ -940,7 +940,7 @@ defmodule BlocksterV2Web.Layouts do
           <div>
             <h3 class="font-haas_bold_75 text-white mb-4">Solana</h3>
             <ul class="space-y-3">
-              <li><a href="https://solscan.io/token/7CuRyw2YkqQhUUFbw6CCnoedHWT8tK2c9UzZQYDGmxVX?cluster=devnet" target="_blank" class="text-sm font-haas_roman_55 text-[#E8EAEC] hover:text-white transition-colors cursor-pointer">BUX on Solscan</a></li>
+              <li><a href={BlocksterV2Web.Solscan.token_url("7CuRyw2YkqQhUUFbw6CCnoedHWT8tK2c9UzZQYDGmxVX")} target="_blank" class="text-sm font-haas_roman_55 text-[#E8EAEC] hover:text-white transition-colors cursor-pointer">BUX on Solscan</a></li>
               <li><a href="https://x.com/BlocksterCom" target="_blank" class="text-sm font-haas_roman_55 text-[#E8EAEC] hover:text-white transition-colors cursor-pointer">Blockster on X</a></li>
               <li><a href="https://t.me/+7bIzOyrYBEc3OTdh" target="_blank" class="text-sm font-haas_roman_55 text-[#E8EAEC] hover:text-white transition-colors cursor-pointer">Telegram</a></li>
             </ul>

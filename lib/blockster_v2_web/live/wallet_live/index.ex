@@ -468,18 +468,10 @@ defmodule BlocksterV2Web.WalletLive.Index do
 
   def format_addr_groups(_), do: ""
 
-  def solscan_url(nil), do: "#"
-
-  def solscan_url(sig) do
-    # Toggle cluster via WEB3AUTH_CHAIN_ID at runtime; devnet for now.
-    cluster =
-      case System.get_env("WEB3AUTH_CHAIN_ID", "0x67") do
-        "0x65" -> ""
-        _ -> "?cluster=devnet"
-      end
-
-    "https://solscan.io/tx/#{sig}#{cluster}"
-  end
+  # Delegated to the shared helper so cluster handling stays consistent across
+  # the app. Kept here as an exported function because the wallet_live template
+  # still references it directly.
+  def solscan_url(sig), do: BlocksterV2Web.Solscan.tx_url(sig)
 
   def display_auth_source("web3auth_email"), do: "Email login"
   def display_auth_source("web3auth_google"), do: "Google login"

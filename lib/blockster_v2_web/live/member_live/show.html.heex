@@ -74,7 +74,7 @@
                     </svg>
                   </button>
                   <a
-                    href={"https://solscan.io/account/#{@member.wallet_address}?cluster=devnet"}
+                    href={BlocksterV2Web.Solscan.account_url(@member.wallet_address)}
                     target="_blank"
                     rel="noopener noreferrer"
                     class="text-[11px] text-neutral-400 hover:text-[#141414] transition-colors underline"
@@ -576,7 +576,7 @@
                     <div class="font-mono text-[12px] text-neutral-400">&mdash;</div>
                   <% end %>
                   <%= if activity[:tx_id] do %>
-                    <a href={"https://solscan.io/tx/#{activity.tx_id}?cluster=devnet"} target="_blank" rel="noopener noreferrer" class="text-[9px] font-mono text-neutral-400 hover:text-[#141414] transition-colors">tx &middot; <%= truncate_wallet(activity.tx_id) %></a>
+                    <a href={BlocksterV2Web.Solscan.tx_url(activity.tx_id)} target="_blank" rel="noopener noreferrer" class="text-[9px] font-mono text-neutral-400 hover:text-[#141414] transition-colors">tx &middot; <%= truncate_wallet(activity.tx_id) %></a>
                   <% end %>
                 </div>
               </div>
@@ -782,7 +782,7 @@
               <div class="text-right text-[11px] font-mono text-neutral-500"><%= format_relative_time(earning.created_at) %></div>
               <div class="text-right">
                 <%= if earning.tx_hash do %>
-                  <a href={"https://solscan.io/tx/#{earning.tx_hash}?cluster=devnet"} target="_blank" rel="noopener noreferrer" class="text-[10px] font-mono text-neutral-400 hover:text-[#141414] transition-colors"><%= truncate_wallet(earning.tx_hash) %></a>
+                  <a href={BlocksterV2Web.Solscan.tx_url(earning.tx_hash)} target="_blank" rel="noopener noreferrer" class="text-[10px] font-mono text-neutral-400 hover:text-[#141414] transition-colors"><%= truncate_wallet(earning.tx_hash) %></a>
                 <% end %>
               </div>
             </div>
@@ -981,7 +981,7 @@
                 <div class="text-[13px] font-mono text-[#141414] truncate"><%= truncate_wallet(@member.wallet_address) %></div>
               </div>
               <div class="flex items-center gap-3">
-                <a href={"https://solscan.io/account/#{@member.wallet_address}?cluster=devnet"} target="_blank" rel="noopener noreferrer" class="text-[11px] text-neutral-500 hover:text-[#141414] transition-colors">Solscan &#8599;</a>
+                <a href={BlocksterV2Web.Solscan.account_url(@member.wallet_address)} target="_blank" rel="noopener noreferrer" class="text-[11px] text-neutral-500 hover:text-[#141414] transition-colors">Solscan &#8599;</a>
                 <button
                   id="copy-wallet-settings"
                   phx-hook="CopyToClipboard"

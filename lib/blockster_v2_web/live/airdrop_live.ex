@@ -1048,7 +1048,7 @@ defmodule BlocksterV2Web.AirdropLive do
               <div class="text-[10px] uppercase tracking-[0.14em] text-neutral-500 font-bold mb-2">Slot at close</div>
               <div class="font-mono text-[14px] text-[#141414]">{@verification_data.slot_at_close}</div>
               <%= if @verification_data.close_tx do %>
-                <a href={"https://solscan.io/tx/#{@verification_data.close_tx}?cluster=devnet"} target="_blank" rel="noopener" class="text-[10px] text-neutral-400 hover:text-[#141414] font-mono cursor-pointer">close tx ↗</a>
+                <a href={BlocksterV2Web.Solscan.tx_url(@verification_data.close_tx)} target="_blank" rel="noopener" class="text-[10px] text-neutral-400 hover:text-[#141414] font-mono cursor-pointer">close tx ↗</a>
               <% end %>
             </div>
             <div>
@@ -1292,7 +1292,7 @@ defmodule BlocksterV2Web.AirdropLive do
           Claimed
         </span>
         <%= if @winner.claim_tx && @winner.claim_tx != "pending" do %>
-          <a href={"https://solscan.io/tx/#{@winner.claim_tx}?cluster=devnet"} target="_blank" rel="noopener" class="text-blue-500 hover:underline text-[10px] ml-1 font-mono cursor-pointer">↗</a>
+          <a href={BlocksterV2Web.Solscan.tx_url(@winner.claim_tx)} target="_blank" rel="noopener" class="text-blue-500 hover:underline text-[10px] ml-1 font-mono cursor-pointer">↗</a>
         <% end %>
       <% @current_user && @winner.user_id == @current_user.id && @wallet_connected -> %>
         <button
@@ -1361,7 +1361,7 @@ defmodule BlocksterV2Web.AirdropLive do
       </div>
 
       <%= if @entry.deposit_tx do %>
-        <a href={"https://solscan.io/tx/#{@entry.deposit_tx}?cluster=devnet"} target="_blank" rel="noopener" class="mt-2 inline-block text-[10px] text-neutral-400 hover:text-[#141414] font-mono cursor-pointer">
+        <a href={BlocksterV2Web.Solscan.tx_url(@entry.deposit_tx)} target="_blank" rel="noopener" class="mt-2 inline-block text-[10px] text-neutral-400 hover:text-[#141414] font-mono cursor-pointer">
           {String.slice(@entry.deposit_tx, 0, 4)}…{String.slice(@entry.deposit_tx, -4, 4)} ↗
         </a>
       <% end %>
@@ -1421,7 +1421,7 @@ defmodule BlocksterV2Web.AirdropLive do
             <div class="ml-8">
               <label class="text-[10px] sm:text-xs font-medium text-gray-700">Commitment Hash (SHA-256 of Server Seed)</label>
               <%= if @verification_data.start_round_tx do %>
-                <a href={"https://solscan.io/tx/#{@verification_data.start_round_tx}?cluster=devnet"} target="_blank" class="mt-1 text-[10px] sm:text-xs font-mono bg-gray-100 px-2 py-1.5 rounded break-all block overflow-x-auto text-blue-600 hover:underline cursor-pointer">
+                <a href={BlocksterV2Web.Solscan.tx_url(@verification_data.start_round_tx)} target="_blank" class="mt-1 text-[10px] sm:text-xs font-mono bg-gray-100 px-2 py-1.5 rounded break-all block overflow-x-auto text-blue-600 hover:underline cursor-pointer">
                   {@verification_data.commitment_hash}
                 </a>
               <% else %>
@@ -1446,7 +1446,7 @@ defmodule BlocksterV2Web.AirdropLive do
             <div class="ml-8">
               <label class="text-[10px] sm:text-xs font-medium text-gray-700">Slot at Close</label>
               <%= if @verification_data.close_tx do %>
-                <a href={"https://solscan.io/tx/#{@verification_data.close_tx}?cluster=devnet"} target="_blank" class="mt-1 text-[10px] sm:text-xs font-mono bg-gray-100 px-2 py-1.5 rounded break-all block overflow-x-auto text-blue-600 hover:underline cursor-pointer">
+                <a href={BlocksterV2Web.Solscan.tx_url(@verification_data.close_tx)} target="_blank" class="mt-1 text-[10px] sm:text-xs font-mono bg-gray-100 px-2 py-1.5 rounded break-all block overflow-x-auto text-blue-600 hover:underline cursor-pointer">
                   {@verification_data.slot_at_close}
                 </a>
               <% else %>
@@ -1557,7 +1557,7 @@ defmodule BlocksterV2Web.AirdropLive do
               <div class="bg-gray-50 rounded-lg p-2 sm:p-3">
                 <p class="text-[10px] sm:text-xs text-gray-600 mb-1">3. View on-chain program state</p>
                 <a
-                  href={"https://solscan.io/account/wxiuLBuqxem5ETmGDndiW8MMkxKXp5jVsNCqdZgmjaG?cluster=devnet"}
+                  href={BlocksterV2Web.Solscan.account_url("wxiuLBuqxem5ETmGDndiW8MMkxKXp5jVsNCqdZgmjaG")}
                   target="_blank"
                   class="text-blue-500 hover:underline text-[10px] sm:text-xs cursor-pointer block"
                 >
@@ -1694,14 +1694,15 @@ defmodule BlocksterV2Web.AirdropLive do
     "~$#{:erlang.float_to_binary(expected_dollars / 1.0, decimals: 2)}"
   end
 
-  # Drawn-state Solscan helpers
-  defp drawn_state_solscan_url(nil), do: "https://solscan.io/account/wxiuLBuqxem5ETmGDndiW8MMkxKXp5jVsNCqdZgmjaG?cluster=devnet"
+  # Drawn-state Solscan helpers — fall back to airdrop program account when no draw tx exists
+  defp drawn_state_solscan_url(nil),
+    do: BlocksterV2Web.Solscan.account_url("wxiuLBuqxem5ETmGDndiW8MMkxKXp5jVsNCqdZgmjaG")
 
-  defp drawn_state_solscan_url(%{draw_tx: tx}) when is_binary(tx) and tx != "" do
-    "https://solscan.io/tx/#{tx}?cluster=devnet"
-  end
+  defp drawn_state_solscan_url(%{draw_tx: tx}) when is_binary(tx) and tx != "",
+    do: BlocksterV2Web.Solscan.tx_url(tx)
 
-  defp drawn_state_solscan_url(_), do: "https://solscan.io/account/wxiuLBuqxem5ETmGDndiW8MMkxKXp5jVsNCqdZgmjaG?cluster=devnet"
+  defp drawn_state_solscan_url(_),
+    do: BlocksterV2Web.Solscan.account_url("wxiuLBuqxem5ETmGDndiW8MMkxKXp5jVsNCqdZgmjaG")
 
   # Podium card styles
   defp podium_style(0) do

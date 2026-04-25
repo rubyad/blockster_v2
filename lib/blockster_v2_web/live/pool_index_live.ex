@@ -884,7 +884,7 @@ defmodule BlocksterV2Web.PoolIndexLive do
                     <div class="text-right text-[11px] font-mono text-neutral-500">{time_str}</div>
                     <div class="text-right">
                       <%= if tx_sig do %>
-                        <a href={"https://solscan.io/tx/#{tx_sig}?cluster=devnet"} target="_blank" rel="noopener" class="text-[10px] font-mono text-neutral-400 hover:text-[#141414] transition-colors">
+                        <a href={BlocksterV2Web.Solscan.tx_url(tx_sig)} target="_blank" rel="noopener" class="text-[10px] font-mono text-neutral-400 hover:text-[#141414] transition-colors">
                           {short_sig(tx_sig)}
                         </a>
                       <% else %>

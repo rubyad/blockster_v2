@@ -419,7 +419,7 @@ defmodule BlocksterV2Web.AdminLive do
                     <td class="px-6 py-4">
                       <%= if user.wallet_address do %>
                         <a
-                          href={"https://solscan.io/account/#{user.wallet_address}?cluster=devnet"}
+                          href={BlocksterV2Web.Solscan.account_url(user.wallet_address)}
                           target="_blank"
                           class="text-xs text-blue-600 hover:text-blue-800 hover:underline font-mono cursor-pointer"
                         >
@@ -517,7 +517,7 @@ defmodule BlocksterV2Web.AdminLive do
                               <div class="mt-1 text-xs text-green-600">
                                 Sent <%= amount %> BUX! TX:
                                 <a
-                                  href={"https://solscan.io/tx/#{tx_hash}?cluster=devnet"}
+                                  href={BlocksterV2Web.Solscan.tx_url(tx_hash)}
                                   target="_blank"
                                   class="text-blue-600 hover:underline cursor-pointer font-mono break-all"
                                 >

@@ -546,7 +546,7 @@ defmodule BlocksterV2Web.DesignSystem do
                   <%!-- Wallet address: link to Solscan; adjacent COPY button --%>
                   <div class="group mt-3 w-full flex items-center gap-2 pl-2.5 pr-1 py-1.5 rounded-lg bg-neutral-50 hover:bg-neutral-100 transition-colors">
                     <a
-                      href={"https://solscan.io/account/#{@current_user.wallet_address}?cluster=devnet"}
+                      href={BlocksterV2Web.Solscan.account_url(@current_user.wallet_address)}
                       target="_blank"
                       rel="noopener"
                       class="flex items-center gap-2 flex-1 min-w-0 cursor-pointer"
