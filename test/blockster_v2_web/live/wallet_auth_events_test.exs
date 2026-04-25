@@ -160,11 +160,14 @@ defmodule BlocksterV2Web.WalletAuthEventsTest do
       refute BlocksterV2Web.WalletAuthEvents.valid_email?(nil)
     end
 
-    test "social_login_enabled? reads env with true default" do
+    test "social_login_enabled? reads env with safe (false) default" do
+      # Safe default: missed `flyctl secrets set` should leave the social UI
+      # hidden, not exposed. Was flipped from "true" to "false" on 2026-04-25
+      # as part of the mainnet pre-deploy hardening pass.
       prev = System.get_env("SOCIAL_LOGIN_ENABLED")
       try do
         System.delete_env("SOCIAL_LOGIN_ENABLED")
-        assert BlocksterV2Web.WalletAuthEvents.social_login_enabled?()
+        refute BlocksterV2Web.WalletAuthEvents.social_login_enabled?()
 
         System.put_env("SOCIAL_LOGIN_ENABLED", "false")
         refute BlocksterV2Web.WalletAuthEvents.social_login_enabled?()

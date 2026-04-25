@@ -64,6 +64,10 @@
     <script>
       // Make FingerprintJS public key available to JavaScript
       window.FINGERPRINTJS_PUBLIC_KEY = "<%= System.get_env("FINGERPRINTJS_PUBLIC_KEY") %>";
+      // Solana RPC URL for client-side hooks (coin flip, pool, sol payment, bux burn, airdrop, web3auth withdraw).
+      // Without this the hooks fall back to a hardcoded devnet URL — every Wallet Standard tx
+      // would silently submit to devnet on a mainnet deploy.
+      window.__SOLANA_RPC_URL = "<%= System.get_env("SOLANA_RPC_URL") %>";
     </script>
     <script defer phx-track-static type="text/javascript" src={~p"/assets/js/app.js"}>
     </script>

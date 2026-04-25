@@ -606,7 +606,7 @@ defmodule BlocksterV2Web.WalletAuthEvents do
   modal hides the social section entirely.
   """
   def web3auth_config do
-    enabled = String.trim(System.get_env("SOCIAL_LOGIN_ENABLED", "true")) == "true"
+    enabled = String.trim(System.get_env("SOCIAL_LOGIN_ENABLED", "false")) == "true"
 
     if enabled do
       %{
@@ -630,26 +630,55 @@ defmodule BlocksterV2Web.WalletAuthEvents do
     |> String.trim()
   end
 
-  defp default_chain_id(""), do: "0x67"
+  defp default_chain_id(""),
+    do: prod_required_env_or_dev_default("WEB3AUTH_CHAIN_ID", "0x67", "0x65 for Solana mainnet")
+
   defp default_chain_id(id), do: id
 
-  defp default_network(""), do: "SAPPHIRE_DEVNET"
+  defp default_network(""),
+    do:
+      prod_required_env_or_dev_default(
+        "WEB3AUTH_NETWORK",
+        "SAPPHIRE_DEVNET",
+        "SAPPHIRE_MAINNET"
+      )
+
   defp default_network(net), do: net
 
   # Web3Auth requires a concrete RPC URL at init time (Web3Auth.init() constructs
   # `new URL(rpcTarget)`; empty string throws `Invalid URL`). Dev fallback matches
   # the QuickNode devnet endpoint used by the settler service and the Phase 0
-  # prototype. In prod, `SOLANA_RPC_URL` MUST be set via fly secrets.
+  # prototype. In prod, `SOLANA_RPC_URL` MUST be set via fly secrets — we raise
+  # rather than silently fall back to devnet.
   defp default_rpc_url(""),
-    do: "https://summer-sleek-shape.solana-devnet.quiknode.pro/92b7f51caa76f2981879528aee40a3e8e58cac60/"
+    do:
+      prod_required_env_or_dev_default(
+        "SOLANA_RPC_URL",
+        "https://summer-sleek-shape.solana-devnet.quiknode.pro/92b7f51caa76f2981879528aee40a3e8e58cac60/",
+        "your QuickNode mainnet RPC URL"
+      )
 
   defp default_rpc_url(url), do: url
+
+  # In :prod, an unset env var is a deploy bug — raise loudly so misconfig
+  # surfaces immediately instead of silently routing mainnet traffic to devnet.
+  # In :dev/:test, fall back to the dev default so local work keeps working.
+  defp prod_required_env_or_dev_default(env_name, dev_default, mainnet_hint) do
+    if Application.get_env(:blockster_v2, :env) == :prod do
+      raise """
+      #{env_name} is required in production but was empty.
+      Set via: flyctl secrets set #{env_name}="#{mainnet_hint}" --stage --app blockster-v2
+      """
+    else
+      dev_default
+    end
+  end
 
   @doc """
   Returns true when social login should be shown in the UI. Driven by env.
   """
   def social_login_enabled? do
-    String.trim(System.get_env("SOCIAL_LOGIN_ENABLED", "true")) == "true"
+    String.trim(System.get_env("SOCIAL_LOGIN_ENABLED", "false")) == "true"
   end
 
   def default_assigns do
