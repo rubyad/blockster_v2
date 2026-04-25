@@ -119,7 +119,7 @@ defmodule BlocksterV2Web.CartLive.IndexTest do
       assert html =~ ~s(href="/shop")
 
       # Footer
-      assert html =~ "Where the chain meets the model."
+      assert html =~ "Hustle hard. All in on crypto."
     end
   end
 
@@ -147,7 +147,7 @@ defmodule BlocksterV2Web.CartLive.IndexTest do
       assert html =~ "items"
 
       # Footer
-      assert html =~ "Where the chain meets the model."
+      assert html =~ "Hustle hard. All in on crypto."
     end
 
     test "renders product titles", %{conn: conn, user: user} do
@@ -219,7 +219,9 @@ defmodule BlocksterV2Web.CartLive.IndexTest do
       conn = log_in_user(conn, user)
       {:ok, _view, html} = live(conn, ~p"/cart")
 
-      assert html =~ "Pay with USD via Helio"
+      # Helio was retired in the SOL-first sweep — payments now go SOL-direct
+      # from the connected wallet, BUX still burns on chain for the discount.
+      assert html =~ "Pay in SOL"
       assert html =~ "BUX burned on Solana"
     end
 

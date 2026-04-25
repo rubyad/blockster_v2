@@ -63,7 +63,8 @@ defmodule BlocksterV2Web.NotificationLive.IndexTest do
     test "renders the DS footer", %{conn: conn} do
       {:ok, _view, html} = live(conn, "/notifications")
 
-      assert html =~ "Where the chain meets the model"
+      # Footer mission line — sentinel for the redesigned dark <.footer />.
+      assert html =~ "Hustle hard. All in on crypto."
     end
 
     test "renders the page hero with eyebrow", %{conn: conn} do
@@ -201,7 +202,8 @@ defmodule BlocksterV2Web.NotificationLive.IndexTest do
       {:ok, _view, html} = live(conn, "/notifications/referrals")
 
       assert html =~ "ds-site-header"
-      assert html =~ "Where the chain meets the model"
+      # Footer mission line — sentinel for the redesigned dark <.footer />.
+      assert html =~ "Hustle hard. All in on crypto."
     end
 
     test "renders referral dashboard title", %{conn: conn} do
@@ -277,7 +279,8 @@ defmodule BlocksterV2Web.NotificationLive.IndexTest do
       {:ok, _view, html} = live(conn, "/notifications/settings")
 
       assert html =~ "ds-site-header"
-      assert html =~ "Where the chain meets the model"
+      # Footer mission line — sentinel for the redesigned dark <.footer />.
+      assert html =~ "Hustle hard. All in on crypto."
     end
 
     test "renders settings title", %{conn: conn} do

@@ -45,7 +45,8 @@ defmodule BlocksterV2Web.MemberLive.ShowTest do
       {:user_post_rewards, :set,
         [:key, :user_id, :post_id, :read_bux, :read_paid, :read_tx_id,
          :x_share_bux, :x_share_paid, :x_share_tx_id, :linkedin_share_bux,
-         :linkedin_share_paid, :linkedin_share_tx_id, :total_bux, :last_read_at],
+         :linkedin_share_paid, :linkedin_share_tx_id, :total_bux,
+         :total_paid_bux, :created_at, :updated_at],
         [:user_id, :post_id]},
       {:user_video_engagement, :set,
         [:key, :user_id, :post_id, :high_water_mark, :total_earnable_time, :video_duration,
@@ -134,7 +135,7 @@ defmodule BlocksterV2Web.MemberLive.ShowTest do
 
       assert html =~ "ds-header"
       assert html =~ "ds-footer"
-      assert html =~ "All in on Solana."
+      assert html =~ "Hustle hard. All in on crypto."
     end
 
     test "renders three stat cards", %{conn: conn} do
@@ -736,7 +737,7 @@ defmodule BlocksterV2Web.MemberLive.ShowTest do
 
       assert html =~ "ds-header"
       assert html =~ "ds-footer"
-      assert html =~ "All in on Solana."
+      assert html =~ "Hustle hard. All in on crypto."
     end
   end
 end

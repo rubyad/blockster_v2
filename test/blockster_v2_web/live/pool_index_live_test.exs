@@ -120,8 +120,8 @@ defmodule BlocksterV2Web.PoolIndexLiveTest do
     test "renders the design system footer", %{conn: conn} do
       {:ok, _view, html} = live(conn, ~p"/pool")
 
-      # DS footer copy sentinel
-      assert html =~ "Where the chain meets the model"
+      # DS footer copy sentinel — mission line in the redesigned dark <.footer />.
+      assert html =~ "Hustle hard. All in on crypto."
     end
 
     test "empty activity state shows prompt to place a bet", %{conn: conn} do

@@ -84,7 +84,7 @@ defmodule BlocksterV2Web.DesignSystem.HeaderTest do
 
   describe "header/1 · logged-in variant" do
     test "shows BUX balance with 2 decimal places, cart, notifications, and user dropdown" do
-      user = %{username: "marcus", wallet_address: "7xQk8mPa3", slug: "marcus", is_author: false, is_admin: false}
+      user = %{username: "marcus", wallet_address: "7xQk8mPa3", slug: "marcus", is_author: false, is_admin: false, auth_method: "wallet"}
       assigns = %{user: user}
 
       html =
@@ -111,7 +111,7 @@ defmodule BlocksterV2Web.DesignSystem.HeaderTest do
     end
 
     test "renders the user dropdown with My Profile and Disconnect" do
-      user = %{username: "marcus", wallet_address: "7xQk8", slug: "marcus", is_author: false, is_admin: false}
+      user = %{username: "marcus", wallet_address: "7xQk8", slug: "marcus", is_author: false, is_admin: false, auth_method: "wallet"}
       assigns = %{user: user}
 
       html =
@@ -119,13 +119,13 @@ defmodule BlocksterV2Web.DesignSystem.HeaderTest do
         <.header current_user={@user} />
         """)
 
-      assert html =~ "My Profile"
+      assert html =~ "My profile"
       assert html =~ ~s(phx-click="disconnect_wallet")
       assert html =~ "/member/marcus"
     end
 
     test "preserves toggle_notification_dropdown handler on the bell" do
-      user = %{username: "marcus", wallet_address: "abc", slug: "marcus", is_author: false, is_admin: false}
+      user = %{username: "marcus", wallet_address: "abc", slug: "marcus", is_author: false, is_admin: false, auth_method: "wallet"}
       assigns = %{user: user}
 
       html =
@@ -137,7 +137,7 @@ defmodule BlocksterV2Web.DesignSystem.HeaderTest do
     end
 
     test "shows the notification dropdown panel when notification_dropdown_open is true" do
-      user = %{username: "marcus", wallet_address: "abc", slug: "marcus", is_author: false, is_admin: false}
+      user = %{username: "marcus", wallet_address: "abc", slug: "marcus", is_author: false, is_admin: false, auth_method: "wallet"}
       assigns = %{user: user}
 
       html =
@@ -150,7 +150,7 @@ defmodule BlocksterV2Web.DesignSystem.HeaderTest do
     end
 
     test "notification badge caps at 99+" do
-      user = %{username: "marcus", wallet_address: "abc", slug: "marcus", is_author: false, is_admin: false}
+      user = %{username: "marcus", wallet_address: "abc", slug: "marcus", is_author: false, is_admin: false, auth_method: "wallet"}
       assigns = %{user: user}
 
       html =
@@ -162,7 +162,7 @@ defmodule BlocksterV2Web.DesignSystem.HeaderTest do
     end
 
     test "shows admin links when user is_admin" do
-      user = %{username: "admin", wallet_address: "abc", slug: "admin", is_author: true, is_admin: true}
+      user = %{username: "admin", wallet_address: "abc", slug: "admin", is_author: true, is_admin: true, auth_method: "wallet"}
       assigns = %{user: user}
 
       html =
@@ -170,7 +170,7 @@ defmodule BlocksterV2Web.DesignSystem.HeaderTest do
         <.header current_user={@user} />
         """)
 
-      assert html =~ "Create Article"
+      assert html =~ "Create article"
       assert html =~ "Dashboard"
       assert html =~ "Posts"
     end
@@ -178,7 +178,7 @@ defmodule BlocksterV2Web.DesignSystem.HeaderTest do
     test "renders search results dropdown when show_search_modal + show_search_results are true" do
       # The search results dropdown was moved inside the search modal in the
       # redesign — it no longer appears on the header chrome directly.
-      user = %{username: "marcus", wallet_address: "abc", slug: "marcus", is_author: false, is_admin: false}
+      user = %{username: "marcus", wallet_address: "abc", slug: "marcus", is_author: false, is_admin: false, auth_method: "wallet"}
       post = %{slug: "test-post", title: "Test Post", featured_image: "https://example.com/img.jpg", category: %{name: "DeFi"}}
       assigns = %{user: user, post: post}
 

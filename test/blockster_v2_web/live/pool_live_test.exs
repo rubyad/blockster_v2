@@ -53,8 +53,8 @@ defmodule BlocksterV2Web.PoolLiveTest do
        [:user_id, :wallet_address, :updated_at, :bsol_balance, :bbux_balance],
        [type: :set, index: [:wallet_address]]},
       {:unified_multipliers_v2,
-       [:user_id, :x_multiplier, :phone_multiplier, :sol_multiplier, :email_multiplier,
-        :overall_multiplier, :updated_at],
+       [:user_id, :x_score, :x_multiplier, :phone_multiplier, :sol_multiplier,
+        :email_multiplier, :overall_multiplier, :last_updated, :created_at],
        [type: :set, index: [:overall_multiplier]]}
     ]
 

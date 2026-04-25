@@ -146,7 +146,7 @@ defmodule BlocksterV2Web.ShopLive.ShowTest do
       assert html =~ "Why Earn BUX?"
 
       # Footer
-      assert html =~ "Where the chain meets the model."
+      assert html =~ "Hustle hard. All in on crypto."
     end
 
     test "renders the shop nav link as active", %{conn: conn} do

@@ -20,7 +20,7 @@ defmodule BlocksterV2.CoinFlipGameTest do
            ],
            ram_copies: [node()],
            type: :ordered_set,
-           index: [:user_id, :wallet_address, :status, :created_at]
+           index: [:user_id, :wallet_address, :status, :created_at, :commitment_hash]
          ]) do
       {:atomic, :ok} -> :ok
       {:aborted, {:already_exists, :coin_flip_games}} ->

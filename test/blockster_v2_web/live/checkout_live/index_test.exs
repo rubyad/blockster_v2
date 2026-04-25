@@ -124,8 +124,8 @@ defmodule BlocksterV2Web.CheckoutLive.IndexTest do
       assert html =~ "ds-site-header"
       assert html =~ "SolanaWallet"
       assert html =~ "Why Earn BUX?"
-      # Footer was retuned to the Solana brand line in the post-migration polish.
-      assert html =~ "All in on Solana."
+      # Footer renders the redesigned dark site footer brand line.
+      assert html =~ "Hustle hard. All in on crypto."
     end
 
     test "renders shipping form", %{conn: conn, user: user, order: order} do
@@ -691,7 +691,7 @@ defmodule BlocksterV2Web.CheckoutLive.IndexTest do
       conn = log_in_user(conn, user)
       {:ok, _view, html} = live(conn, ~p"/checkout/#{order.id}")
 
-      assert html =~ "All in on Solana."
+      assert html =~ "Hustle hard. All in on crypto."
     end
   end
 end

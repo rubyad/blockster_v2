@@ -47,9 +47,9 @@ defmodule BlocksterV2Web.HubLive.IndexTest do
 
       # Design system header
       assert html =~ "ds-header"
-      # Design system footer
+      # Design system footer + mission-line sentinel
       assert html =~ "ds-footer"
-      assert html =~ "Where the chain meets the model."
+      assert html =~ "Hustle hard. All in on crypto."
     end
 
     test "renders the page hero with title and stats", %{conn: conn} do
@@ -129,9 +129,12 @@ defmodule BlocksterV2Web.HubLive.IndexTest do
 
       # Grid has hub cards
       assert html =~ "ds-hub-card"
-      # Showing X stat
+      # Showing X-of-Y stat — the global non-async sandbox can leave seeded
+      # hubs visible across tests, so we don't pin the grand total. The
+      # stat block markup ("Showing N of M hubs · Sorted by most followed")
+      # is the contract we care about.
       assert html =~ "Showing"
-      assert html =~ "of 5 hubs"
+      assert html =~ "Sorted by most followed"
     end
 
     test "renders search input with hub count", %{conn: conn} do
@@ -140,17 +143,11 @@ defmodule BlocksterV2Web.HubLive.IndexTest do
 
       {:ok, _view, html} = live(conn, ~p"/hubs")
 
-      assert html =~ "Search 2 hubs by name, topic, or asset..."
-    end
-
-    test "renders category filter chips", %{conn: conn} do
-      {:ok, _view, html} = live(conn, ~p"/hubs")
-
-      assert html =~ "ds-chip"
-      assert html =~ "All"
-      assert html =~ "DeFi"
-      assert html =~ "Layer 1"
-      assert html =~ "NFTs"
+      # The placeholder template is "Search {N} hubs by name, topic, or
+      # asset..." — N is `@total_hub_count`, which can drift in the shared
+      # sandbox. Assert on the stable surrounding copy instead of pinning
+      # the count so unrelated tests can't break this one.
+      assert html =~ "hubs by name, topic, or asset..."
     end
 
     test "anonymous user sees Connect Wallet in header", %{conn: conn} do
@@ -256,17 +253,13 @@ defmodule BlocksterV2Web.HubLive.IndexTest do
     end
   end
 
-  describe "filter_category" do
-    test "clicking a category chip fires the filter event", %{conn: conn} do
-      {:ok, view, _html} = live(conn, ~p"/hubs")
-
-      # Click the "DeFi" chip
-      html = view |> element(~s|button[phx-value-category="defi"]|) |> render_click()
-
-      # The active chip state should change (active chip gets the active CSS classes)
-      assert html =~ "defi"
-    end
-  end
+  # describe "filter_category" — removed in the 2026-04-24 hubs redesign:
+  # the category-pill row was eating half the mobile viewport before the
+  # hub grid even started, so the pills were dropped per product
+  # direction (search-only). The `filter_category` event handler is
+  # still wired in `HubLive.Index` for future re-introduction but the
+  # UI surface is gone, so the chip-click test was deleted alongside
+  # the chips.
 
   describe "hub cards" do
     test "hub cards link to /hub/:slug", %{conn: conn} do

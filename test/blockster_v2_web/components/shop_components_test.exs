@@ -18,7 +18,7 @@ defmodule BlocksterV2Web.ShopComponentsTest do
           size: :total
         )
 
-      assert html =~ "2.50 SOL"
+      assert html =~ "2.5000 SOL"
       assert html =~ "≈ $220.00"
       # SOL renders first in DOM order (primary).
       assert sol_before_usd?(html)
@@ -32,7 +32,7 @@ defmodule BlocksterV2Web.ShopComponentsTest do
           size: :line
         )
 
-      assert html =~ "0.100 SOL"
+      assert html =~ "0.1000 SOL"
       assert html =~ "≈ $10.00"
     end
 
@@ -44,7 +44,7 @@ defmodule BlocksterV2Web.ShopComponentsTest do
           size: :line
         )
 
-      assert html =~ "5.00 SOL"
+      assert html =~ "5.0000 SOL"
       assert html =~ "≈ $500.00"
     end
 

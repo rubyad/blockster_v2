@@ -19,7 +19,8 @@ defmodule BlocksterV2Web.DesignPreviewLive do
       wallet_address: "7xQk8mPa3vNb9aBcD2eFgH6jKlMn4qRsTuVwXyZ",
       slug: "marcus",
       is_author: true,
-      is_admin: true
+      is_admin: true,
+      auth_method: "wallet"
     }
 
     {:ok,

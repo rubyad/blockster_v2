@@ -38,8 +38,9 @@ defmodule BlocksterV2.BlogTest do
 
     create_or_clear_table(:user_post_rewards, [
       :key, :user_id, :post_id, :read_bux, :read_paid, :read_tx_id,
-      :x_share_bux, :x_share_paid, :x_share_tx_id, :watch_bux, :watch_paid,
-      :watch_tx_id, :signup_bux, :signup_paid, :signup_tx_id, :created_at, :updated_at
+      :x_share_bux, :x_share_paid, :x_share_tx_id, :linkedin_share_bux,
+      :linkedin_share_paid, :linkedin_share_tx_id, :total_bux,
+      :total_paid_bux, :created_at, :updated_at
     ], :set)
 
     :ok

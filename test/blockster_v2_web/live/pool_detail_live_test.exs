@@ -45,17 +45,18 @@ defmodule BlocksterV2Web.PoolDetailLiveTest do
        [:user_id, :wallet_address, :updated_at, :bsol_balance, :bbux_balance],
        [type: :set, index: [:wallet_address]]},
       {:unified_multipliers_v2,
-       [:user_id, :x_multiplier, :phone_multiplier, :sol_multiplier, :email_multiplier,
-        :overall_multiplier, :updated_at],
+       [:user_id, :x_score, :x_multiplier, :phone_multiplier, :sol_multiplier,
+        :email_multiplier, :overall_multiplier, :last_updated, :created_at],
        [type: :set, index: [:overall_multiplier]]},
       {:pool_activities,
        [:id, :type, :vault_type, :amount, :wallet, :created_at],
        [type: :set, index: [:vault_type]]},
       {:coin_flip_games,
-       [:game_id, :user_id, :wallet_address, :commitment, :server_seed, :client_seed,
-        :status, :vault_type, :bet_amount, :difficulty, :predictions, :results,
-        :won, :payout, :commitment_sig, :bet_sig, :settlement_sig, :created_at, :settled_at],
-       [type: :set, index: [:vault_type, :wallet_address, :status]]},
+       [:game_id, :user_id, :wallet_address, :server_seed, :commitment_hash,
+        :nonce, :status, :vault_type, :bet_amount, :difficulty, :predictions,
+        :results, :won, :payout, :commitment_sig, :bet_sig, :settlement_sig,
+        :created_at, :settled_at],
+       [type: :ordered_set, index: [:user_id, :wallet_address, :status, :created_at, :commitment_hash]]},
       {:lp_price_history,
        [:id, :vault_type, :timestamp, :lp_price],
        [type: :ordered_set, index: [:vault_type]]}
@@ -210,7 +211,11 @@ defmodule BlocksterV2Web.PoolDetailLiveTest do
       {:ok, _view, html} = live(conn, ~p"/pool/sol")
 
       assert html =~ "How earnings work"
-      assert html =~ "Read the bankroll docs"
+      # The "Read the bankroll docs" CTA was replaced in the redesign
+      # with three docs pivots — assert one of the new pivot links so
+      # the contract is "the card surfaces docs jump-offs", not a
+      # specific copy variant.
+      assert html =~ "How pools work"
     end
 
     test "renders pool page for authenticated user with balances", %{conn: conn} do

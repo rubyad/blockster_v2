@@ -61,10 +61,16 @@ defmodule BlocksterV2Web.PostLive.IndexTest do
 
       # Footer
       assert html =~ "ds-footer"
-      assert html =~ "Where the chain meets the model."
+      # Footer mission line — sentinel for the redesigned dark <.footer />.
+      assert html =~ "Hustle hard. All in on crypto."
     end
 
-    test "renders the hero featured card with the most recent post", %{conn: conn} do
+    test "renders the welcome hero featured card with the most recent post", %{conn: conn} do
+      # Anonymous homepage now surfaces the most recent post inside the
+      # `<.welcome_hero />` preview card (anonymous-only block) rather than
+      # the standalone `<.hero_feature_card />` — see the redesign notes in
+      # `lib/blockster_v2_web/live/post_live/index.html.heex` (preview_*
+      # assigns are wired from `@hero_post`).
       hub = insert_hub()
 
       _old =
@@ -84,11 +90,11 @@ defmodule BlocksterV2Web.PostLive.IndexTest do
 
       {:ok, _view, html} = live(conn, ~p"/")
 
-      assert html =~ "ds-hero-feature"
+      assert html =~ "ds-welcome-hero"
       assert html =~ newest.title
-      # The hero is the most recent post: verify the title appears INSIDE the
-      # ds-hero-feature section, not just somewhere on the page.
-      [_, hero_section] = String.split(html, "ds-hero-feature", parts: 2)
+      # The newest post drives the welcome-hero preview card; the older post
+      # must not bleed through.
+      [_, hero_section] = String.split(html, "ds-welcome-hero", parts: 2)
       [hero_only | _] = String.split(hero_section, ~s|</section>|, parts: 2)
       assert hero_only =~ newest.title
       refute hero_only =~ "Old post"

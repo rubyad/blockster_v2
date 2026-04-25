@@ -124,7 +124,8 @@ defmodule BlocksterV2Web.PostLive.TagTest do
     test "renders the design system footer", %{conn: conn, tag: tag} do
       {:ok, _view, html} = live(conn, "/tag/#{tag.slug}")
 
-      assert html =~ "Where the chain meets the model"
+      # Footer mission line — sentinel for the redesigned dark <.footer />.
+      assert html =~ "Hustle hard. All in on crypto."
     end
 
     test "renders compact hero with tag name and hash prefix", %{conn: conn, tag: tag} do

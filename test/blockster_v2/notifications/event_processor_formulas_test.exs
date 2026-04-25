@@ -17,18 +17,13 @@ defmodule BlocksterV2.Notifications.EventProcessorFormulasTest do
   end
 
   defp setup_mnesia(_context \\ %{}) do
-    # Ensure Mnesia tables exist for balance lookups and game stats
-    # Schemas must match real mnesia_initializer.ex definitions
+    # Ensure Mnesia tables exist for balance lookups and game stats.
+    # Schemas must match real mnesia_initializer.ex definitions.
+    # Post-Solana migration: balances are read from :user_solana_balances
+    # (see EngagementTracker.get_user_token_balances/1).
     tables = [
-      {:user_bux_balances, [
-        :user_id, :user_smart_wallet, :updated_at, :aggregate_bux_balance,
-        :bux_balance, :moonbux_balance, :neobux_balance, :roguebux_balance,
-        :flarebux_balance, :nftbux_balance, :nolchabux_balance, :solbux_balance,
-        :spacebux_balance, :tronbux_balance, :tranbux_balance
-      ]},
-      {:user_rogue_balances, [
-        :user_id, :user_smart_wallet, :updated_at,
-        :rogue_balance_rogue_chain, :rogue_balance_arbitrum
+      {:user_solana_balances, [
+        :user_id, :wallet_address, :updated_at, :sol_balance, :bux_balance
       ]},
       {:user_betting_stats, [
         :user_id, :wallet_address,
@@ -54,18 +49,16 @@ defmodule BlocksterV2.Notifications.EventProcessorFormulasTest do
   end
 
   defp set_bux_balance(user_id, amount) do
-    # Matches: {:user_bux_balances, user_id, smart_wallet, updated_at, aggregate, bux_balance, ...rest zeros}
+    # Matches: {:user_solana_balances, user_id, wallet_address, updated_at, sol_balance, bux_balance}
     # elem(record, 5) = bux_balance (what get_user_token_balances reads)
-    record = {:user_bux_balances, user_id, nil, nil, amount, amount,
-              0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0}
+    record = {:user_solana_balances, user_id, nil, nil, 0.0, amount}
     :mnesia.dirty_write(record)
   end
 
-  defp set_rogue_balance(user_id, amount) do
-    # Matches: {:user_rogue_balances, user_id, smart_wallet, updated_at, rogue_chain, arbitrum}
-    # elem(record, 4) = rogue_balance_rogue_chain (what get_user_token_balances reads)
-    record = {:user_rogue_balances, user_id, nil, nil, amount, 0.0}
-    :mnesia.dirty_write(record)
+  defp set_rogue_balance(_user_id, _amount) do
+    # ROGUE no longer exists post-Solana migration. Keep helper as a no-op so
+    # legacy test calls continue to compile and assert against a 0.0 balance.
+    :ok
   end
 
   defp clear_rules do

@@ -41,7 +41,7 @@ defmodule BlocksterV2Web.CoinFlipLiveTest do
          :nonce, :status, :vault_type, :bet_amount, :difficulty, :predictions,
          :results, :won, :payout, :commitment_sig, :bet_sig, :settlement_sig,
          :created_at, :settled_at],
-        [:user_id, :wallet_address, :status, :created_at]},
+        [:user_id, :wallet_address, :status, :created_at, :commitment_hash]},
       {:user_lp_balances, :set,
         [:user_id, :wallet_address, :updated_at, :bsol_balance, :bbux_balance],
         [:wallet_address]},
@@ -162,16 +162,22 @@ defmodule BlocksterV2Web.CoinFlipLiveTest do
       assert html =~ "No games played yet" or html =~ "Your last bets"
     end
 
-    test "CF-05 — BUX pool card renders 'Coming soon' pill when unfunded", %{conn: conn} do
-      # On devnet the BUX vault is unfunded; the stat card formerly rendered
-      # a raw "—" which reads as a rendering bug. Brand-color pill replaces
-      # it until the vault is funded and returns a non-nil number.
+    # CF-05 — BUX pool "Coming soon" pill: REMOVED in the 2026-04-24 build
+    # entry. The BUX vault is funded on devnet now, so the stat card was
+    # reverted from the brand-color "Coming soon" pill back to an em-dash
+    # placeholder when the user hasn't selected the BUX token. Test deleted
+    # to match shipped behavior.
+
+    test "BUX pool card renders an em-dash placeholder when SOL is selected", %{conn: conn} do
+      # The BUX pool figure only fills in once the user clicks the BUX
+      # token toggle (the `format_balance(@house_balance)` for BUX is
+      # gated on `@selected_token == "BUX"`). Anonymous default state =
+      # SOL, so the BUX card renders the em-dash fallback.
       {:ok, _view, html} = live(conn, ~p"/play")
 
       assert html =~ "BUX Pool"
-      assert html =~ "Coming soon"
-      # Brand color applied to the pill background.
-      assert html =~ "bg-[#CAFC00]"
+      # BUX figure block falls back to the em-dash when not selected.
+      assert html =~ "—"
     end
 
     test "CF-06 — sidebar 'Your recent games' block is absent when user has 0 games",
@@ -191,7 +197,8 @@ defmodule BlocksterV2Web.CoinFlipLiveTest do
       {:ok, _view, html} = live(conn, ~p"/play")
 
       assert html =~ "ds-footer"
-      assert html =~ "Where the chain meets the model."
+      # Footer mission line — sentinel for the redesigned dark <.footer />.
+      assert html =~ "Hustle hard. All in on crypto."
     end
 
     test "renders sidebar idle-state cards (stats + legend)", %{conn: conn} do
@@ -303,7 +310,11 @@ defmodule BlocksterV2Web.CoinFlipLiveTest do
 
       {:ok, view, _html} = live(conn, ~p"/play")
 
-      html = view |> element(~s([phx-click="select_token"][phx-value-token="BUX"])) |> render_click()
+      # The 2026-04-24 mobile-compact pass duplicates the token toggle
+      # (mobile header + desktop card), so a CSS selector returns 2
+      # elements and `element/2` raises. Fire the event by name instead
+      # — the handler is the same regardless of which surface clicked.
+      html = render_click(view, "select_token", %{"token" => "BUX"})
       assert html =~ "BUX"
     end
   end
@@ -315,7 +326,10 @@ defmodule BlocksterV2Web.CoinFlipLiveTest do
 
       {:ok, view, _html} = live(conn, ~p"/play")
 
-      html = view |> element(~s([phx-click="halve_bet"])) |> render_click()
+      # halve_bet button is rendered for both the active bet input row
+      # and the disabled mobile placeholder row, so CSS-selector lookup
+      # is ambiguous. Trigger the handler directly.
+      html = render_click(view, "halve_bet", %{})
       assert html =~ "ds-play-game"
     end
 
@@ -325,7 +339,8 @@ defmodule BlocksterV2Web.CoinFlipLiveTest do
 
       {:ok, view, _html} = live(conn, ~p"/play")
 
-      html = view |> element(~s([phx-click="double_bet"])) |> render_click()
+      # See halve_bet test above — same dual-render reason.
+      html = render_click(view, "double_bet", %{})
       assert html =~ "ds-play-game"
     end
   end

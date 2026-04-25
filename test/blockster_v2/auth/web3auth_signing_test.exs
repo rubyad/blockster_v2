@@ -31,6 +31,15 @@ defmodule BlocksterV2.Auth.Web3AuthSigningTest do
       end
 
       File.rm(tmp)
+
+      # Restart the application's Web3AuthSigning so subsequent tests
+      # (LegacyMerge, AuthController, etc.) that depend on it find a live
+      # process. Without this, the global agent is dead post-test and
+      # `Web3AuthSigning.sign_id_token/1` crashes for the rest of the suite.
+      case Process.whereis(Web3AuthSigning) do
+        nil -> Web3AuthSigning.start_link([])
+        _pid -> :ok
+      end
     end)
 
     %{tmp: tmp}

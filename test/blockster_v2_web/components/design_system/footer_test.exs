@@ -15,9 +15,9 @@ defmodule BlocksterV2Web.DesignSystem.FooterTest do
 
       assert html =~ "ds-footer"
       assert html =~ "bg-[#0a0a0a]"
-      # Footer tagline was retuned to "All in on Solana." during the
-      # post-migration brand polish (see docs/solana_build_history.md).
-      assert html =~ "All in on Solana."
+      # Footer tagline was retuned to "Hustle hard. All in on crypto." during the
+      # 2026-04-24 mobile tightening pass (see docs/solana_build_history.md).
+      assert html =~ "Hustle hard. All in on crypto."
     end
 
     test "renders the Miami Beach address per D2 / D22" do
@@ -65,7 +65,7 @@ defmodule BlocksterV2Web.DesignSystem.FooterTest do
         <.footer />
         """)
 
-      assert html =~ "The best of crypto × AI, every Friday. No spam, no shilling."
+      assert html =~ "The best of crypto × AI. No spam, no shilling."
       assert html =~ ~s(name="email")
       assert html =~ "Subscribe"
     end

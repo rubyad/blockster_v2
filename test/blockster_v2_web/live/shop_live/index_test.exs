@@ -129,19 +129,18 @@ defmodule BlocksterV2Web.ShopLive.IndexTest do
       # Hero banner
       assert html =~ "Spend the BUX you earned"
       assert html =~ "Crypto-inspired streetwear &amp; gadgets"
-      assert html =~ "products in stock"
+      assert html =~ "in stock"
 
       # SHOP-01 + SHOP-02: hero reads "Pay in SOL" (not USD) and drops the
       # dollar-denominated BUX rate pill in favour of a percentage-of-max-off
       # phrasing so the only monetary unit on the page is SOL.
       assert html =~ "Pay in SOL"
-      assert html =~ "Redeem BUX for up to 50% off"
+      assert html =~ "redeem BUX for up to 50% off"
       refute html =~ "Pay in USD"
       refute html =~ "1 BUX = $"
 
-      # Footer was retuned to the Solana brand line post-migration (matches
-      # the checkout_live smoke assertion).
-      assert html =~ "All in on Solana."
+      # Footer renders the redesigned dark site footer brand line.
+      assert html =~ "Hustle hard. All in on crypto."
     end
 
     test "renders the shop nav link as active", %{conn: conn} do
@@ -168,16 +167,23 @@ defmodule BlocksterV2Web.ShopLive.IndexTest do
     test "renders discounted price with strikethrough for products with BUX discount", %{conn: conn} do
       {:ok, _view, html} = live(conn, ~p"/shop")
 
-      # Product with 50% discount: original $65.00, discounted $32.50
-      assert html =~ "$65.00"
+      # Post SOL-first sweep, the product card renders SOL-primary with USD as
+      # the `≈` secondary. A discounted product strikes through the original
+      # SOL price and shows the discounted SOL primary; USD secondary echoes
+      # the discounted dollar amount with a "with BUX" suffix. Original USD
+      # is no longer surfaced — strikethrough is SOL-only.
+      assert html =~ "line-through"
+      # Effective USD secondary (50% of $65 = $32.50) still appears.
       assert html =~ "$32.50"
-      assert html =~ "with BUX tokens"
+      assert html =~ "with BUX"
     end
 
     test "renders regular price only for products without discount", %{conn: conn} do
       {:ok, _view, html} = live(conn, ~p"/shop")
 
-      # Product without discount shows only $179.00
+      # Product without discount shows USD secondary $179.00 alongside the
+      # SOL primary; the SOL-first sweep keeps the dollar number as the
+      # `≈` line for legibility.
       assert html =~ "$179.00"
     end
 

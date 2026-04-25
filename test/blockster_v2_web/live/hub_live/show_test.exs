@@ -53,7 +53,8 @@ defmodule BlocksterV2Web.HubLive.ShowTest do
 
       assert html =~ "ds-header"
       assert html =~ "ds-footer"
-      assert html =~ "Where the chain meets the model."
+      # Footer mission line — sentinel for the redesigned dark <.footer />.
+      assert html =~ "Hustle hard. All in on crypto."
     end
 
     test "renders the hub banner with hub name and description", %{conn: conn} do

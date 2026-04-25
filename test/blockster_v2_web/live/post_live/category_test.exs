@@ -127,7 +127,8 @@ defmodule BlocksterV2Web.PostLive.CategoryTest do
     test "renders the design system footer", %{conn: conn, category: cat} do
       {:ok, _view, html} = live(conn, "/category/#{cat.slug}")
 
-      assert html =~ "Where the chain meets the model"
+      # Footer mission line — sentinel for the redesigned dark <.footer />.
+      assert html =~ "Hustle hard. All in on crypto."
     end
 
     test "renders page hero with category name and description", %{conn: conn, category: cat} do

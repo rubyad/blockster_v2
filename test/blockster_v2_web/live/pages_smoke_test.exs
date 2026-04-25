@@ -62,15 +62,17 @@ defmodule BlocksterV2Web.PagesSmokeTest do
       {:user_rogue_balances,
        [:user_id, :user_smart_wallet, :updated_at, :rogue_balance_rogue_chain,
         :rogue_balance_arbitrum]},
-      {:shop_product_slots, [:id, :product_id, :position, :updated_at]},
+      {:shop_product_slots, [:slot_number, :product_id]},
       {:user_pool_positions,
-       [:key, :user_id, :wallet_address, :vault_type, :lp_tokens, :cost_basis_usd,
-        :cost_basis_native, :last_updated]},
-      {:token_prices, [:id, :symbol, :usd_price, :usd_24h_change, :last_updated]},
+       [:id, :user_id, :vault_type, :total_cost, :total_lp, :realized_gain,
+        :updated_at]},
+      {:token_prices,
+       [:token_id, :symbol, :usd_price, :usd_24h_change, :last_updated]},
       {:unified_multipliers_v2,
-       [:user_id, :overall, :phone, :sol, :email, :tier, :last_updated]},
+       [:user_id, :x_score, :x_multiplier, :phone_multiplier, :sol_multiplier,
+        :email_multiplier, :overall_multiplier, :last_updated, :created_at]},
       {:user_lp_balances,
-       [:user_id, :wallet_address, :sol_lp, :bux_lp, :last_updated]},
+       [:user_id, :wallet_address, :updated_at, :bsol_balance, :bbux_balance]},
       # Referrals.get_referrer_stats/1 is called on mount of
       # /notifications/referrals and /member/:slug; without these tables
       # the mount raises. In production the MnesiaInitializer GenServer

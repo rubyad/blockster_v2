@@ -11,14 +11,11 @@ defmodule BlocksterV2.Airdrop.ProvablyFairTest do
   defp setup_mnesia(_context) do
     :mnesia.start()
 
+    # Post-Solana migration: balances are read from :user_solana_balances
+    # via EngagementTracker.get_user_token_balances/1.
     tables = [
-      {:user_bux_balances,
-       [:user_id, :user_smart_wallet, :updated_at, :aggregate_bux_balance,
-        :bux_balance, :moonbux_balance, :neobux_balance, :roguebux_balance,
-        :flarebux_balance, :nftbux_balance, :nolchabux_balance, :solbux_balance,
-        :spacebux_balance, :tronbux_balance, :tranbux_balance]},
-      {:user_rogue_balances,
-       [:user_id, :user_smart_wallet, :updated_at, :rogue_balance_rogue_chain, :rogue_balance_arbitrum]}
+      {:user_solana_balances,
+       [:user_id, :wallet_address, :updated_at, :sol_balance, :bux_balance]}
     ]
 
     for {table, attrs} <- tables do
@@ -33,11 +30,12 @@ defmodule BlocksterV2.Airdrop.ProvablyFairTest do
   end
 
   defp set_bux_balance(user, balance) do
+    # {:user_solana_balances, user_id, wallet_address, updated_at, sol_balance, bux_balance}
     record =
-      {:user_bux_balances, user.id, user.smart_wallet_address, DateTime.utc_now(),
-       balance * 1.0, balance * 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0}
+      {:user_solana_balances, user.id, user.wallet_address, DateTime.utc_now(),
+       0.0, balance * 1.0}
 
-    :mnesia.dirty_write(:user_bux_balances, record)
+    :mnesia.dirty_write(:user_solana_balances, record)
   end
 
   setup :setup_mnesia
