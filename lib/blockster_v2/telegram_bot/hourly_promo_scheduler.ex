@@ -99,6 +99,9 @@ defmodule BlocksterV2.TelegramBot.HourlyPromoScheduler do
       run_promo_cycle(state)
     else
       Logger.info("[HourlyPromoScheduler] Bot is paused, skipping this hour")
+      # Pause = nuke any outstanding bot rules so users stop getting bonuses
+      # from a "live" promo while the scheduler is dormant.
+      PromoEngine.cleanup_all_bot_rules()
       timer_ref = schedule_next_promo(state.timer_ref)
       {:noreply, %{state | timer_ref: timer_ref}}
     end
