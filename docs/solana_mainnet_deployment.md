@@ -19,6 +19,7 @@ Before this runbook is safe to execute, the following code-level deploy blockers
 - ✅ **Settler `/burn` endpoint deleted** — `contracts/blockster-settler/src/routes/mint.ts` was a misleading TODO stub that never burned anything on-chain. Removed entirely; the actual burn flow is client-side via `assets/js/hooks/solana_bux_burn.js` (SPL `BurnChecked` from the buyer's ATA).
 - ✅ **`contracts/blockster-settler/fly.toml` checked in** — replaces the auto-generated config from `flyctl launch`. Reviewable + reproducible across deploys.
 - ✅ **Stale `app-21f441de633c332460d74811d210643d.js` artifact deleted** — 3.86 MB Feb-stale build that was still shipping in the Docker image. Removed from `priv/static/assets/js/`.
+- ✅ **Telegram social login JS shipped (day-1 ready)** — `assets/js/hooks/web3auth_hook.js` `_startTelegramLogin` + `_ensureTelegramScript` close the gap that was deferred per the 2026-04-24 build history. Server-side endpoint (`POST /api/auth/telegram/verify`) and Custom JWT verifier (`blockster-telegram`) were already wired; the JS hook now embeds Telegram's widget script, opens the popup via `Telegram.Login.auth({bot_id, …})`, POSTs the payload to verify, and hands the JWT to `_startJwtLogin` like the email OTP flow. Bot ID is derived server-side from the bot token (substring before `:`) and exposed via `data-telegram-bot-id`. **Operator must `/setdomain` the bot in BotFather** before this works — see "Telegram Login Widget — BotFather setup" in Step 6 below.
 
 **Test-suite status (2026-04-25 endpoint)**: `mix test` clean-shell run (no concurrent `bin/dev`) reports `3365 tests, 172 failures, 211 skipped`. The audit's PR 2e baseline was `3307 / 69 / 211`. Delta from baseline: +58 tests (most from the 5cb2cc2 in-flight commit + new Solscan helper), +103 failures. The +103 are predominantly pre-existing stale-copy assertions catalogued in `docs/bug_audit_2026_04_22.md` Phase 3 Notes (cart_live "Pay with USD via Helio" footer, MemberLive.ShowTest fixture mismatches, OnboardingLiveTest copy drift, HeaderTest layout assertions). They were known + documented at audit time and aren't deploy-blocking — but per CLAUDE.md they DO need explicit user sign-off before `flyctl deploy`. Triage list:
 
@@ -456,7 +457,21 @@ flyctl secrets set \
 
 `WEB3AUTH_JWT_SIGNING_KEY_PATH` points at a Fly-mounted RSA private key file that the backend uses to sign JWTs for BOTH Custom JWT verifiers (email OTP + Telegram widget). The dev path (`priv/web3auth_keys/signing_key.json`, boot-generated) is NOT safe for prod — see "Provision the Web3Auth JWT signing key" below.
 
-`BLOCKSTER_V2_BOT_TOKEN` is the existing Telegram bot token (already used for account-connect + group-join detection). The `POST /api/auth/telegram/verify` endpoint uses it to HMAC-verify Telegram Login Widget payloads before issuing a Blockster JWT.
+`BLOCKSTER_V2_BOT_TOKEN` is the existing Telegram bot token (already used for account-connect + group-join detection). The `POST /api/auth/telegram/verify` endpoint uses it to HMAC-verify Telegram Login Widget payloads before issuing a Blockster JWT. The numeric bot ID — required by the `Telegram.Login.auth({bot_id, …})` widget popup the JS hook opens — is derived server-side as the substring before `:` in the bot token, so we never ship the token itself to the client.
+
+### Telegram Login Widget — BotFather setup (required for day-1 social login)
+
+The Telegram Login Widget refuses to render for any origin not registered against the bot. Before the first prod deploy that exposes the Telegram tile in the sign-in modal, register all expected origins via [@BotFather](https://t.me/BotFather):
+
+```text
+/setdomain
+<select your bot, e.g. BlocksterV2Bot>
+blockster.com
+```
+
+For each cloudflared tunnel hostname you'll use during staging/QA, repeat `/setdomain` and add it. Named tunnels keep a stable hostname; default tunnels rotate per `cloudflared` restart, so use a named tunnel for any extended dev session.
+
+The widget also calls a Telegram-hosted iframe that needs HTTPS — the Login Widget will silently fail to load over plain `http://`, including local `http://localhost`. Test on the prod domain or a `https://` tunnel.
 
 `SOCIAL_LOGIN_ENABLED=false` is the kill switch — with this off the sign-in modal only shows Phantom/Solflare/Backpack (current behavior). Phase 10 is where this flips via the staged rollout procedure.
 
@@ -529,23 +544,18 @@ EOF
 mix run /tmp/gen_web3auth_key.exs
 ```
 
-Upload to Fly as a mounted file. Preferred: create a Fly volume just for this key so the filesystem path is stable across deploys.
+Place the key inside the existing `mnesia_data` volume that's already mounted at `/data` (per `fly.toml`). **Do NOT create a separate `web3auth_keys` volume mounted at `/data/web3auth`** — Fly volumes can't nest inside other mount destinations, so a second volume targeting `/data/web3auth` would conflict with the existing `/data` mount and Fly will reject the deploy.
 
 ```bash
-# Create a tiny volume attached to the main app
-flyctl volumes create web3auth_keys --size 1 --region iad --app blockster-v2
-
-# Mount it in fly.toml under [mounts]:
-#   [[mounts]]
-#     source = "web3auth_keys"
-#     destination = "/data/web3auth"
-
-# On first deploy, SSH in and copy the key into the volume
+# On first deploy, SSH in and copy the key into the existing /data mount
 flyctl ssh console --app blockster-v2
 mkdir -p /data/web3auth
 # paste the contents of /tmp/web3auth_signing_key.json into /data/web3auth/signing_key.json
-# chmod 600 /data/web3auth/signing_key.json
+chmod 600 /data/web3auth/signing_key.json
+exit
 ```
+
+The key persists across deploys because `/data` is on a Fly volume. If you ever need to rebuild the prod machine from scratch (volume restored from snapshot), the key comes back with it.
 
 Then register the PUBLIC key half with Web3Auth's dashboard (JWKS URL = `https://blockster.com/.well-known/jwks.json` — the backend serves the public JWK set from that path automatically).
 
@@ -859,7 +869,8 @@ Social login ships behind `SOCIAL_LOGIN_ENABLED`. After the Phase 5–10 session
 - [ ] OAuth Connections enabled: Google, Apple, Twitter (X). Email Passwordless kept on as an unused fallback — production email flow runs through the `blockster-email` Custom JWT verifier instead.
 - [ ] **Custom JWT verifier `blockster-email` registered**: JWKS URL `https://blockster.com/.well-known/jwks.json`, verifier ID field `sub`, aud `blockster-web3auth`, iss `blockster`, alg `RS256`. See the two-verifier table in Step 7 (Web3Auth secrets) above.
 - [ ] **Custom JWT verifier `blockster-telegram` registered** (same JWKS / aud / iss / alg), name matches `WEB3AUTH_TELEGRAM_VERIFIER_ID`.
-- [ ] RSA signing key mounted at `/data/web3auth/signing_key.json` on the production volume. `mix run /tmp/gen_web3auth_key.exs` output placed there.
+- [ ] **BotFather `/setdomain` run for `blockster.com`** + every cloudflared hostname used in staging/QA.
+- [ ] RSA signing key placed at `/data/web3auth/signing_key.json` inside the existing `mnesia_data` volume (NOT a separate web3auth_keys volume — Fly mounts can't nest).
 - [ ] `curl https://blockster.com/.well-known/jwks.json` returns a valid JWKS with one RSA key (matches the `kid` on the mounted signing key).
 - [ ] `POST /api/auth/web3auth/email_otp/send` accepts a valid email and returns `{"success": true, "ttl": 600}`.
 - [ ] `POST /api/auth/web3auth/email_otp/verify` returns `{"success": true, "id_token": "eyJ..."}` when given the emailed code.

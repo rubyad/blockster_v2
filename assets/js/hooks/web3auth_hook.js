@@ -81,15 +81,18 @@ export const Web3Auth = {
     this._network = this.el.dataset.network || "SAPPHIRE_DEVNET"
     this._telegramVerifierId = this.el.dataset.telegramVerifierId || ""
     this._telegramBotUsername = this.el.dataset.telegramBotUsername || ""
+    this._telegramBotId = this.el.dataset.telegramBotId || ""
 
     this._web3auth = null
     this._provider = null
     this._pubkey = null
     this._initPromise = null
     this._sdkModules = null
+    this._telegramScriptPromise = null
 
     this.handleEvent("start_web3auth_login", (payload) => this._startLogin(payload))
     this.handleEvent("start_web3auth_jwt_login", (payload) => this._startJwtLogin(payload))
+    this.handleEvent("start_telegram_widget", () => this._startTelegramLogin())
     this.handleEvent("request_disconnect", () => this._logout())
 
     // Redirect-mode return: if we stashed a provider in sessionStorage
@@ -352,6 +355,127 @@ export const Web3Auth = {
       console.error("[Web3Auth] jwt login failed", e)
       this.pushEvent("web3auth_error", { error: friendlyWeb3AuthError(e) })
     }
+  },
+
+  // Telegram social login — three-step flow:
+  //   (1) Load Telegram's login widget script + open the popup via
+  //       Telegram.Login.auth(...). User approves in their Telegram client.
+  //   (2) POST the widget payload to /api/auth/telegram/verify which
+  //       HMAC-validates it with our bot token and signs a Blockster RS256
+  //       JWT (verifier `blockster-telegram`, sub = telegram user id).
+  //   (3) Hand the JWT to Web3Auth's CUSTOM connector via _startJwtLogin.
+  //       MPC derives the user's Solana pubkey from {sub, verifier}.
+  //
+  // Prereq: BotFather `/setdomain blockster.com` (and the dev tunnel
+  // hostname for staging) — Telegram refuses to render the widget for
+  // origins not registered against the bot.
+  async _startTelegramLogin() {
+    try {
+      if (!this._telegramBotId) {
+        this.pushEvent("web3auth_error", {
+          error:
+            "Telegram bot not configured (BLOCKSTER_V2_BOT_TOKEN missing or malformed)",
+        })
+        return
+      }
+      if (!this._telegramVerifierId) {
+        this.pushEvent("web3auth_error", {
+          error: "WEB3AUTH_TELEGRAM_VERIFIER_ID is not set",
+        })
+        return
+      }
+
+      await this._ensureTelegramScript()
+
+      // Telegram.Login.auth opens a popup window pointed at oauth.telegram.org.
+      // It returns a payload (id, first_name, username, photo_url, auth_date,
+      // hash) on success or `false` if the user cancels / the popup is blocked.
+      const data = await new Promise((resolve) => {
+        try {
+          window.Telegram.Login.auth(
+            { bot_id: this._telegramBotId, request_access: "write" },
+            (payload) => resolve(payload || null),
+          )
+        } catch (e) {
+          console.error("[Web3Auth] Telegram.Login.auth threw:", e)
+          resolve(null)
+        }
+      })
+
+      if (!data) {
+        this.pushEvent("web3auth_error", {
+          error: "Telegram login was cancelled or the popup was blocked",
+        })
+        return
+      }
+
+      // POST to our verify endpoint. CSRF token comes from the meta tag
+      // Phoenix ships in root.html.heex.
+      const csrf =
+        document.querySelector("meta[name='csrf-token']")?.getAttribute("content") || ""
+
+      const res = await fetch("/api/auth/telegram/verify", {
+        method: "POST",
+        credentials: "same-origin",
+        headers: {
+          "content-type": "application/json",
+          "x-csrf-token": csrf,
+        },
+        body: JSON.stringify(data),
+      })
+
+      const json = await res.json().catch(() => ({}))
+
+      if (!res.ok || !json?.success || !json?.id_token) {
+        this.pushEvent("web3auth_error", {
+          error: json?.error || "Telegram verify failed",
+        })
+        return
+      }
+
+      // Hand off to the same Custom JWT path the email OTP flow uses.
+      await this._startJwtLogin({
+        provider: "telegram",
+        id_token: json.id_token,
+        verifier_id: this._telegramVerifierId,
+        verifier_id_field: "sub",
+      })
+    } catch (e) {
+      console.error("[Web3Auth] Telegram login failed", e)
+      this.pushEvent("web3auth_error", { error: friendlyWeb3AuthError(e) })
+    }
+  },
+
+  // Lazy-load Telegram's widget script. Cached as a promise so concurrent
+  // _startTelegramLogin calls share the same load. Idempotent across the
+  // lifetime of the page (script tag, once loaded, stays).
+  _ensureTelegramScript() {
+    if (this._telegramScriptPromise) return this._telegramScriptPromise
+    if (window.Telegram && window.Telegram.Login) {
+      this._telegramScriptPromise = Promise.resolve()
+      return this._telegramScriptPromise
+    }
+
+    this._telegramScriptPromise = new Promise((resolve, reject) => {
+      const existing = document.querySelector(
+        'script[src^="https://telegram.org/js/telegram-widget"]',
+      )
+      if (existing) {
+        if (window.Telegram && window.Telegram.Login) return resolve()
+        existing.addEventListener("load", () => resolve(), { once: true })
+        existing.addEventListener("error", () => reject(new Error("Telegram widget script failed to load")), { once: true })
+        return
+      }
+
+      const script = document.createElement("script")
+      script.src = "https://telegram.org/js/telegram-widget.js?22"
+      script.async = true
+      script.onload = () => resolve()
+      script.onerror = () => reject(new Error("Telegram widget script failed to load"))
+      document.head.appendChild(script)
+    })
+
+    return this._telegramScriptPromise
   },
 
   async _completeLogin(provider) {

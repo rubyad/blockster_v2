@@ -615,10 +615,34 @@ defmodule BlocksterV2Web.WalletAuthEvents do
         chain_id: clean_env("WEB3AUTH_CHAIN_ID") |> default_chain_id(),
         network: clean_env("WEB3AUTH_NETWORK") |> default_network(),
         telegram_verifier_id: clean_env("WEB3AUTH_TELEGRAM_VERIFIER_ID"),
-        telegram_bot_username: clean_env("TELEGRAM_LOGIN_BOT_USERNAME")
+        telegram_bot_username: clean_env("TELEGRAM_LOGIN_BOT_USERNAME"),
+        telegram_bot_id: telegram_bot_id_from_token()
       }
     else
       %{client_id: ""}
+    end
+  end
+
+  # Telegram's Login.auth({bot_id, …}, callback) widget popup needs the
+  # numeric bot ID, which is the substring before ":" in the bot token.
+  # Derive it server-side and expose via data attribute so we never ship
+  # the bot token itself to the client. Mirrors the env-var precedence
+  # used by AuthController.telegram_verify/2.
+  defp telegram_bot_id_from_token do
+    token =
+      clean_env("BLOCKSTER_V2_BOT_TOKEN")
+      |> case do
+        "" -> clean_env("TELEGRAM_V2_BOT_TOKEN")
+        v -> v
+      end
+      |> case do
+        "" -> Application.get_env(:blockster_v2, :telegram_v2_bot_token) || ""
+        v -> v
+      end
+
+    case String.split(token, ":", parts: 2) do
+      [id, _secret] when id != "" -> id
+      _ -> ""
     end
   end
 

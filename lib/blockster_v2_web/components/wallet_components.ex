@@ -160,6 +160,7 @@ defmodule BlocksterV2Web.WalletComponents do
         data-network={@web3auth_config[:network]}
         data-telegram-verifier-id={@web3auth_config[:telegram_verifier_id]}
         data-telegram-bot-username={@web3auth_config[:telegram_bot_username]}
+        data-telegram-bot-id={@web3auth_config[:telegram_bot_id]}
         class="hidden"
       ></div>
     <% end %>

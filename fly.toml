@@ -20,6 +20,12 @@ kill_signal = 'SIGTERM'
 [mounts]
   source = 'mnesia_data'
   destination = '/data'
+  # The Web3Auth JWT signing key lives at /data/web3auth/signing_key.json
+  # inside this same volume — Fly volumes cannot nest, so a separate
+  # volume mounted at /data/web3auth would conflict with this mount.
+  # On first deploy: flyctl ssh console -> mkdir -p /data/web3auth ->
+  # paste signing_key.json contents -> chmod 600. Set
+  # WEB3AUTH_JWT_SIGNING_KEY_PATH=/data/web3auth/signing_key.json in fly secrets.
 
 [http_service]
   internal_port = 8080
