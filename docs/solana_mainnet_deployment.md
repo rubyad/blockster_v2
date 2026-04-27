@@ -536,37 +536,42 @@ Paste the output into the dashboard's JWT field; the dropdown should populate wi
 
 ### Provision the Web3Auth JWT signing key
 
-The backend signs Telegram Custom JWTs with an RSA private key. In dev, `BlocksterV2.Auth.Web3AuthSigning` auto-generates one on boot and persists it to `priv/web3auth_keys/signing_key.json` (gitignored). On mainnet, **generate it once on a secure machine, mount as a Fly secret volume or file, and set `WEB3AUTH_JWT_SIGNING_KEY_PATH`**.
+The backend signs the email + Telegram Custom JWTs with an RSA private key. **Don't pre-generate it** — `BlocksterV2.Auth.Web3AuthSigning.load_or_generate/0` (`lib/blockster_v2/auth/web3auth_signing.ex:33-46`) auto-generates a fresh 2048-bit RSA keypair on first boot and persists it to whatever path `WEB3AUTH_JWT_SIGNING_KEY_PATH` points at (creating any missing parent dirs via `File.mkdir_p!`). Subsequent boots read the same file, same `kid`, every time.
+
+**The full provisioning flow is just**:
+
+1. Include `WEB3AUTH_JWT_SIGNING_KEY_PATH=/data/web3auth/signing_key.json` in the Step 6 main-app `flyctl secrets set` block (already documented above). `/data` is the existing `mnesia_data` Fly volume — the key persists across deploys and machine restarts.
+2. Run Deploy #1 (`flyctl deploy --app blockster-v2`).
+3. On first boot, the supervised `Web3AuthSigning` Agent starts, finds no file at the path, generates the keypair, writes `/data/web3auth/signing_key.json`, logs `[Web3AuthSigning] generated new signing key at … (kid=…)`. The JWKS endpoint goes live the same moment.
+
+**Why no separate volume**: Fly volumes can't nest inside other mount destinations. A second volume mounted at `/data/web3auth` would conflict with the existing `/data` mount and Fly rejects the deploy. The auto-generate code already lives the key inside the existing `/data` mount, so no new volume needed.
+
+**Backup the auto-generated key (recommended)**:
 
 ```bash
-# One-time: generate a 2048-bit RSA keypair wrapped in the JSON format the
-# backend reads (same shape as the dev file).
-cat <<'EOF' > /tmp/gen_web3auth_key.exs
-jwk = JOSE.JWK.generate_key({:rsa, 2048})
-{_, pem_bin} = JOSE.JWK.to_pem(jwk)
-pem = to_string(pem_bin)
-kid = :crypto.hash(:sha256, pem)
-      |> Base.encode16(case: :lower)
-      |> binary_part(0, 16)
-File.write!("/tmp/web3auth_signing_key.json", Jason.encode!(%{pem: pem, kid: kid}))
-IO.puts("kid: #{kid}")
-IO.puts("Saved to /tmp/web3auth_signing_key.json")
-EOF
-mix run /tmp/gen_web3auth_key.exs
+flyctl ssh console --app blockster-v2 -C "cat /data/web3auth/signing_key.json"
 ```
 
-Place the key inside the existing `mnesia_data` volume that's already mounted at `/data` (per `fly.toml`). **Do NOT create a separate `web3auth_keys` volume mounted at `/data/web3auth`** — Fly volumes can't nest inside other mount destinations, so a second volume targeting `/data/web3auth` would conflict with the existing `/data` mount and Fly will reject the deploy.
+Copy the output `{"pem": "...", "kid": "..."}` to a password manager. If the Fly volume is ever destroyed, paste back into `/data/web3auth/signing_key.json` before re-deploying so all outstanding signed JWTs stay valid. If you skip the backup and the volume is lost, the next boot generates a new `kid` and any in-flight JWTs become invalid — users re-sign in (annoying, not catastrophic).
+
+**Manual override**: if you ever need to rotate or replace the key (e.g., suspected compromise), generate a new one with the snippet below and overwrite the file via `flyctl ssh console`. The Agent re-loads on next process restart.
 
 ```bash
-# On first deploy, SSH in and copy the key into the existing /data mount
-flyctl ssh console --app blockster-v2
-mkdir -p /data/web3auth
-# paste the contents of /tmp/web3auth_signing_key.json into /data/web3auth/signing_key.json
-chmod 600 /data/web3auth/signing_key.json
-exit
+# OPTIONAL — only needed for manual key generation outside the auto-generate path.
+# Run via flyctl ssh console + bin/blockster_v2 rpc, or locally if you have the
+# project's mix env set up.
+flyctl ssh console --app blockster-v2 -C "bin/blockster_v2 rpc '
+  jwk = JOSE.JWK.generate_key({:rsa, 2048})
+  {_, pem_bin} = JOSE.JWK.to_pem(jwk)
+  pem = to_string(pem_bin)
+  kid = :crypto.hash(:sha256, pem) |> Base.encode16(case: :lower) |> binary_part(0, 16)
+  File.write!(\"/data/web3auth/signing_key.json\", Jason.encode!(%{pem: pem, kid: kid}))
+  IO.puts(\"new kid: #{kid}\")
+'"
+flyctl machines restart --app blockster-v2  # picks up the new key
 ```
 
-The key persists across deploys because `/data` is on a Fly volume. If you ever need to rebuild the prod machine from scratch (volume restored from snapshot), the key comes back with it.
+After rotation, re-register the new public key with Web3Auth (since `kid` changed, the dashboard's verifier picks it up automatically via the JWKS URL — no dashboard edit needed).
 
 Then register the PUBLIC key half with Web3Auth's dashboard (JWKS URL = `https://blockster.com/.well-known/jwks.json` — the backend serves the public JWK set from that path automatically).
 
