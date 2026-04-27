@@ -14,7 +14,9 @@ Phoenix LiveView web3 content platform — shop, hubs, events, token-based engag
 
 **Security**:
 - NEVER read `.env` files — they contain private keys.
-- NEVER use public Solana RPCs (`api.devnet.solana.com`, `api.mainnet-beta.solana.com`). Always use the project QuickNode RPC from `contracts/blockster-settler/src/config.ts`.
+- NEVER use public Solana RPCs. Specifically, NEVER use `api.devnet.solana.com`, `api.mainnet-beta.solana.com`, `solana-api.projectserum.com`, or any other shared/public endpoint — they rate-limit aggressively, drop signature-status polls, and don't carry priority fees. Always use the project QuickNode endpoints:
+  - **Devnet** (local dev): `https://summer-sleek-shape.solana-devnet.quiknode.pro/92b7f51caa76f2981879528aee40a3e8e58cac60/` — hardcoded as the fallback in `contracts/blockster-settler/src/config.ts:11` and the 7 client-side JS hooks. Used when `SOLANA_RPC_URL` env is unset.
+  - **Mainnet** (prod): `https://radial-fittest-sanctuary.solana-mainnet.quiknode.pro/bba3cfea34edbf35708389240474cf5cd966c86b/` — set as `SOLANA_RPC_URL` Fly secret on `blockster-settler` + `blockster-v2`, and injected as `window.__SOLANA_RPC_URL` via `lib/blockster_v2_web/components/layouts/root.html.heex` for the JS hooks. NEVER hardcode this URL into source — it stays env-only so rotation is one `flyctl secrets set --stage` away.
 - NEVER use `solana airdrop` or any devnet faucet — ask the user to fund wallets manually.
 - NEVER cache Web3Auth-derived Solana private keys in memory between operations. Fetch via `provider.request({method: "solana_privateKey"})` per sign, use within the call, then `secretKey.fill(0)` in the `finally` block. Never write to localStorage/sessionStorage. See [docs/web3auth_integration.md](docs/web3auth_integration.md) §4 for the pattern.
 
