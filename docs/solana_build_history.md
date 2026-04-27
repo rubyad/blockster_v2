@@ -9,6 +9,56 @@ Chronological record of all Solana migration changes and post-migration updates 
 
 ---
 
+## Referrals UI Parked — Feature Deferred Until Post-Launch (2026-04-27) 🟨
+
+Strips every user-visible referral surface on `feat/solana-migration` so the day-1 mainnet deploy ships without promising any rewards (BUX or SOL) for inviting friends. Decision came after a pre-deploy audit found the referral plumbing only half-wired: backend Mnesia + Anchor support exist, but the new-Web3Auth signup path doesn't call `Referrals.process_signup_referral`, the settler has no `/set-player-referrer` route, and the settler's `settle_bet` tx builder hardcodes `NONE` for tier-1/tier-2 referrer accounts — so the on-chain rewards path is inert.
+
+Rather than rush the half-wiring across the line in a 1-2 day sprint, parked the entire feature: removed UI, kept backend scaffolding intact for clean re-enablement when the team has dedicated time.
+
+### What shipped — UI removal
+
+- **Routes** — `/notifications/referrals` removed from `router.ex` (replaced with rationale comment).
+- **LiveView modules** — `lib/blockster_v2_web/live/notification_live/referrals.ex` deleted.
+- **Notification index** (`lib/blockster_v2_web/live/notification_live/index.ex`) — "Referral Dashboard" link card next to the Settings cog removed.
+- **Member profile show.ex** — `Referrals` alias, all referral data loads, PubSub subscribe to `"referral:#{id}"`, all referral assigns (`@referral_link`, `@referral_stats`, `@referrals`, `@referral_earnings`), event handlers (`copy_referral_link`, `load_more_earnings`), `handle_info({:referral_earning, _})`, and helper functions (`generate_referral_link`, `format_referral_number`, `earning_type_label`, `earning_type_style`) all removed.
+- **Member profile show.html.heex** — "Refer" tab dropped from the desktop tab list and mobile select; the entire refer-tab content section (referral link card + 4 stat tiles + live earnings table) deleted; "Referrals" sub-section on the Rewards tab + `referral_bux` accumulator both stripped.
+- **Announcement banner** (`lib/blockster_v2_web/components/announcement_banner.ex`) — `conditional_referral/1` now returns `[]` for all callers. Was previously rotating "Invite friends. Earn 500 BUX per signup + 0.2% of their bets forever." and "Your referral link earns you BUX every time a friend plays." messages.
+- **Docs pages** — `/docs/pools` Referrals section (eyebrow 10) + sidebar nav entry removed; "Referral drag" risk subsection in the Risk Profile section removed; `/docs/coin-flip` "Referral rewards" subsection in the settle_bet flow removed.
+- **Tests** — `test/blockster_v2_web/live/member_live/referral_test.exs` deleted (~13 tests). 11 referral-dashboard tests in `notification_live/index_test.exs` deleted across two describe blocks. "switch_tab to refer shows referral section" test removed. "renders 5-tab navigation" updated to assert 4 tabs + refute Refer. `format_referral_number` parity test in `format_helpers_test.exs` removed (helper itself deleted from member/show.ex).
+
+### What was preserved — backend dead code, ready for revival
+
+- `lib/blockster_v2/referrals.ex` — entire context module untouched. `process_signup_referral/2`, `record_bet_loss_earning/1`, `list_referral_earnings/2`, `get_referrer_stats/1`, etc. all callable.
+- `lib/blockster_v2/mnesia_initializer.ex` — `:referrals`, `:referral_earnings`, `:referral_stats` table definitions intact. Production data on those tables (legacy EVM-era referrals) survives and is still queryable.
+- `lib/blockster_v2_web/controllers/auth_controller.ex` — legacy `verify_email` referral hook preserved; the route is unreachable from the Web3Auth UI but the call site stays so re-enabling is one less rewire.
+- `contracts/blockster-bankroll/programs/blockster-bankroll/src/instructions/set_referrer.rs` — Anchor instruction unchanged. `GameRegistry.referral_bps` (default 100 bps) + `GameRegistry.tier2_referral_bps` (default 50 bps) fields still live on the deployed program. `settle_bet` still has the `process_*_referral_rewards` flow — currently dormant only because the settler tx builder passes `NONE` for tier-1/tier-2 referrer accounts.
+- Smart-contract / security-audit `/docs/*` pages — technical references describe the program's actual behavior accurately and stay; only user-facing promises were removed.
+- `test/blockster_v2/referrals_test.exs` — 13 backend context unit tests still run as part of the suite. They pass today.
+
+### Why park rather than rip out
+
+The decision to keep backend code matters: Mnesia tables can't be cleanly recreated post-launch without a migration, and re-adding the Anchor `set_referrer` instruction would burn a buffer account + require settler-keypair signature for nothing. Keeping the plumbing means re-shipping the feature is purely UI work + a couple of glue calls, not a multi-week reconstruction.
+
+### Revival path (when product schedules a follow-up)
+
+Three layers, in order:
+
+1. **UI** — re-add `/notifications/referrals` LV (or whatever shape v2 takes), re-add the "Refer" tab to `/member/:slug`, re-introduce share-link UX. Capture `?ref=<wallet>` query param at page load + propagate to signup endpoints.
+2. **Off-chain link** (the BUX signup bonus path) — call `Referrals.process_signup_referral(new_user, referrer_wallet)` from `Accounts.create_user_from_web3auth/2` for new-user branches. Both referrer + referee receive their BUX bonus via `BuxMinter.mint_bux`. This alone delivers the most user-visible piece of the feature; on-chain SOL/BUX kickbacks on bet losses are a separate layer.
+3. **On-chain link** (optional, the 1% / 0.5% bet-loss kickbacks) — build a settler `POST /set-player-referrer` route that signs + submits the Anchor `set_referrer` instruction; update the settler's `settle_bet` tx builder in `bankroll-service.ts` to pass actual tier-1 / tier-2 referrer accounts (resolved from `player_state` reads) instead of the current hardcoded `NONE`. Decide UX: when does the user sign the `set_referrer` tx (auto on first bet? explicit modal CTA? on signup with a wallet popup?). The Anchor instruction enforces one-time set + blocks self-referral + zeros tier-2 loops, so the UX has only one path.
+
+Layers 1 + 2 are 1-2 days of work. Layer 3 is another 1-2 days plus devnet test cycles. Total ~1 week of dedicated post-launch effort to ship feature-complete.
+
+### Test status
+
+`mix test --seed 0`: 3337 / 0 / 201 (was 3363 / 0 / 211; delta matches removed test count exactly: 13 referral_test + 11 dashboard + 1 refer-tab + 1 format_referral_number = 26 tests removed).
+
+### Commit
+
+`7e3c658 chore(referrals): strip all referral UI surfaces — feature parked until post-launch` (13 files changed, 43 insertions, 1054 deletions).
+
+---
+
 ## Shop Checkout: BUX Burn Rebuild + SOL-First Sweep + Payment UX Overhaul (2026-04-24) ✅
 
 Two-part push: (1) rebuild the dead EVM-era BUX burn hook for Solana so BUX-discounted shop orders work at all, (2) sweep every shop surface to SOL-primary / USD-secondary display. Plus a payment-UX overhaul that closes the "stuck on processing → refresh to see confirmation" race. See also [shop_checkout_plan.md](shop_checkout_plan.md) Phase 13 for the per-file change manifest.
