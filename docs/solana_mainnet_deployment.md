@@ -452,7 +452,13 @@ flyctl secrets set \
   --stage --app blockster-v2
 ```
 
-`WEB3AUTH_CLIENT_ID` comes from the Web3Auth dashboard — create a **separate Sapphire Mainnet** project for production (DO NOT reuse the Sapphire Devnet project). Whitelist `https://blockster.com` as the authorized origin. Set up the same four social Connections (Email Passwordless — left on but unused, keep enabled in case of fallback; Google; Apple; Twitter) PLUS two Custom JWT verifiers described below.
+`WEB3AUTH_CLIENT_ID` comes from the Web3Auth dashboard — create a **separate Sapphire Mainnet** project for production (DO NOT reuse the Sapphire Devnet project). Whitelist `https://blockster.com` AND `https://blockster-v2.fly.dev` as authorized origins (the second is the Fly default fallback URL — useful when DNS / TLS issues prevent traffic to the custom domain). Enable exactly **two** OAuth Connections: **Google** and **Twitter (X)**.
+
+**Disabled by design** (do NOT enable):
+- **Apple** — not in scope for v1; the sign-in modal doesn't render an Apple tile (`wallet_components_test.exs:239` asserts `refute html =~ "start_apple_login"`). Re-enable later if there's product demand.
+- **Email Passwordless** — production email sign-in runs entirely through the `blockster-email` Custom JWT verifier (in-app OTP form → backend signs JWT → Web3Auth `CUSTOM` connector derives MPC wallet). Web3Auth's own Email Passwordless flow opens a captcha popup the user has to clear in a separate window — bad UX, defeats the point of the in-app OTP. Leaving it off in the dashboard hardens the deploy: even if a code path tries to fall back to it (e.g., the dead `case "email"` branch in `web3auth_hook.js:_loginParamsFor`), the dashboard refuses the connector and the request errors loud instead of opening an unexpected popup.
+
+PLUS two Custom JWT verifiers described below — those carry the email + Telegram flows.
 
 > **Mobile redirect whitelist (2026-04-24)**: the Web3Auth hook now uses `uxMode: "redirect"` on mobile UAs (iOS Safari + Android Chrome popups are unreliable). The user's browser navigates to `auth.web3auth.io` and back. This means **every origin a user lands back on after OAuth must be whitelisted** in the dashboard. For prod, that's `https://blockster.com`. For staging/dev, add the cloudflared tunnel hostname you're testing on (named tunnels keep a stable hostname; the default rotates per restart). Without the whitelist entry, mobile sign-ins fail post-redirect with a Web3Auth-side `unauthorized origin` error.
 
@@ -870,7 +876,7 @@ Social login ships behind `SOCIAL_LOGIN_ENABLED`. After the Phase 5–10 session
 - [ ] Web3Auth Sapphire **Mainnet** project created (not devnet), client ID matches `WEB3AUTH_CLIENT_ID` secret.
 - [ ] `WEB3AUTH_NETWORK=SAPPHIRE_MAINNET` and `WEB3AUTH_CHAIN_ID=0x65` staged (0x65 = Solana mainnet in ws-embed's chain ID convention — NOT `0x1`).
 - [ ] `https://blockster.com` whitelisted as an authorized origin in the Web3Auth dashboard.
-- [ ] OAuth Connections enabled: Google, Apple, Twitter (X). Email Passwordless kept on as an unused fallback — production email flow runs through the `blockster-email` Custom JWT verifier instead.
+- [ ] OAuth Connections enabled: Google + Twitter (X) only. Apple disabled (not in v1 scope). Email Passwordless disabled (production email flow runs through the `blockster-email` Custom JWT verifier — Web3Auth's own passwordless flow would open a captcha popup; leaving it disabled hardens the deploy against any code path falling back to it).
 - [ ] **Custom JWT verifier `blockster-email` registered**: JWKS URL `https://blockster.com/.well-known/jwks.json`, verifier ID field `sub`, aud `blockster-web3auth`, iss `blockster`, alg `RS256`. See the two-verifier table in Step 7 (Web3Auth secrets) above.
 - [ ] **Custom JWT verifier `blockster-telegram` registered** (same JWKS / aud / iss / alg), name matches `WEB3AUTH_TELEGRAM_VERIFIER_ID`.
 - [ ] **BotFather `/setdomain` run for `blockster.com`** + every cloudflared hostname used in staging/QA.
