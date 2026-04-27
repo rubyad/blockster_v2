@@ -490,6 +490,8 @@ The widget also calls a Telegram-hosted iframe that needs HTTPS — the Login Wi
 
 Both point at OUR JWKS (`https://blockster.com/.well-known/jwks.json`). The dashboard needs two separate verifier entries so the MPC wallet derivation namespace stays distinct per identity type (email vs Telegram).
 
+> **Save-time JWKS probe (2026-04-27)**: the Web3Auth dashboard fetches the JWKS URL when you click Save on the verifier — it's not just consulted at sign-in time. That means **you can't save these verifiers until JWKS is live**. JWKS goes live with Deploy #1 (the route exists in `auth_controller.ex:567` regardless of `SOCIAL_LOGIN_ENABLED` and the signing key only needs to be mounted at `/data/web3auth/signing_key.json`). So the verifier-save step belongs **between Deploy #1 and Deploy #2** in the day-1 plan, not before Deploy #1.
+
 **Verifier 1 — `blockster-email`** (powers in-app email OTP sign-in):
 
 | Field | Value |
