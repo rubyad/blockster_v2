@@ -426,12 +426,15 @@ flyctl secrets set \
   SOLANA_RPC_URL="https://YOUR_QUICKNODE_MAINNET_URL" \
   SOLANA_AUTHORITY_ADDRESS="6b4nMSTWJ1yxZZVmqokf6QrVoF9euvBSdB11fC3qfuv1" \
   HOURLY_PROMO_ENABLED="false" \
+  SKIP_FINGERPRINT_CHECK="true" \
   --stage --app blockster-v2
 ```
 
 The `BLOCKSTER_SETTLER_SECRET` must match the `SETTLER_API_SECRET` set on the settler.
 
 `HOURLY_PROMO_ENABLED=false` is the intended default — the `HourlyPromoScheduler` GenServer is gated behind this flag and will NOT start when it's unset or false. Keeping the Telegram promo bot silent on mainnet is the current product decision (see [docs/social_login_plan.md](social_login_plan.md) Appendix A). To re-enable later: `flyctl secrets set HOURLY_PROMO_ENABLED=true --stage --app blockster-v2`, deploy, then toggle the `hourly_promo_enabled` SystemConfig key true via `/admin/promo`.
+
+`SKIP_FINGERPRINT_CHECK=true` disables the legacy EVM email-signup fingerprint hard-block (`Accounts.authenticate_new_user_with_fingerprint/1` at `lib/blockster_v2/accounts.ex:783`). The Web3Auth social login flows on the Solana branch DO NOT use this code path — they go through `get_or_create_user_by_web3auth/1` which has no fingerprint gating. The legacy `POST /api/auth/email/verify` route is still wired in `router.ex:217` but unreachable from the new UI; setting this flag to `true` belt-and-suspenders prevents stray calls (scanners, old clients, curl) from triggering a "fingerprint already taken" hard-block on a real user. Phone verification's anti-fraud gates (VoIP block, rate limits, phone uniqueness) are independent of this flag and remain active.
 
 ### Web3Auth social login secrets (Phase 5+)
 
@@ -586,6 +589,7 @@ Then register the PUBLIC key half with Web3Auth's dashboard (JWKS URL = `https:/
 | `BLOCKSTER_V2_BOT_TOKEN` | main app | Telegram bot token for HMAC verification of Login Widget payloads |
 | `SOCIAL_LOGIN_ENABLED` | main app | Feature flag — `false` keeps social login UI hidden |
 | `HOURLY_PROMO_ENABLED` | main app | `false` — keeps the Telegram promo scheduler off |
+| `SKIP_FINGERPRINT_CHECK` | main app | `true` — belt-and-suspenders disables the legacy `/api/auth/email/verify` fingerprint hard-block. Web3Auth flows are unaffected (no fingerprint gating in that path). Recommended `true` on the Solana branch since the legacy email-signup UI is unreachable. |
 
 ---
 
