@@ -165,7 +165,9 @@ defmodule BlocksterV2Web.MemberLive.ShowTest do
       assert html =~ "200"
     end
 
-    test "renders 5-tab navigation", %{conn: conn} do
+    test "renders 4-tab navigation", %{conn: conn} do
+      # Refer tab removed 2026-04-27 — referral feature parked. Tabs are now
+      # Activity / Following / Rewards / Settings.
       user = insert_user(%{slug: "tabs"})
       conn = log_in_user(conn, user)
 
@@ -174,9 +176,9 @@ defmodule BlocksterV2Web.MemberLive.ShowTest do
       assert html =~ "ds-profile-tabs"
       assert html =~ "Activity"
       assert html =~ "Following"
-      assert html =~ "Refer"
       assert html =~ "Rewards"
       assert html =~ "Settings"
+      refute html =~ ~s|phx-value-tab="refer"|
     end
 
     @tag :skip
@@ -313,19 +315,7 @@ defmodule BlocksterV2Web.MemberLive.ShowTest do
       assert html =~ "Discover more"
     end
 
-    test "switch_tab to refer shows referral section", %{conn: conn} do
-      user = insert_user(%{slug: "refertab"})
-      conn = log_in_user(conn, user)
-
-      {:ok, view, _html} = live(conn, ~p"/member/refertab")
-
-      html = view |> element(~s|button[phx-value-tab="refer"]|) |> render_click()
-
-      assert html =~ "ds-refer-tab"
-      assert html =~ "Refer friends"
-      assert html =~ "Your referral link"
-      assert html =~ "Total referrals"
-    end
+    # "switch_tab to refer" test removed 2026-04-27 — referral feature parked.
 
     test "switch_tab to rewards shows rewards breakdown", %{conn: conn} do
       user = insert_user(%{slug: "rewardtab"})
@@ -341,7 +331,7 @@ defmodule BlocksterV2Web.MemberLive.ShowTest do
       assert html =~ "By source"
       assert html =~ "Reading articles"
       assert html =~ "X shares"
-      assert html =~ "Referrals"
+      # Referrals subsection asserted previously removed 2026-04-27 alongside the rewards-tab Referrals card.
     end
 
     test "switch_tab to settings shows account details", %{conn: conn} do

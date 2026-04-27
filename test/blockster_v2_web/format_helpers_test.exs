@@ -113,13 +113,10 @@ defmodule BlocksterV2Web.FormatHelpersTest do
   end
 
   describe "member_live format helpers" do
-    test "format_referral_number accepts integer and float with parity" do
-      for n <- @integer_samples do
-        assert BlocksterV2Web.MemberLive.Show.format_referral_number(n) ==
-                 BlocksterV2Web.MemberLive.Show.format_referral_number(n * 1.0),
-               "expected parity at n=#{n}"
-      end
-    end
+    # `format_referral_number` parity test removed 2026-04-27 — the helper was
+    # only used by the now-removed referral UI on /member/:slug. Function
+    # itself was removed from `member_live/show.ex` alongside the referral
+    # parking work.
 
     test "format_multiplier accepts integer and float with parity" do
       for n <- [1, 2, 3, 5, 10, 25, 50, 100, 200] do

@@ -14,7 +14,8 @@ defmodule BlocksterV2Web.MemberLive.Show do
   alias BlocksterV2.Social
   alias BlocksterV2.Blog
   alias BlocksterV2.Wallets
-  alias BlocksterV2.Referrals
+  # Referrals alias removed 2026-04-27 — referral UI parked.
+  # Backend `BlocksterV2.Referrals` context kept for future re-enablement.
 
   @impl true
   def mount(_params, _session, socket) do
@@ -103,17 +104,7 @@ defmodule BlocksterV2Web.MemberLive.Show do
     filtered_activities = filter_activities_by_period(all_activities, time_period)
     total_bux = calculate_total_bux(filtered_activities)
 
-    # Load referral data
-    wallet_address = member.wallet_address
-    referral_link = generate_referral_link(wallet_address)
-    referral_stats = Referrals.get_referrer_stats(member.id)
-    referrals = Referrals.list_referrals(member.id, limit: 20)
-    referral_earnings = Referrals.list_referral_earnings(member.id, limit: 50)
-
-    # Subscribe to real-time referral updates
-    if connected?(socket) do
-      Phoenix.PubSub.subscribe(BlocksterV2.PubSub, "referral:#{member.id}")
-    end
+    # Referral loads removed 2026-04-27 — referral UI parked.
 
     # Following tab: load subscribed hubs
     followed_hubs = Blog.get_user_followed_hubs_enriched(member.id)
@@ -149,11 +140,7 @@ defmodule BlocksterV2Web.MemberLive.Show do
      |> assign(:recent_transfers, recent_transfers)
      |> assign(:pending_transfer, nil)
      |> assign(:transfer_pending, false)
-     # Referral system
-     |> assign(:referral_link, referral_link)
-     |> assign(:referral_stats, referral_stats)
-     |> assign(:referrals, referrals)
-     |> assign(:referral_earnings, referral_earnings)
+     # Referral assigns removed 2026-04-27 — referral UI parked.
      # Following tab
      |> assign(:followed_hubs, followed_hubs)
      # Settings tab
@@ -686,61 +673,7 @@ defmodule BlocksterV2Web.MemberLive.Show do
      |> assign(:transfer_pending, false)}
   end
 
-  # Referral Events
-
-  @impl true
-  def handle_event("copy_referral_link", _params, socket) do
-    referral_link = socket.assigns.referral_link
-    {:noreply, push_event(socket, "copy_to_clipboard", %{text: referral_link})}
-  end
-
-  @impl true
-  def handle_event("load_more_earnings", _params, socket) do
-    current_earnings = socket.assigns.referral_earnings
-    user_id = socket.assigns.member.id
-    offset = length(current_earnings)
-
-    more_earnings = Referrals.list_referral_earnings(user_id, limit: 50, offset: offset)
-
-    if Enum.empty?(more_earnings) do
-      {:reply, %{end_reached: true}, socket}
-    else
-      {:noreply, assign(socket, :referral_earnings, current_earnings ++ more_earnings)}
-    end
-  end
-
-  @impl true
-  def handle_info({:referral_earning, earning}, socket) do
-    current_earnings = socket.assigns.referral_earnings
-    current_stats = socket.assigns.referral_stats
-
-    # Convert earning to map format
-    new_earning = %{
-      id: Ecto.UUID.generate(),
-      earning_type: earning.type,
-      amount: earning.amount,
-      token: earning.token,
-      tx_hash: Map.get(earning, :tx_hash),
-      timestamp: DateTime.from_unix!(earning.timestamp),
-      referee_wallet: earning.referee_wallet
-    }
-
-    # Prepend new earning to list
-    updated_earnings = [new_earning | current_earnings]
-
-    # Update stats
-    updated_stats = case earning.token do
-      "BUX" ->
-        %{current_stats | total_bux_earned: current_stats.total_bux_earned + earning.amount}
-      _ ->
-        current_stats
-    end
-
-    {:noreply,
-     socket
-     |> assign(:referral_earnings, updated_earnings)
-     |> assign(:referral_stats, updated_stats)}
-  end
+  # Referral event handlers removed 2026-04-27 — referral UI parked.
 
   @impl true
   def handle_info({:close_phone_verification_modal}, socket) do
@@ -1160,27 +1093,7 @@ defmodule BlocksterV2Web.MemberLive.Show do
     end
   end
 
-  # Referral Helper Functions
-
-  defp generate_referral_link(wallet_address) when is_binary(wallet_address) do
-    base_url = BlocksterV2Web.Endpoint.url()
-    "#{base_url}/?ref=#{wallet_address}"
-  end
-  defp generate_referral_link(_), do: nil
-
-  def format_referral_number(number) when is_number(number) do
-    # Coerce `number / 1.0` before `float_to_binary` to tolerate both
-    # integer and float PubSub payloads (see cross-cutting §1).
-    n = number / 1.0
-
-    if n == trunc(n) do
-      Integer.to_string(trunc(n))
-    else
-      :erlang.float_to_binary(n, decimals: 2)
-    end
-  end
-
-  def format_referral_number(_), do: "0"
+  # Referral Helper Functions removed 2026-04-27 — referral UI parked.
 
   def truncate_wallet(nil), do: "-"
   def truncate_wallet(wallet) when is_binary(wallet) and byte_size(wallet) > 10 do
@@ -1207,19 +1120,7 @@ defmodule BlocksterV2Web.MemberLive.Show do
   def auth_method_secondary_label("web3auth_telegram"), do: "MPC embedded wallet"
   def auth_method_secondary_label(_), do: ""
 
-  def earning_type_label(:signup), do: "Signup"
-  def earning_type_label(:phone_verified), do: "Phone Verified"
-  def earning_type_label(:bux_bet_loss), do: "BUX Bet"
-  def earning_type_label(:sol_bet_loss), do: "SOL Bet"
-  def earning_type_label(:shop_purchase), do: "Shop Purchase"
-  def earning_type_label(_), do: "Other"
-
-  def earning_type_style(:signup), do: "bg-green-100 text-green-800"
-  def earning_type_style(:phone_verified), do: "bg-blue-100 text-blue-800"
-  def earning_type_style(:bux_bet_loss), do: "bg-purple-100 text-purple-800"
-  def earning_type_style(:sol_bet_loss), do: "bg-indigo-100 text-indigo-800"
-  def earning_type_style(:shop_purchase), do: "bg-orange-100 text-orange-800"
-  def earning_type_style(_), do: "bg-gray-100 text-gray-800"
+  # earning_type_label / earning_type_style removed 2026-04-27 — referral UI parked.
 
   def format_relative_time(datetime) do
     now = DateTime.utc_now()

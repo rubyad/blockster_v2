@@ -162,7 +162,10 @@ defmodule BlocksterV2Web.Router do
       live "/tag/:tag", PostLive.Tag, :show
       live "/notifications", NotificationLive.Index, :index
       live "/notifications/settings", NotificationSettingsLive.Index, :index
-      live "/notifications/referrals", NotificationLive.Referrals, :index
+      # `/notifications/referrals` route removed 2026-04-27 — referral feature
+      # parked until post-launch. Backend `BlocksterV2.Referrals` context +
+      # Mnesia tables (:referrals, :referral_earnings, :referral_stats) kept
+      # as dead code for re-enablement.
       live "/media-kit", MediaKitLive, :index
       live "/privacy", LegalLive.Privacy, :index
       live "/terms", LegalLive.Terms, :index

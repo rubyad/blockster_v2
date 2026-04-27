@@ -31,7 +31,6 @@ defmodule BlocksterV2Web.PagesSmokeTest do
     {"/wallet", "wallet"},
     {"/notifications", "notifications"},
     {"/notifications/settings", "notification settings"},
-    {"/notifications/referrals", "notification referrals"},
     {"/media-kit", "media kit"},
     {"/privacy", "privacy"},
     {"/terms", "terms"},

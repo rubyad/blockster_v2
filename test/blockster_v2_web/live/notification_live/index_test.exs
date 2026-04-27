@@ -93,11 +93,9 @@ defmodule BlocksterV2Web.NotificationLive.IndexTest do
       assert html =~ "/notifications/settings"
     end
 
-    test "renders referrals link", %{conn: conn} do
-      {:ok, _view, html} = live(conn, "/notifications")
-
-      assert html =~ "/notifications/referrals"
-    end
+    # `renders referrals link` removed 2026-04-27 — referral feature parked,
+    # the /notifications/referrals route + corresponding link card on
+    # /notifications were both deleted. See router.ex + notification_live/index.ex.
   end
 
   describe "notification index · logged in" do
@@ -195,82 +193,9 @@ defmodule BlocksterV2Web.NotificationLive.IndexTest do
     end
   end
 
-  # ============ /notifications/referrals — Referral Dashboard ============
-
-  describe "referral dashboard · anonymous" do
-    test "renders the page with DS header and footer", %{conn: conn} do
-      {:ok, _view, html} = live(conn, "/notifications/referrals")
-
-      assert html =~ "ds-site-header"
-      # Footer mission line — sentinel for the redesigned dark <.footer />.
-      assert html =~ "Hustle hard. All in on crypto."
-    end
-
-    test "renders referral dashboard title", %{conn: conn} do
-      {:ok, _view, html} = live(conn, "/notifications/referrals")
-
-      assert html =~ "Referral Dashboard"
-    end
-
-    test "renders connect wallet prompt for anonymous", %{conn: conn} do
-      {:ok, _view, html} = live(conn, "/notifications/referrals")
-
-      assert html =~ "Connect your wallet"
-    end
-
-    test "renders stats cards", %{conn: conn} do
-      {:ok, _view, html} = live(conn, "/notifications/referrals")
-
-      assert html =~ "Referrals"
-      assert html =~ "Verified"
-      assert html =~ "BUX Earned"
-    end
-
-    test "renders how it works section", %{conn: conn} do
-      {:ok, _view, html} = live(conn, "/notifications/referrals")
-
-      assert html =~ "How Referral Rewards Work"
-    end
-
-    test "renders empty earnings state", %{conn: conn} do
-      {:ok, _view, html} = live(conn, "/notifications/referrals")
-
-      assert html =~ "No earnings yet"
-    end
-
-    test "renders back link to notifications", %{conn: conn} do
-      {:ok, _view, html} = live(conn, "/notifications/referrals")
-
-      assert html =~ "/notifications"
-    end
-  end
-
-  describe "referral dashboard · logged in" do
-    setup %{conn: conn, user: user} do
-      %{conn: log_in_user(conn, user)}
-    end
-
-    test "renders referral link for logged in user", %{conn: conn, user: user} do
-      {:ok, _view, html} = live(conn, "/notifications/referrals")
-
-      assert html =~ "Your Referral Link"
-      assert html =~ user.wallet_address
-    end
-
-    test "renders copy button with CopyToClipboard hook", %{conn: conn} do
-      {:ok, _view, html} = live(conn, "/notifications/referrals")
-
-      assert html =~ "CopyToClipboard"
-      assert html =~ "Copy Link"
-    end
-
-    test "renders share buttons", %{conn: conn} do
-      {:ok, _view, html} = live(conn, "/notifications/referrals")
-
-      assert html =~ "Share via:"
-      assert html =~ "x.com/intent/tweet"
-    end
-  end
+  # ============ /notifications/referrals describe blocks (10 tests)
+  # removed 2026-04-27 — referral feature parked. The /notifications/referrals
+  # route + NotificationLive.Referrals LV file were both deleted. ============
 
   # ============ /notifications/settings — Settings Page ============
 

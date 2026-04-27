@@ -30,7 +30,6 @@
     %{id: "cost-basis", label: "Cost basis & P/L"},
     %{id: "history", label: "Price history & chart"},
     %{id: "risk", label: "Risk profile"},
-    %{id: "referrals", label: "Referrals"},
     %{id: "instructions", label: "On-chain instructions"}
   ]} />
 
@@ -454,44 +453,16 @@ total_pnl      = unrealized_pnl + realized_gain
       </p>
     </BlocksterV2Web.DocsComponents.subsection>
 
-    <BlocksterV2Web.DocsComponents.subsection title="5. Referral drag">
-      <p>
-        Losing bets trigger referral rewards (1% tier-1 plus up to 0.5% tier-2) that come <em>out of the vault</em>. LPs subsidise the referral programme; the house does not take a separate cut to fund it. This is already baked into the effective house edge (~0.5–0.7% net to LPs on Win All variants after referrals) but worth being aware of.
-      </p>
-    </BlocksterV2Web.DocsComponents.subsection>
   </BlocksterV2Web.DocsComponents.section>
 
-  <BlocksterV2Web.DocsComponents.section id="referrals" title="Referrals" eyebrow="10">
-    <p>
-      Every player has exactly one tier-1 referrer (one-time set) and an auto-resolved tier-2 referrer (their referrer's referrer). When a player loses a bet, the settlement instruction pays a percentage of the lost wager to each referrer directly from the vault.
-    </p>
+  <%!-- Referrals section removed 2026-04-27 — referral feature parked until
+       post-launch. Program-side `set_referrer` instruction + tier-1/tier-2
+       referral_bps fields remain on the deployed bankroll program (see the
+       Smart Contracts reference page for the technical schema), but no UI
+       surfaces them and no settlement tx passes referrer accounts, so no
+       on-chain referral rewards fire. --%>
 
-    <BlocksterV2Web.DocsComponents.kv_table
-      title="Referral rates (configurable via update_config)"
-      rows={[
-        {"Tier-1", "100 bps (1%) of lost wager"},
-        {"Tier-2", "50 bps (0.5%) of lost wager"},
-        {"Combined cap", "500 bps — enforced by update_config"},
-        {"Per-tier cap", "500 bps — enforced by update_config"},
-        {"Payout currency", "Same as the bet (SOL → SOL, BUX → BUX)"},
-        {"Failure mode", "ReferralRewardFailed event; settlement continues"}
-      ]}
-    />
-
-    <BlocksterV2Web.DocsComponents.callout kind="info" title="Referrals are best-effort">
-      <p>
-        If the referrer's ATA doesn't exist, or the CPI transfer fails for any other reason, the program emits <BlocksterV2Web.DocsComponents.inline_code>ReferralRewardFailed</BlocksterV2Web.DocsComponents.inline_code> and continues. Bet settlement <em>never</em> reverts on a failed referral payout — prioritising the player's outcome over the referrer's reward.
-      </p>
-    </BlocksterV2Web.DocsComponents.callout>
-
-    <BlocksterV2Web.DocsComponents.subsection title="Anti-loop protection">
-      <p>
-        The program blocks self-referral (<BlocksterV2Web.DocsComponents.inline_code>player_key != referrer_key</BlocksterV2Web.DocsComponents.inline_code>) and zeroes tier-2 if it would point back at the player (closing a two-hop loop). It does not enumerate long cycles, but since tier-2 is auto-resolved at <BlocksterV2Web.DocsComponents.inline_code>set_referrer</BlocksterV2Web.DocsComponents.inline_code> time and cannot be changed later, the chain length is capped at 2 by construction.
-      </p>
-    </BlocksterV2Web.DocsComponents.subsection>
-  </BlocksterV2Web.DocsComponents.section>
-
-  <BlocksterV2Web.DocsComponents.section id="instructions" title="On-chain instructions used by pools" eyebrow="11">
+  <BlocksterV2Web.DocsComponents.section id="instructions" title="On-chain instructions used by pools" eyebrow="10">
     <p>
       Four of the program's 22 instructions are pool-facing. They are mirror pairs across SOL and BUX — same logic, different accounts.
     </p>

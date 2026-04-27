@@ -95,21 +95,10 @@ defmodule BlocksterV2Web.AnnouncementBanner do
     end
   end
 
-  # Referral — only for logged-in users. Links to the Refer tab on the user's
-  # member page, where the referral link + share tools live.
-  defp conditional_referral(nil), do: []
-  defp conditional_referral(%{slug: slug}) when is_binary(slug) and slug != "" do
-    refer_url = "/member/#{slug}?tab=refer"
-
-    [
-      %{text: "Invite friends. Earn 500 BUX per signup + 0.2% of their bets forever.",
-        short: "Invite friends. Earn BUX.",
-        link: refer_url, cta: "Share Link →", badge: false},
-      %{text: "Your referral link earns you BUX every time a friend plays.",
-        short: "Refer friends. Earn BUX.",
-        link: refer_url, cta: "Copy Link →", badge: false}
-    ]
-  end
+  # Referral banners disabled 2026-04-27 — referral feature parked until
+  # post-launch. Function preserved as a no-op so the rotation array shape
+  # in `pick/1` stays unchanged; re-populate the entries when the feature
+  # ships.
   defp conditional_referral(_user), do: []
 
   # Profile / Multiplier — only if profile is incomplete

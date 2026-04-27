@@ -440,7 +440,6 @@
     <% tabs = [
       {"activity", "Activity", length(@all_activities)},
       {"following", "Following", length(@followed_hubs)},
-      {"refer", "Refer", Map.get(@referral_stats || %{}, :total_referrals, 0)},
       {"rewards", "Rewards", nil},
       {"settings", "Settings", nil}
     ] %>
@@ -469,7 +468,6 @@
       <select name="tab" class="w-full bg-white border border-neutral-200 rounded-xl px-4 py-2.5 text-[13px] font-bold text-[#141414] cursor-pointer">
         <option value="activity" selected={@active_tab == "activity"}>Activity</option>
         <option value="following" selected={@active_tab == "following"}>Following</option>
-        <option value="refer" selected={@active_tab == "refer"}>Refer</option>
         <option value="rewards" selected={@active_tab == "rewards"}>Rewards</option>
         <option value="settings" selected={@active_tab == "settings"}>Settings</option>
       </select>
@@ -683,126 +681,8 @@
     </section>
   <% end %>
 
-  <%!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-       REFER TAB
-  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ --%>
-  <%= if @active_tab == "refer" do %>
-    <section class="ds-refer-tab pt-10 pb-12">
-      <div class="mb-6">
-        <BlocksterV2Web.DesignSystem.eyebrow class="mb-1">Earn from your network</BlocksterV2Web.DesignSystem.eyebrow>
-        <h2 class="font-bold text-[36px] md:text-[40px] text-[#141414] tracking-[-0.022em] leading-[0.96]">Refer friends</h2>
-      </div>
-
-      <%!-- Referral link card --%>
-      <div class="bg-white rounded-2xl border border-neutral-200/70 shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-7 mb-6 relative overflow-hidden">
-        <div class="absolute -top-24 -right-24 w-72 h-72 bg-[#CAFC00]/10 rounded-full blur-3xl pointer-events-none"></div>
-        <div class="relative grid grid-cols-12 gap-6 items-center">
-          <div class="col-span-12 md:col-span-7">
-            <div class="text-[10px] font-bold uppercase tracking-[0.14em] text-neutral-500 mb-3">Your referral link</div>
-            <div class="flex items-center gap-2 bg-neutral-50 border border-neutral-200 rounded-xl px-4 py-3">
-              <svg class="w-4 h-4 text-neutral-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
-              <code class="font-mono text-[13px] text-[#141414] flex-1 truncate"><%= @referral_link %></code>
-              <button
-                id="copy-referral-link"
-                phx-hook="CopyToClipboard"
-                data-copy-text={@referral_link}
-                class="bg-[#0a0a0a] text-white px-4 py-1.5 rounded-full text-[11px] font-bold hover:bg-[#1a1a22] transition-colors shrink-0 cursor-pointer"
-              >Copy</button>
-            </div>
-            <p class="text-neutral-600 text-[12px] mt-3 max-w-[480px] leading-[1.55]">
-              Earn <span class="text-[#141414] font-bold">500 BUX</span> for every signup. Your friend gets <span class="text-[#141414] font-bold">250 BUX</span> too. Plus earn <span class="text-[#141414] font-bold">0.2%</span> of every losing bet they place &mdash; forever.
-            </p>
-          </div>
-          <div class="col-span-12 md:col-span-5 grid grid-cols-2 gap-3">
-            <div class="bg-neutral-50 border border-neutral-200/70 rounded-xl p-4 text-center">
-              <div class="font-mono font-bold text-[26px] text-[#141414] leading-none tabular-nums"><%= Map.get(@referral_stats || %{}, :total_referrals, 0) %></div>
-              <div class="text-[9px] uppercase tracking-[0.14em] text-neutral-500 mt-1.5">Total referrals</div>
-            </div>
-            <div class="bg-neutral-50 border border-neutral-200/70 rounded-xl p-4 text-center">
-              <div class="font-mono font-bold text-[26px] text-[#141414] leading-none tabular-nums"><%= Map.get(@referral_stats || %{}, :verified_referrals, 0) %></div>
-              <div class="text-[9px] uppercase tracking-[0.14em] text-neutral-500 mt-1.5">Verified</div>
-            </div>
-            <div class="bg-neutral-50 border border-neutral-200/70 rounded-xl p-4 text-center">
-              <div class="font-mono font-bold text-[26px] text-[#141414] leading-none tabular-nums"><%= format_number(Map.get(@referral_stats || %{}, :total_bux_earned, 0)) %></div>
-              <div class="text-[9px] uppercase tracking-[0.14em] text-neutral-500 mt-1.5">BUX earned</div>
-            </div>
-            <div class="bg-neutral-50 border border-neutral-200/70 rounded-xl p-4 text-center">
-              <div class="font-mono font-bold text-[26px] text-[#141414] leading-none tabular-nums"><%= format_referral_number(Map.get(@referral_stats || %{}, :total_sol_earned, 0)) %></div>
-              <div class="text-[9px] uppercase tracking-[0.14em] text-neutral-500 mt-1.5">SOL earned</div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <%!-- Referral earnings table --%>
-      <div class="bg-white rounded-2xl border border-neutral-200/70 shadow-[0_1px_3px_rgba(0,0,0,0.04)] overflow-hidden">
-        <div class="px-5 py-4 border-b border-neutral-100 flex items-center justify-between flex-wrap gap-2">
-          <div class="flex items-center gap-2">
-            <span class="w-1.5 h-1.5 rounded-full bg-[#22C55E] animate-[pulse-dot_1.6s_cubic-bezier(0.4,0,0.6,1)_infinite]"></span>
-            <span class="text-[10px] uppercase tracking-[0.14em] text-neutral-500 font-bold">Referral earnings &middot; Live</span>
-          </div>
-        </div>
-
-        <div class="hidden md:grid grid-cols-[110px_1fr_120px_140px_80px] px-5 py-3 bg-neutral-50/70 border-b border-neutral-100 text-[10px] uppercase tracking-[0.14em] text-neutral-500 font-bold">
-          <div>Type</div>
-          <div>From</div>
-          <div class="text-right">Amount</div>
-          <div class="text-right">Time</div>
-          <div class="text-right">TX</div>
-        </div>
-
-        <div id="referral-earnings-list" class="divide-y divide-neutral-100" phx-hook="InfiniteScroll" data-event="load_more_earnings">
-          <%= for earning <- @referral_earnings do %>
-            <div class="grid grid-cols-1 md:grid-cols-[110px_1fr_120px_140px_80px] px-5 py-4 items-center gap-2 md:gap-0 transition-colors hover:bg-black/[0.02]">
-              <div>
-                <span class={[
-                  "text-[9px] font-bold uppercase tracking-wider px-2 py-1 rounded-full",
-                  case earning.type do
-                    :signup -> "bg-[#CAFC00] text-black"
-                    :phone_verified -> "bg-[#CAFC00] text-black"
-                    :bux_bet_loss -> "bg-[#7D00FF]/15 text-[#7D00FF]"
-                    :sol_bet_loss -> "bg-gradient-to-br from-[#00FFA3]/15 to-[#00DC82]/10 text-[#0a3d2f]"
-                    _ -> "bg-neutral-100 text-neutral-600"
-                  end
-                ]}><%= earning_type_label(earning.type) %></span>
-              </div>
-              <div class="flex items-center gap-2 min-w-0">
-                <BlocksterV2Web.DesignSystem.author_avatar
-                  initials={user_initials_from_name(earning.referee_username || "?")}
-                  size="sm"
-                />
-                <div class="min-w-0">
-                  <div class="text-[12px] font-bold text-[#141414] truncate"><%= earning.referee_username || "User" %></div>
-                  <div class="text-[10px] text-neutral-500 font-mono truncate"><%= truncate_wallet(earning.referee_wallet) %></div>
-                </div>
-              </div>
-              <div class="text-right font-mono font-bold text-[14px] text-[#22C55E]">
-                + <%= format_referral_number(earning.amount) %> <%= if earning.token == "SOL", do: "SOL", else: "BUX" %>
-              </div>
-              <div class="text-right text-[11px] font-mono text-neutral-500"><%= format_relative_time(earning.created_at) %></div>
-              <div class="text-right">
-                <%= if earning.tx_hash do %>
-                  <a href={BlocksterV2Web.Solscan.tx_url(earning.tx_hash)} target="_blank" rel="noopener noreferrer" class="text-[10px] font-mono text-neutral-400 hover:text-[#141414] transition-colors"><%= truncate_wallet(earning.tx_hash) %></a>
-                <% end %>
-              </div>
-            </div>
-          <% end %>
-          <%= if @referral_earnings == [] do %>
-            <div class="px-5 py-12 text-center">
-              <div class="text-neutral-400 text-[13px]">No referral earnings yet. Share your link to start earning!</div>
-            </div>
-          <% end %>
-        </div>
-
-        <%= if length(@referral_earnings) > 0 do %>
-          <div class="px-5 py-4 border-t border-neutral-100 flex items-center justify-between">
-            <div class="text-[11px] text-neutral-500">Showing <%= length(@referral_earnings) %> referral payouts</div>
-            <a href={~p"/notifications/referrals"} class="text-[12px] font-bold text-[#141414] hover:text-[#7D00FF] transition-colors">View full referral dashboard &rarr;</a>
-          </div>
-        <% end %>
-      </div>
-    </section>
-  <% end %>
+  <%!-- Refer tab removed 2026-04-27 — referral feature parked until post-launch.
+       Backend Referrals context kept as dead code; UI re-added when feature ships. --%>
 
   <%!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
        REWARDS TAB (NEW)
@@ -825,8 +705,7 @@
         video_bux = video_acts |> Enum.map(& &1.amount) |> Enum.filter(&is_number/1) |> Enum.sum()
         share_bux = share_acts |> Enum.map(& &1.amount) |> Enum.filter(&is_number/1) |> Enum.sum()
         notif_bux = notif_acts |> Enum.map(& &1.amount) |> Enum.filter(&is_number/1) |> Enum.sum()
-        referral_bux = Map.get(@referral_stats || %{}, :total_bux_earned, 0) || 0
-        total_lifetime = read_bux + video_bux + share_bux + notif_bux + referral_bux
+        total_lifetime = read_bux + video_bux + share_bux + notif_bux
         safe_total = max(total_lifetime, 1)
       %>
 
@@ -879,20 +758,7 @@
               <div class="h-1.5 bg-[#f3f4f6] rounded-full overflow-hidden"><div class="h-full rounded-full bg-gradient-to-r from-[#7D00FF] to-[#4A00B8]" style={"width: #{Float.round(share_bux / safe_total * 100, 1)}%"}></div></div>
             </div>
 
-            <%!-- Referrals --%>
-            <div>
-              <div class="flex items-center justify-between mb-1.5">
-                <div class="flex items-center gap-2">
-                  <div class="w-6 h-6 rounded bg-[#22C55E]/15 border border-[#22C55E]/30 grid place-items-center">
-                    <svg class="w-3 h-3 text-[#15803d]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/></svg>
-                  </div>
-                  <span class="text-[13px] font-bold text-[#141414]">Referrals</span>
-                  <span class="text-[10px] text-neutral-400 font-mono"><%= Map.get(@referral_stats || %{}, :verified_referrals, 0) %> verified</span>
-                </div>
-                <span class="font-mono font-bold text-[16px] text-[#141414]"><%= format_number(referral_bux) %> <span class="text-[10px] text-neutral-400">BUX &middot; <%= Float.round(referral_bux / safe_total * 100, 1) %>%</span></span>
-              </div>
-              <div class="h-1.5 bg-[#f3f4f6] rounded-full overflow-hidden"><div class="h-full rounded-full bg-gradient-to-r from-[#00FFA3] to-[#00DC82]" style={"width: #{Float.round(referral_bux / safe_total * 100, 1)}%"}></div></div>
-            </div>
+            <%!-- Referrals subsection removed 2026-04-27 — referral feature parked. --%>
 
             <%!-- Other (verification bonuses, etc) --%>
             <div>
