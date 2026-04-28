@@ -16,11 +16,26 @@
 #   PAYMENT_INTENT_SEED      — 32-byte hex HKDF seed for shop checkout intents
 #   SOL_TREASURY_ADDRESS     — pubkey that receives swept shop revenue
 #
+# Single-instance by design — the watchers/settlers in the main app are
+# the only orchestrators; this service is request-driven and stateless,
+# so HA pair creation is unnecessary and would race per-bet writes.
+#
+# Max-1-machine enforcement (in [http_service]):
+#   - `min_machines_running = 1` — at least one machine always running (no cold start).
+#   - `max_machines_running = 1` — Fly will not auto-scale beyond 1 machine.
+#   - `[deploy] strategy = 'immediate'` — replaces the existing machine in
+#     place during deploy (no HA partner spawned).
+#   Brief downtime during deploy is acceptable for a request-driven settler.
+#
 # See docs/solana_mainnet_deployment.md for the full provisioning runbook.
+#
 
 app = 'blockster-settler'
-primary_region = 'iad'
+primary_region = 'ord'
 kill_signal = 'SIGTERM'
+
+[deploy]
+  strategy = 'immediate'
 
 [build]
 
@@ -34,6 +49,7 @@ kill_signal = 'SIGTERM'
   auto_stop_machines = 'stop'
   auto_start_machines = true
   min_machines_running = 1
+  max_machines_running = 1
   processes = ['app']
 
   [http_service.concurrency]
@@ -42,6 +58,4 @@ kill_signal = 'SIGTERM'
     soft_limit = 100
 
 [[vm]]
-  size = 'shared-cpu-1x'
-  memory = '256mb'
-  cpus = 1
+  size = 'performance-2x'
