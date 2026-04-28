@@ -11,6 +11,11 @@ kill_signal = 'SIGTERM'
 
 [deploy]
   release_command = '/app/bin/migrate'
+  # Single machine attached to a Fly volume — rolling strategy fails with
+  # "volume already claimed" because the new machine can't attach the
+  # volume while the old machine holds it. Immediate replaces in-place
+  # (brief downtime during machine swap, acceptable for stateful service).
+  strategy = 'immediate'
 
 [env]
   PHX_HOST = 'blockster.com'

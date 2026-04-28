@@ -61,3 +61,10 @@ logs/
 # Temporary files
 /tmp
 /temp
+
+# Solana contracts — built + deployed separately, not part of the main app
+# Dockerfile (which only copies mix.exs/mix.lock, config/, assets/, priv/,
+# lib/, rel/). Excluding /contracts trims ~2.3GB of Rust build artifacts
+# (target/) and Node modules (settler/node_modules) from the docker
+# context upload — without this, deploys timed out on slow connections.
+/contracts
