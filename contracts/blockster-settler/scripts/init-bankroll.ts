@@ -259,22 +259,32 @@ async function registerCoinFlipGame(
 ): Promise<void> {
   console.log("\n[Register Game] Coin Flip (game_id=1)");
 
-  // Anchor signature: register_game(game_id: u64, name: [u8; 32], min_bet: u64, max_bet_bps: u16, fee_bps: u16)
+  // Anchor signature: register_game(game_id: u64, name: [u8; 32], min_bet: u64, max_bet_bps: u16, fee_bps: u16, multipliers: [u16; 9])
   const gameId = BigInt(1);
   const name = Buffer.alloc(32);
   Buffer.from("Coin Flip").copy(name);
   const minBet = BigInt(1000); // 0.000001 SOL minimum
-  const maxBetBps = 1000; // 10% of vault
+  const maxBetBps = 500; // 5% of vault (program enforces MAX_BET_BPS = 500 cap)
   const feeBps = 200; // 2% house edge
 
-  // Data layout: discriminator(8) + game_id(8) + name(32) + min_bet(8) + max_bet_bps(2) + fee_bps(2)
-  const data = Buffer.alloc(8 + 8 + 32 + 8 + 2 + 2);
+  // Multipliers stored as bps/100 (100 = 1x minimum). Each slot maps to a Coin Flip
+  // difficulty index 0..8 = difficulty -4, -3, -2, -1, 1, 2, 3, 4, 5 (game skips 0).
+  // Mirrors `@multipliers` in lib/blockster_v2/coin_flip_game.ex (10000-bps scale)
+  // divided by MULTIPLIER_SCALE=100 for compact u16 storage; the program multiplies
+  // back via `get_multiplier_bps` (game_registry.rs).
+  const multipliers = [102, 105, 113, 132, 198, 396, 792, 1584, 3168];
+
+  // Data layout: discriminator(8) + game_id(8) + name(32) + min_bet(8) + max_bet_bps(2) + fee_bps(2) + multipliers(9 × u16 = 18)
+  const data = Buffer.alloc(8 + 8 + 32 + 8 + 2 + 2 + 18);
   DISCRIMINATORS.registerGame.copy(data, 0);
   data.writeBigUInt64LE(gameId, 8);
   name.copy(data, 16);
   data.writeBigUInt64LE(minBet, 48);
   data.writeUInt16LE(maxBetBps, 56);
   data.writeUInt16LE(feeBps, 58);
+  multipliers.forEach((m, i) => {
+    data.writeUInt16LE(m, 60 + i * 2);
+  });
 
   // RegisterGame struct: authority (signer, mut), game_registry (mut)
   const ix = new TransactionInstruction({
