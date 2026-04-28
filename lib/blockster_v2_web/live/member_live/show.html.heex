@@ -303,7 +303,7 @@
               <div>
                 <div class="text-[12px] font-bold text-[#141414]">X Account</div>
                 <div class={["text-[10px]", if(@x_connection, do: "text-neutral-500", else: "text-[#a16207]")]}>
-                  <%= if @x_connection, do: "@#{@x_connection.username}", else: "Not connected" %>
+                  <%= if @x_connection, do: "@#{@x_connection.x_username}", else: "Not connected" %>
                 </div>
               </div>
             </div>
@@ -916,7 +916,7 @@
                   <div class="min-w-0">
                     <div class="text-[13px] font-bold text-[#141414]">X (Twitter)</div>
                     <div class="text-[11px] text-neutral-500">
-                      <%= if @x_connection, do: "@#{@x_connection.username} · Connected", else: "Not connected · Earn up to 10× multiplier" %>
+                      <%= if @x_connection, do: "@#{@x_connection.x_username} · Connected", else: "Not connected · Earn up to 10× multiplier" %>
                     </div>
                   </div>
                 </div>
