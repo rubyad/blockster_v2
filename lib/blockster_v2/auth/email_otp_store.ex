@@ -1,6 +1,6 @@
 defmodule BlocksterV2.Auth.EmailOtpStore do
   @moduledoc """
-  ETS-backed OTP store for the Web3Auth email sign-in flow.
+  Mnesia-backed OTP store for the Web3Auth email sign-in flow.
 
   Replaces Web3Auth's default `EMAIL_PASSWORDLESS` connector (which opens a
   popup window with its own captcha + email + code UI that hides behind the
@@ -14,8 +14,16 @@ defmodule BlocksterV2.Auth.EmailOtpStore do
     * Code expires 10 minutes after issue
     * 5 incorrect attempts per email → lock for 10 min (replay guard)
 
-  State is in-memory (ETS). A sign-in that crashes mid-flow will need the
-  user to request a fresh code — acceptable.
+  State is replicated across the Erlang cluster via Mnesia (ram_copies +
+  disc_copies on each node). Required so /send and /verify can land on
+  different machines without losing the OTP — a single-node ETS implementation
+  caused random 401s in the 2-machine production cluster (validation gate
+  caught this before launch). The table is created by `MnesiaInitializer`
+  on app boot.
+
+  All Mnesia ops are dirty (per CLAUDE.md) — single-row reads/writes keyed
+  on email don't need transactions; concurrent verify attempts on the same
+  email accept the inherent race (worst case = an extra attempt counted).
   """
 
   use GenServer
@@ -30,8 +38,9 @@ defmodule BlocksterV2.Auth.EmailOtpStore do
   @max_attempts 5
   @cleanup_interval_ms :timer.minutes(1)
 
-  # Record shape:
-  #   {email_key, code, created_at_ms, expires_at_ms, attempt_count, locked_until_ms}
+  # Mnesia record shape (table name is the first tuple element):
+  #   {:web3auth_email_otps, email_key, code, created_at_ms, expires_at_ms,
+  #    attempt_count, locked_until_ms}
 
   def start_link(_opts), do: GenServer.start_link(__MODULE__, [], name: __MODULE__)
 
@@ -44,14 +53,15 @@ defmodule BlocksterV2.Auth.EmailOtpStore do
     key = normalize(email)
     now = System.system_time(:millisecond)
 
-    case :ets.lookup(@table, key) do
-      [{^key, _code, created_at, _exp, _attempts, _lock}] when now - created_at < @resend_cooldown_ms ->
+    case :mnesia.dirty_read({@table, key}) do
+      [{@table, ^key, _code, created_at, _exp, _attempts, _lock}]
+      when now - created_at < @resend_cooldown_ms ->
         {:error, {:rate_limited, div(@resend_cooldown_ms - (now - created_at), 1000)}}
 
       _ ->
         code = generate_code()
         expires_at = now + @ttl_ms
-        :ets.insert(@table, {key, code, now, expires_at, 0, 0})
+        :mnesia.dirty_write({@table, key, code, now, expires_at, 0, 0})
         Task.start(fn -> deliver_email(email, code) end)
         {:ok, div(@ttl_ms, 1000)}
     end
@@ -74,21 +84,22 @@ defmodule BlocksterV2.Auth.EmailOtpStore do
     code = String.trim(code)
     now = System.system_time(:millisecond)
 
-    case :ets.lookup(@table, key) do
+    case :mnesia.dirty_read({@table, key}) do
       [] ->
         {:error, :not_found}
 
-      [{^key, _code, _created, _exp, _attempts, locked_until}] when locked_until > now ->
+      [{@table, ^key, _code, _created, _exp, _attempts, locked_until}]
+      when locked_until > now ->
         {:error, {:locked, div(locked_until - now, 1000)}}
 
-      [{^key, stored_code, _created, expires_at, _attempts, _lock}] when expires_at < now ->
-        :ets.delete(@table, key)
-        _ = stored_code
+      [{@table, ^key, _stored_code, _created, expires_at, _attempts, _lock}]
+      when expires_at < now ->
+        :mnesia.dirty_delete({@table, key})
         {:error, :expired}
 
-      [{^key, stored_code, created, expires_at, attempts, lock}] ->
+      [{@table, ^key, stored_code, created, expires_at, attempts, lock}] ->
         if Plug.Crypto.secure_compare(stored_code, code) do
-          :ets.delete(@table, key)
+          :mnesia.dirty_delete({@table, key})
           {:ok, key}
         else
           new_attempts = attempts + 1
@@ -96,21 +107,23 @@ defmodule BlocksterV2.Auth.EmailOtpStore do
           if new_attempts >= @max_attempts do
             new_lock = now + @ttl_ms
 
-            :ets.insert(
-              @table,
-              {key, stored_code, created, expires_at, new_attempts, new_lock}
+            :mnesia.dirty_write(
+              {@table, key, stored_code, created, expires_at, new_attempts, new_lock}
             )
 
             {:error, {:locked, div(@ttl_ms, 1000)}}
           else
-            :ets.insert(@table, {key, stored_code, created, expires_at, new_attempts, lock})
+            :mnesia.dirty_write(
+              {@table, key, stored_code, created, expires_at, new_attempts, lock}
+            )
+
             {:error, :invalid_code}
           end
         end
     end
   end
 
-  @doc "Normalize an email for use as a Mnesia/ETS key. Trim + lowercase."
+  @doc "Normalize an email for use as a Mnesia key. Trim + lowercase."
   def normalize(email) when is_binary(email) do
     email |> String.trim() |> String.downcase()
   end
@@ -119,23 +132,35 @@ defmodule BlocksterV2.Auth.EmailOtpStore do
 
   @impl true
   def init(_) do
-    table = :ets.new(@table, [:named_table, :public, :set])
+    # Mnesia table is created by `BlocksterV2.MnesiaInitializer` (app boot
+    # order: EmailOtpStore starts first as a base child, MnesiaInitializer
+    # follows in genserver_children). The cleanup tick is scheduled here;
+    # the first tick fires after @cleanup_interval_ms (1 min), well after
+    # MnesiaInitializer has registered the table.
     schedule_cleanup()
-    {:ok, %{table: table}}
+    {:ok, %{}}
   end
 
   @impl true
   def handle_info(:cleanup, state) do
     now = System.system_time(:millisecond)
 
-    :ets.foldl(
-      fn {key, _, _, expires_at, _, locked_until}, acc ->
-        if expires_at < now and locked_until < now, do: [key | acc], else: acc
-      end,
-      [],
-      @table
-    )
-    |> Enum.each(&:ets.delete(@table, &1))
+    expired_keys =
+      try do
+        :mnesia.dirty_match_object({@table, :_, :_, :_, :_, :_, :_})
+        |> Enum.filter(fn {@table, _key, _code, _created, expires_at, _attempts, locked_until} ->
+          expires_at < now and locked_until < now
+        end)
+        |> Enum.map(fn {@table, key, _, _, _, _, _} -> key end)
+      rescue
+        _ -> []
+      catch
+        :exit, _ -> []
+      end
+
+    Enum.each(expired_keys, fn key ->
+      _ = :mnesia.dirty_delete({@table, key})
+    end)
 
     schedule_cleanup()
     {:noreply, state}

@@ -758,6 +758,19 @@ defmodule BlocksterV2.MnesiaInitializer do
         :picked_at        # Unix timestamp of last selection
       ],
       index: [:widget_type]
+    },
+    %{
+      name: :web3auth_email_otps,
+      type: :set,
+      attributes: [
+        :email_key,       # PRIMARY KEY - normalized lowercase email
+        :code,            # 6-digit OTP code
+        :created_at,      # ms timestamp - rate-limit anchor (resend cooldown)
+        :expires_at,      # ms timestamp - 10 min after created_at
+        :attempt_count,   # incorrect verify attempts (lock at 5)
+        :locked_until     # ms timestamp - 0 if not locked
+      ],
+      index: []
     }
   ]
 
