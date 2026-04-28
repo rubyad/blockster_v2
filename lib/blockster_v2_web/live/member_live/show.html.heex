@@ -1172,7 +1172,7 @@
                   <div class="grid grid-cols-[180px_1fr]">
                     <div class="bg-neutral-100">
                       <%= if post.featured_image do %>
-                        <img src={BlocksterV2Web.ImageKit.w500_h500(post.featured_image)} alt="" class="w-full h-full object-cover" />
+                        <img src={BlocksterV2.ImageKit.w500_h500(post.featured_image)} alt="" class="w-full h-full object-cover" />
                       <% else %>
                         <div class="w-full h-full min-h-[120px] bg-neutral-100"></div>
                       <% end %>
@@ -1225,7 +1225,7 @@
                   <a href={~p"/hub/#{hub.slug}"} class="flex items-center gap-3 p-3 rounded-xl text-white relative overflow-hidden transition-all duration-[250ms] hover:-translate-y-[3px] hover:shadow-[0_18px_40px_-12px_rgba(0,0,0,0.35)]" style={"background: linear-gradient(135deg, #{hub.color_primary || "#7D00FF"} 0%, #{hub.color_secondary || "#4A00B8"} 100%)"}>
                     <div class="w-9 h-9 rounded-md bg-black/25 grid place-items-center shrink-0">
                       <%= if hub.logo_url do %>
-                        <img src={BlocksterV2Web.ImageKit.w500_h500(hub.logo_url)} alt="" class="w-full h-full object-cover rounded-md" />
+                        <img src={BlocksterV2.ImageKit.w500_h500(hub.logo_url)} alt="" class="w-full h-full object-cover rounded-md" />
                       <% else %>
                         <span class="font-bold text-[11px]"><%= String.upcase(String.slice(hub.token || hub.name || "", 0, 3)) %></span>
                       <% end %>
@@ -1291,7 +1291,7 @@
               <div class="flex items-center gap-3 mb-4">
                 <div class="w-12 h-12 rounded-lg bg-black/25 grid place-items-center shrink-0">
                   <%= if hub.logo_url do %>
-                    <img src={BlocksterV2Web.ImageKit.w500_h500(hub.logo_url)} alt="" class="w-full h-full object-cover rounded-lg" />
+                    <img src={BlocksterV2.ImageKit.w500_h500(hub.logo_url)} alt="" class="w-full h-full object-cover rounded-lg" />
                   <% else %>
                     <span class="font-bold text-[14px]"><%= String.upcase(String.slice(hub.token || hub.name || "", 0, 3)) %></span>
                   <% end %>
@@ -1379,7 +1379,7 @@
                   <a href={~p"/hub/#{hub.slug}"} class="flex items-center gap-3 p-3 rounded-xl text-white relative overflow-hidden transition-all duration-[250ms] hover:-translate-y-[3px] hover:shadow-[0_18px_40px_-12px_rgba(0,0,0,0.35)]" style={"background: linear-gradient(135deg, #{hub.color_primary || "#7D00FF"} 0%, #{hub.color_secondary || "#4A00B8"} 100%)"}>
                     <div class="w-9 h-9 rounded-md bg-black/25 grid place-items-center shrink-0">
                       <%= if hub.logo_url do %>
-                        <img src={BlocksterV2Web.ImageKit.w500_h500(hub.logo_url)} alt="" class="w-full h-full object-cover rounded-md" />
+                        <img src={BlocksterV2.ImageKit.w500_h500(hub.logo_url)} alt="" class="w-full h-full object-cover rounded-md" />
                       <% else %>
                         <span class="font-bold text-[11px]"><%= String.upcase(String.slice(hub.token || hub.name || "", 0, 3)) %></span>
                       <% end %>
