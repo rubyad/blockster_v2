@@ -48,15 +48,9 @@ defmodule BlocksterV2Web.Widgets.RtTicker do
         <span class="relative inline-flex" style="line-height:1;">
           <img
             class="h-[26px] w-auto block select-none"
-            src="https://ik.imagekit.io/blockster/rogue-logo-white.png"
+            src="https://ik.imagekit.io/blockster/rogue-trader-logo.png"
             alt="Rogue Trader"
           />
-          <span
-            class="bw-mono"
-            style="position:absolute;bottom:-5px;right:0;font-weight:700;font-size:9px;color:#22C55E;letter-spacing:0.3em;line-height:1;"
-          >
-            TRADER
-          </span>
         </span>
         <span class="hidden md:inline-flex items-center gap-1.5 px-2 py-[4px] border border-white/[0.06] rounded-full">
           <span class="relative w-1.5 h-1.5 inline-block">

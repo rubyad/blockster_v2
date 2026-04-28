@@ -55,16 +55,10 @@ defmodule BlocksterV2Web.Widgets.RtFullCard do
         <div class="flex items-center justify-between gap-3">
           <div class="relative inline-flex items-center" style="line-height:1;">
             <img
-              src="https://ik.imagekit.io/blockster/rogue-logo-white.png"
+              src="https://ik.imagekit.io/blockster/rogue-trader-logo.png"
               alt="Rogue Trader"
               class="h-[22px] w-auto block"
             />
-            <span
-              class="bw-mono"
-              style="position:absolute;bottom:-4px;right:0;font-weight:700;font-size:8px;color:#22C55E;letter-spacing:0.3em;line-height:1;"
-            >
-              TRADER
-            </span>
           </div>
           <span class="flex-1"></span>
           <span class="bw-display text-[10px] uppercase tracking-[0.18em] text-[#4B5563] font-medium">

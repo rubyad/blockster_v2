@@ -66,15 +66,9 @@ defmodule BlocksterV2Web.Widgets.RtChartLandscape do
         <span class="relative inline-flex shrink-0" style="line-height:1;">
           <img
             class="h-[26px] w-auto block"
-            src="https://ik.imagekit.io/blockster/rogue-logo-white.png"
+            src="https://ik.imagekit.io/blockster/rogue-trader-logo.png"
             alt="Rogue Trader"
           />
-          <span
-            class="bw-mono"
-            style="position:absolute;bottom:-4px;right:0;font-weight:700;font-size:9px;color:#22C55E;letter-spacing:0.3em;line-height:1;"
-          >
-            TRADER
-          </span>
         </span>
         <span class="w-px h-[10px] bg-white/[0.10]"></span>
         <span class="bw-display text-[10px] uppercase tracking-[0.18em] text-[#4B5563] font-medium">
