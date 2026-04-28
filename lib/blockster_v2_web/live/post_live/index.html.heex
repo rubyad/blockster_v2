@@ -165,9 +165,11 @@
             </div>
           </section>
 
-          <%!-- Ad #3: directly below hubs --%>
-          <%= if @inline_desktop_banners != [] do %>
-            <% hubs_ad = Enum.at(@inline_desktop_banners, rem(2, length(@inline_desktop_banners))) %>
+          <%!-- Slot B (Ad #3 in DOM order) — pinned to featured widget pick
+                if any cf_*/rt_* widget banners are active at homepage_inline,
+                else falls back to the regular rotation pool. --%>
+          <%= if @homepage_featured_widget_pick || @inline_desktop_banners != [] do %>
+            <% hubs_ad = @homepage_featured_widget_pick || Enum.at(@inline_desktop_banners, rem(2, length(@inline_desktop_banners))) %>
             <div class="py-3 md:py-4">
               <div class="md:w-3/4 mx-auto">
                 <BlocksterV2Web.WidgetComponents.inline_ad_slot

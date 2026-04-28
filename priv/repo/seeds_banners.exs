@@ -137,7 +137,55 @@ day_date_40_image =
 # ── Banner list (mirrors current prod-ready state) ────────────────────────
 
 banners = [
-  # ── article_inline_1 ────────────────────────────────────────────────────
+  # ── FateSwap · A2 Combined + Kinetic Hero (featured partner) ───────────
+  #
+  # Homepage: `post_live/index.ex:90-95` splits any banner whose template
+  # starts with `fateswap_` into a frozen Slot A pick (the first inline
+  # ad). Other slots run through the regular class-rotated pool. So just
+  # adding these two homepage entries is enough — no sort_order tricks.
+  #
+  # Article inline_1: every other entry below at this placement is set
+  # `is_active: false` so the random pick at article_inline_1 always
+  # lands on one of these two FateSwap creatives. Variety still comes
+  # through inline_2 and inline_3.
+  %{
+    name: "FateSwap · A2 Combined · article_inline_1",
+    placement: "article_inline_1",
+    template: "fateswap_combined",
+    link_url: "https://fateswap.io",
+    image_url: "https://fateswap.io",
+    params: %{},
+    sort_order: 0
+  },
+  %{
+    name: "FateSwap · Kinetic Hero · article_inline_1",
+    placement: "article_inline_1",
+    template: "fateswap_kinetic",
+    link_url: "https://fateswap.io",
+    image_url: "https://fateswap.io",
+    params: %{},
+    sort_order: 1
+  },
+  %{
+    name: "FateSwap · A2 Combined · homepage_inline",
+    placement: "homepage_inline",
+    template: "fateswap_combined",
+    link_url: "https://fateswap.io",
+    image_url: "https://fateswap.io",
+    params: %{},
+    sort_order: 0
+  },
+  %{
+    name: "FateSwap · Kinetic Hero · homepage_inline",
+    placement: "homepage_inline",
+    template: "fateswap_kinetic",
+    link_url: "https://fateswap.io",
+    image_url: "https://fateswap.io",
+    params: %{},
+    sort_order: 1
+  },
+
+  # ── article_inline_1 (all dormant — FateSwap above takes this slot) ────
   %{
     name: "Ferrari of Miami · 2024 Roma Spider · luxury_car",
     placement: "article_inline_1",
@@ -145,7 +193,8 @@ banners = [
     link_url: ferrari_link,
     image_url: ferrari_image,
     params: ferrari_params,
-    sort_order: 0
+    sort_order: 0,
+    is_active: false
   },
   %{
     name: "Flight Finder Exclusive · 25hr Light Jet · jet_card",
@@ -154,21 +203,24 @@ banners = [
     link_url: jet_link,
     image_url: jet_image,
     params: jet_params,
-    sort_order: 0
+    sort_order: 0,
+    is_active: false
   },
   %{
     name: "Coin Flip Landscape Demo — Inline 1",
     placement: "article_inline_1",
     widget_type: "cf_inline_landscape_demo",
     widget_config: %{},
-    sort_order: 0
+    sort_order: 0,
+    is_active: false
   },
   %{
     name: "AUTO · Coin Flip Portrait · article_inline_1",
     placement: "article_inline_1",
     widget_type: "cf_portrait_demo",
     widget_config: %{},
-    sort_order: 0
+    sort_order: 0,
+    is_active: false
   },
   %{
     name: "AUTO · Rolex Submariner · article_inline_1",
@@ -177,7 +229,8 @@ banners = [
     link_url: submariner_link,
     image_url: submariner_image,
     params: submariner_params,
-    sort_order: 0
+    sort_order: 0,
+    is_active: false
   },
   %{
     name: "AUTO · Rolex GMT-Master II · article_inline_1",
@@ -186,7 +239,8 @@ banners = [
     link_url: gmt_link,
     image_url: gmt_image,
     params: gmt_params,
-    sort_order: 0
+    sort_order: 0,
+    is_active: false
   },
   %{
     name: "AUTO · Rolex Day-Date 40 · article_inline_1",
@@ -195,7 +249,8 @@ banners = [
     link_url: day_date_40_link,
     image_url: day_date_40_image,
     params: day_date_40_params,
-    sort_order: 0
+    sort_order: 0,
+    is_active: false
   },
   %{
     name: "RogueTrader · Chart landscape · biggest gainer",
@@ -203,7 +258,8 @@ banners = [
     widget_type: "rt_chart_landscape",
     widget_config: %{"selection" => "biggest_gainer"},
     link_url: "https://roguetrader.io",
-    sort_order: 10
+    sort_order: 10,
+    is_active: false
   },
   %{
     name: "AUTO · RT Chart Portrait · article_inline_1",
@@ -211,7 +267,8 @@ banners = [
     widget_type: "rt_chart_portrait",
     widget_config: %{"selection" => "biggest_mover"},
     link_url: "https://roguetrader.io",
-    sort_order: 10
+    sort_order: 10,
+    is_active: false
   },
 
   # ── article_inline_2 ────────────────────────────────────────────────────
@@ -422,6 +479,21 @@ banners = [
     params: day_date_40_params,
     sort_order: 50
   },
+  %{
+    name: "Homepage · Coin Flip Landscape",
+    placement: "homepage_inline",
+    widget_type: "cf_inline_landscape_demo",
+    widget_config: %{},
+    sort_order: 30
+  },
+  %{
+    name: "Homepage · RT Chart Landscape",
+    placement: "homepage_inline",
+    widget_type: "rt_chart_landscape",
+    widget_config: %{"selection" => "biggest_gainer"},
+    link_url: "https://roguetrader.io",
+    sort_order: 40
+  },
 
   # ── homepage top (ticker strip) ─────────────────────────────────────────
   %{
@@ -495,7 +567,8 @@ banners = [
       "cta_text" => "Start Free Trial",
       "watch_on" => "Phone · Tablet · Smart TV · Roku · Apple TV"
     },
-    sort_order: 0
+    sort_order: 0,
+    is_active: false
   },
   %{
     name: "FOX One · 7-Day Free Trial · article_inline_2",
@@ -690,7 +763,8 @@ banners = [
       "cta_meta" => "1776 — 2026",
       "accent_color" => "#BF0A30"
     },
-    sort_order: 6
+    sort_order: 6,
+    is_active: false
   },
   %{
     name: "Thank You 47 · patriotic_loop · article_inline_2",
@@ -772,7 +846,8 @@ banners = [
       "cta_text" => "Join",
       "accent_color" => "#BF0A30"
     },
-    sort_order: 7
+    sort_order: 7,
+    is_active: false
   },
   %{
     name: "Trump 2028 · trump_2028_loop · article_inline_2",
@@ -864,7 +939,8 @@ banners = [
       "heading" => "Buy SOL with a card in 30 seconds. No KYC for orders under $150.",
       "icon_url" => "https://ik.imagekit.io/blockster/uploads/1776110628-489a1c36bb39432a.jpg"
     },
-    sort_order: 0
+    sort_order: 0,
+    is_active: false
   },
   %{
     name: "Moonpay SOL On-Ramp · article_inline_2",
@@ -952,7 +1028,8 @@ banners = [
       "stat_label_top" => "From",
       "stat_value" => "$3.99"
     },
-    sort_order: 0
+    sort_order: 0,
+    is_active: false
   },
   %{
     name: "Moonpay Bottom CTA · article_inline_2",

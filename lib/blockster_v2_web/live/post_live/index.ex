@@ -88,10 +88,19 @@ defmodule BlocksterV2Web.PostLive.Index do
     inline_banners = load_homepage_banners(socket, "homepage_inline")
 
     # FateSwap ads are pinned to Slot A (the first inline ad, after the 2nd
-    # component). All other slots rotate through the non-FateSwap banners.
-    {fateswap_banners, other_inline_banners} =
+    # component). `cf_*` / `rt_*` widget banners are pinned to Slot B (the
+    # inline ad rendered below the hubs showcase). All other slots rotate
+    # through the remaining banners via `random_class_rotated_pool/2`.
+    {fateswap_banners, rest_banners} =
       Enum.split_with(inline_banners, fn b ->
         is_binary(b.template) and String.starts_with?(b.template, "fateswap_")
+      end)
+
+    {featured_widget_banners, other_inline_banners} =
+      Enum.split_with(rest_banners, fn b ->
+        is_binary(b.widget_type) and
+          (String.starts_with?(b.widget_type, "cf_") or
+             String.starts_with?(b.widget_type, "rt_"))
       end)
 
     {:ok,
@@ -125,6 +134,10 @@ defmodule BlocksterV2Web.PostLive.Index do
      # Slot A is pinned to a FateSwap banner (frozen at mount). Empty list if
      # no FateSwap banners are active — template falls back to the regular pool.
      |> assign(:homepage_fateswap_pick, random_or_nil(fateswap_banners))
+     # Slot B is pinned to a featured widget (cf_*/rt_* widget_type) banner,
+     # frozen at mount. nil if no widgets at homepage_inline — template falls
+     # back to the regular rotation pool for that slot.
+     |> assign(:homepage_featured_widget_pick, random_or_nil(featured_widget_banners))
      # Homepage rotator: random banner per slot, class-cycled so no class
      # repeats within any K-slot window (K = number of distinct classes).
      # See `Ads.random_class_rotated_pool/2`.
