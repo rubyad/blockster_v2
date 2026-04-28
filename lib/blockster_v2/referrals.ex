@@ -137,7 +137,7 @@ defmodule BlocksterV2.Referrals do
     # --- Referee welcome bonus ---
     if referee_amount > 0 && referee.wallet_address && referee.wallet_address != "" do
       referee_id = Ecto.UUID.generate()
-      Task.start(fn ->
+      BlocksterV2.AsyncTask.run(fn ->
         case BuxMinter.mint_bux(referee.wallet_address, referee_amount, referee.id, nil, :signup) do
           {:ok, _response} ->
             BuxMinter.sync_user_balances_async(referee.id, referee.wallet_address, force: true)
@@ -538,7 +538,7 @@ defmodule BlocksterV2.Referrals do
     end
 
     if fresh_wallet do
-      Task.start(fn ->
+      BlocksterV2.AsyncTask.run(fn ->
         case BuxMinter.mint_bux(fresh_wallet, amount, referrer_id, nil, reason, token) do
           {:ok, response} ->
             tx_hash = response["signature"]
@@ -574,7 +574,7 @@ defmodule BlocksterV2.Referrals do
 
   defp sync_referrer_to_contracts(player_wallet, referrer_wallet) do
     if player_wallet && player_wallet != "" do
-      Task.start(fn ->
+      BlocksterV2.AsyncTask.run(fn ->
         case BuxMinter.set_player_referrer(player_wallet, referrer_wallet) do
           {:ok, _} ->
             # Mark as synced in Mnesia

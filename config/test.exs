@@ -39,6 +39,14 @@ config :phoenix_live_view,
 # Disable GenServers that could interfere with tests
 config :blockster_v2, :start_genservers, false
 
+# Run fire-and-forget DB-touching tasks synchronously in test so they
+# participate in the test's sandbox connection ownership. Without this,
+# `Task.start` callsites (UserEvents.track, Orders fulfillment notify,
+# Referrals minting) leak processes that fail with "owner exited" when
+# the test exits and pollute the Repo connection pool. See
+# `BlocksterV2.AsyncTask`.
+config :blockster_v2, :async_db_tasks, false
+
 # Use Oban testing mode (inline execution, no DB polling)
 config :blockster_v2, Oban, testing: :inline
 

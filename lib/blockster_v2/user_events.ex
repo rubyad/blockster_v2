@@ -20,7 +20,7 @@ defmodule BlocksterV2.UserEvents do
       UserEvents.track(user_id, "purchase_complete", %{order_id: 123, total: "45.00"})
   """
   def track(user_id, event_type, metadata \\ %{}) when is_integer(user_id) and is_binary(event_type) do
-    Task.start(fn ->
+    BlocksterV2.AsyncTask.run(fn ->
       attrs = %{
         user_id: user_id,
         event_type: event_type,
@@ -77,7 +77,7 @@ defmodule BlocksterV2.UserEvents do
   Events should be pre-formatted maps matching the user_events schema.
   """
   def track_batch(events) when is_list(events) do
-    Task.start(fn ->
+    BlocksterV2.AsyncTask.run(fn ->
       now = NaiveDateTime.utc_now() |> NaiveDateTime.truncate(:second)
 
       rows =

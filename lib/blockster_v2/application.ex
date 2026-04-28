@@ -75,9 +75,11 @@ defmodule BlocksterV2.Application do
       []
     end
 
-    # Content automation pipeline (behind feature flag)
+    # Content automation pipeline (behind feature flag).
+    # Also gated on :start_genservers — test env never starts these.
     content_automation_children =
-      if Application.get_env(:blockster_v2, :content_automation, [])[:enabled] do
+      if Application.get_env(:blockster_v2, :content_automation, [])[:enabled] and
+           Application.get_env(:blockster_v2, :start_genservers, true) do
         [
           {BlocksterV2.ContentAutomation.FeedPoller, []},
           {BlocksterV2.ContentAutomation.TopicEngine, []},
@@ -106,9 +108,11 @@ defmodule BlocksterV2.Application do
       []
     end
 
-    # AI Ads Manager (behind feature flag)
+    # AI Ads Manager (behind feature flag).
+    # Also gated on :start_genservers — test env never starts it.
     ads_manager_children =
-      if Application.get_env(:blockster_v2, :ai_ads_manager, [])[:enabled] do
+      if Application.get_env(:blockster_v2, :ai_ads_manager, [])[:enabled] and
+           Application.get_env(:blockster_v2, :start_genservers, true) do
         [{BlocksterV2.AdsManager, []}]
       else
         []
@@ -119,23 +123,34 @@ defmodule BlocksterV2.Application do
     # `hourly_promo_enabled` SystemConfig flag true via /admin/promo.
     # See docs/social_login_plan.md §Appendix: Hourly promo deactivation.
     hourly_promo_children =
-      if Application.get_env(:blockster_v2, :hourly_promo, [])[:enabled] do
+      if Application.get_env(:blockster_v2, :hourly_promo, [])[:enabled] and
+           Application.get_env(:blockster_v2, :start_genservers, true) do
         [{BlocksterV2.TelegramBot.HourlyPromoScheduler, []}]
       else
         []
       end
 
-    # Bot reader system (behind feature flag)
+    # Bot reader system (behind feature flag).
+    # Also gated on :start_genservers so the test env never starts the
+    # coordinator regardless of BOT_SYSTEM_ENABLED in .env — see test.exs.
+    # Without this, BotCoordinator.init schedules :initialize after 30s,
+    # fires during the test suite, and DB-write Tasks crash mid-test when
+    # the sandbox owner exits, taking the Repo down with the supervisor.
     bot_system_children =
-      if Application.get_env(:blockster_v2, :bot_system, [])[:enabled] do
+      if Application.get_env(:blockster_v2, :bot_system, [])[:enabled] and
+           Application.get_env(:blockster_v2, :start_genservers, true) do
         [{BlocksterV2.BotSystem.BotCoordinator, []}]
       else
         []
       end
 
-    # Real-time sister-app widget pollers (behind WIDGETS_ENABLED flag)
+    # Real-time sister-app widget pollers (behind WIDGETS_ENABLED flag).
+    # Also gated on :start_genservers so test env never starts them — the
+    # pollers tick forever and try to broadcast on PubSub even after the
+    # test's PubSub registry shuts down, taking the supervisor with them.
     widgets_children =
-      if Application.get_env(:blockster_v2, :widgets, [])[:enabled] do
+      if Application.get_env(:blockster_v2, :widgets, [])[:enabled] and
+           Application.get_env(:blockster_v2, :start_genservers, true) do
         [
           {BlocksterV2.Widgets.FateSwapFeedTracker, []},
           {BlocksterV2.Widgets.RogueTraderBotsTracker, []},
@@ -149,8 +164,19 @@ defmodule BlocksterV2.Application do
     children = base_children ++ genserver_children ++ content_automation_children ++ oban_children ++ notification_children ++ ads_manager_children ++ hourly_promo_children ++ bot_system_children ++ widgets_children ++ [BlocksterV2Web.Endpoint]
 
     # See https://hexdocs.pm/elixir/Supervisor.html
-    # for other strategies and supported options
-    opts = [strategy: :one_for_one, name: BlocksterV2.Supervisor]
+    # for other strategies and supported options.
+    #
+    # In test env we raise max_restarts so transient orphan-task crashes
+    # (Task.start callsites that survive past the test sandbox owner) can't
+    # exhaust the supervisor's default 3-in-5s budget and take the Repo +
+    # PubSub + EmailOtpStore down with it. Default budget is fine in prod —
+    # if a base_child genuinely flaps in production we want to fail fast.
+    # We piggyback on :start_genservers (false in test, true everywhere else)
+    # rather than a separate flag.
+    max_restarts =
+      if Application.get_env(:blockster_v2, :start_genservers, true), do: 3, else: 1_000
+
+    opts = [strategy: :one_for_one, name: BlocksterV2.Supervisor, max_restarts: max_restarts]
     Supervisor.start_link(children, opts)
   end
 

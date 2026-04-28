@@ -22,8 +22,9 @@ defmodule BlocksterV2.Auth.Web3AuthSigning do
   @audience "blockster-web3auth"
   @ttl_seconds 600
 
-  def start_link(_opts) do
-    Agent.start_link(&load_or_generate/0, name: __MODULE__)
+  def start_link(opts \\ []) do
+    name = Keyword.get(opts, :name, __MODULE__)
+    Agent.start_link(&load_or_generate/0, name: name)
   end
 
   def child_spec(arg) do
@@ -61,10 +62,10 @@ defmodule BlocksterV2.Auth.Web3AuthSigning do
       Path.join(:code.priv_dir(:blockster_v2), "web3auth_keys/signing_key.json")
   end
 
-  def kid, do: Agent.get(__MODULE__, & &1.kid)
+  def kid(server \\ __MODULE__), do: Agent.get(server, & &1.kid)
 
-  def sign_id_token(claims) when is_map(claims) do
-    %{pem: pem, kid: kid} = Agent.get(__MODULE__, & &1)
+  def sign_id_token(claims, server \\ __MODULE__) when is_map(claims) do
+    %{pem: pem, kid: kid} = Agent.get(server, & &1)
     now = System.system_time(:second)
 
     payload =
@@ -82,8 +83,8 @@ defmodule BlocksterV2.Auth.Web3AuthSigning do
     signed
   end
 
-  def jwks do
-    %{pem: pem, kid: kid} = Agent.get(__MODULE__, & &1)
+  def jwks(server \\ __MODULE__) do
+    %{pem: pem, kid: kid} = Agent.get(server, & &1)
     jwk = JOSE.JWK.from_pem(pem)
     {_, public_map} = JOSE.JWK.to_public(jwk) |> JOSE.JWK.to_map()
 

@@ -203,7 +203,7 @@ defmodule BlocksterV2.Orders do
       # Notify user of confirmed order
       notify_order_status_change(order)
 
-      Task.start(fn ->
+      BlocksterV2.AsyncTask.run(fn ->
         BlocksterV2.Orders.Fulfillment.notify(order)
       end)
 

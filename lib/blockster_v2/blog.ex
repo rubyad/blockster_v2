@@ -893,12 +893,12 @@ defmodule BlocksterV2.Blog do
       {:ok, %Post{published_at: published_at} = post} when not is_nil(published_at) ->
         # Notify hub followers if post belongs to a hub
         if post.hub_id do
-          Task.start(fn -> notify_hub_followers_of_new_post(post) end)
+          BlocksterV2.AsyncTask.run(fn -> notify_hub_followers_of_new_post(post) end)
         end
 
         # Post to Telegram
         post_with_hub = Repo.preload(post, :hub)
-        Task.start(fn -> BlocksterV2.TelegramNotifier.send_new_post(post_with_hub) end)
+        BlocksterV2.AsyncTask.run(fn -> BlocksterV2.TelegramNotifier.send_new_post(post_with_hub) end)
 
         # Trigger AI Ads Manager evaluation
         Phoenix.PubSub.broadcast(BlocksterV2.PubSub, "post:published", {:post_published, post})
@@ -926,11 +926,11 @@ defmodule BlocksterV2.Blog do
       when not is_nil(published_at) and not was_published ->
         # Post just became published via edit — fire notifications
         if updated_post.hub_id do
-          Task.start(fn -> notify_hub_followers_of_new_post(updated_post) end)
+          BlocksterV2.AsyncTask.run(fn -> notify_hub_followers_of_new_post(updated_post) end)
         end
 
         post_with_hub = Repo.preload(updated_post, :hub)
-        Task.start(fn -> BlocksterV2.TelegramNotifier.send_new_post(post_with_hub) end)
+        BlocksterV2.AsyncTask.run(fn -> BlocksterV2.TelegramNotifier.send_new_post(post_with_hub) end)
 
         Phoenix.PubSub.broadcast(BlocksterV2.PubSub, "post:published", {:post_published, updated_post})
 
@@ -968,12 +968,12 @@ defmodule BlocksterV2.Blog do
       {:ok, published_post} ->
         # Notify hub followers in the background if post belongs to a hub
         if published_post.hub_id do
-          Task.start(fn -> notify_hub_followers_of_new_post(published_post) end)
+          BlocksterV2.AsyncTask.run(fn -> notify_hub_followers_of_new_post(published_post) end)
         end
 
         # Post to Telegram
         post_with_hub = Repo.preload(published_post, :hub)
-        Task.start(fn -> BlocksterV2.TelegramNotifier.send_new_post(post_with_hub) end)
+        BlocksterV2.AsyncTask.run(fn -> BlocksterV2.TelegramNotifier.send_new_post(post_with_hub) end)
 
         # Trigger AI Ads Manager evaluation
         Phoenix.PubSub.broadcast(BlocksterV2.PubSub, "post:published", {:post_published, published_post})
