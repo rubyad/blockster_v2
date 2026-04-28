@@ -169,7 +169,7 @@ defmodule BlocksterV2Web.PoolDetailLiveTest do
       assert html =~ "LP supply"
       assert html =~ "Volume"
       assert html =~ "Bets"
-      assert html =~ "Win rate"
+      # "Win rate" stat label removed in 2026-04-27 pool-detail UI rewrite.
       assert html =~ "Profit"
       assert html =~ "Payout"
       assert html =~ "House edge"
@@ -195,7 +195,7 @@ defmodule BlocksterV2Web.PoolDetailLiveTest do
       assert html =~ "linear-gradient"
       assert html =~ "Bankroll Vault"
       assert html =~ "TVL · SOL"
-      assert html =~ "Est. APY"
+      # "Est. APY" label removed in 2026-04-27 pool-banner UI rewrite.
       assert html =~ "Your position"
     end
 
@@ -204,7 +204,7 @@ defmodule BlocksterV2Web.PoolDetailLiveTest do
 
       assert html =~ ~s(id="ds-site-header")
       assert html =~ ~s(phx-hook="SolanaWallet")
-      assert html =~ "Why Earn BUX?"
+      assert html =~ "ds-why-earn-bux"
     end
 
     test "renders How earnings work card", %{conn: conn} do

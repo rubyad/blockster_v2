@@ -103,9 +103,10 @@ defmodule BlocksterV2Web.PoolIndexLiveTest do
     test "renders the top stat band", %{conn: conn} do
       {:ok, _view, html} = live(conn, ~p"/pool")
 
-      assert html =~ "Total TVL"
-      assert html =~ "Bets settled"
-      assert html =~ "House profit"
+      # 2026-04-27 pool-index UI rewrite: "Total TVL" → "TVL"; "Bets settled"
+      # and "House profit" sub-labels also removed in favor of more compact
+      # stat cells. Test pinned to the most stable label that survived.
+      assert html =~ "TVL"
     end
 
     test "renders the pool activity section with live pulse", %{conn: conn} do
@@ -163,7 +164,7 @@ defmodule BlocksterV2Web.PoolIndexLiveTest do
       assert html =~ ~s(phx-hook="SolanaWallet")
 
       # Why Earn BUX lime banner
-      assert html =~ "Why Earn BUX?"
+      assert html =~ "ds-why-earn-bux"
     end
   end
 end

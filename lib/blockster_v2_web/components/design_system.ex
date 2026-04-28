@@ -255,9 +255,9 @@ defmodule BlocksterV2Web.DesignSystem do
         assigns
       else
         assign(assigns, :message, %{
-          text: "Why Earn BUX? Redeem BUX to enter sponsored airdrops.",
-          short: "BUX = airdrop entries.",
-          link: nil, cta: "Coming Soon", badge: true
+          text: "Double your BUX!",
+          short: "Double your BUX!",
+          link: "/play", cta: "Play Now →", badge: false
         })
       end
 
@@ -1154,31 +1154,42 @@ defmodule BlocksterV2Web.DesignSystem do
               <li><.link navigate={~p"/pool"} class="text-white/70 hover:text-white transition-colors">Pool</.link></li>
               <li><.link navigate={~p"/play"} class="text-white/70 hover:text-white transition-colors">Play</.link></li>
               <li><.link navigate={~p"/shop"} class="text-white/70 hover:text-white transition-colors">Shop</.link></li>
-              <li><.link navigate={~p"/airdrop"} class="text-white/70 hover:text-white transition-colors">Airdrop</.link></li>
             </ul>
           </div>
 
-          <%!-- Newsletter --%>
+          <%!-- Community — replaced the newsletter form 2026-04-27. Backend
+               (Newsletter.Subscription schema, NewsletterHook handle_event)
+               kept as dead code; the form was rebuilt as social links instead. --%>
           <div class="col-span-12 md:col-span-3">
-            <div class="text-[10px] uppercase tracking-[0.14em] text-white/40 font-bold mb-4">Stay in the loop</div>
-            <p class="text-[13px] text-white/60 leading-relaxed mb-3">
-              The best of crypto × AI. No spam, no shilling.
+            <div class="text-[10px] uppercase tracking-[0.14em] text-white/40 font-bold mb-4">Community</div>
+            <p class="text-[13px] text-white/60 leading-relaxed mb-4">
+              Builders, traders, lurkers. Join us.
             </p>
-            <form class="flex items-center gap-2" phx-submit="newsletter_subscribe">
-              <input
-                type="email"
-                name="email"
-                placeholder="you@somewhere.com"
-                class="flex-1 min-w-0 bg-white/[0.06] border border-white/10 rounded-md px-3 py-2 text-[12px] text-white placeholder-white/30 focus:outline-none focus:border-[#CAFC00]/50"
-              />
-              <button
-                type="submit"
-                class="shrink-0 bg-[#CAFC00] text-black px-3.5 py-2 rounded-md text-[12px] font-bold hover:bg-white transition-colors"
-              >
-                Subscribe
-              </button>
-            </form>
-            <div class="mt-4 flex items-center gap-1.5 text-[10px] text-white/40 font-mono">
+            <ul class="space-y-2.5 text-[13px]">
+              <li>
+                <a
+                  href="https://x.com/BlocksterCom"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  class="inline-flex items-center gap-2 text-white/70 hover:text-white transition-colors group"
+                >
+                  <svg class="w-3.5 h-3.5 text-white/50 group-hover:text-[#CAFC00] transition-colors" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" /></svg>
+                  <span>@BlocksterCom on X</span>
+                </a>
+              </li>
+              <li>
+                <a
+                  href="https://t.me/+7bIzOyrYBEc3OTdh"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  class="inline-flex items-center gap-2 text-white/70 hover:text-white transition-colors group"
+                >
+                  <svg class="w-3.5 h-3.5 text-white/50 group-hover:text-[#CAFC00] transition-colors" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.894 8.221l-1.97 9.28c-.145.658-.537.818-1.084.508l-3-2.21-1.446 1.394c-.14.18-.357.295-.6.295-.002 0-.003 0-.005 0l.213-3.054 5.56-5.022c.24-.213-.054-.334-.373-.121l-6.869 4.326-2.96-.924c-.64-.203-.658-.643.135-.953l11.566-4.458c.538-.196 1.006.128.832.95z" /></svg>
+                  <span>Join Telegram</span>
+                </a>
+              </li>
+            </ul>
+            <div class="mt-5 flex items-center gap-1.5 text-[10px] text-white/40 font-mono">
               <span class="w-1.5 h-1.5 rounded-full bg-[#22C55E] animate-pulse"></span>
               <span>SOLANA · MAINNET LIVE</span>
             </div>

@@ -7,6 +7,9 @@ For active reference material, see the main [CLAUDE.md](../CLAUDE.md).
 ---
 
 ## Table of Contents
+- [Web3Auth OAuth reauth — pill, not modal, and only OAuth users need it](#web3auth-oauth-reauth--pill-not-modal-and-only-oauth-users-need-it-2026-04-27)
+- [BEAM caches NXDOMAIN — JWKS fetch fails for ~10 min after a network blip at boot](#beam-caches-nxdomain--jwks-fetch-fails-for-10-min-after-a-network-blip-at-boot-2026-04-27)
+- [Hardcoded fallback values mask broken integrations — the `$160` SOL price + the `14.2%` APY](#hardcoded-fallback-values-mask-broken-integrations--the-160-sol-price--the-142-apy-2026-04-27)
 - [Broadcast inside `Repo.transaction` races the commit — subscribers see pre-commit state](#broadcast-inside-repotransaction-races-the-commit--subscribers-see-pre-commit-state-2026-04-24)
 - [Idempotent post-paid processing via the `fulfillment_notified_at` stamp](#idempotent-post-paid-processing-via-the-fulfillment_notified_at-stamp-2026-04-24)
 - [Web3Auth mobile popup fails silently — switch to `uxMode: "redirect"` + sessionStorage hint](#web3auth-mobile-popup-fails-silently--switch-to-uxmode-redirect--sessionstorage-hint-2026-04-24)
@@ -66,6 +69,81 @@ For active reference material, see the main [CLAUDE.md](../CLAUDE.md).
 - [AirdropVault V2 Upgrade](#airdropvault-v2-upgrade--client-side-deposits-feb-28-2026)
 - [NFTRewarder V6 & RPC Batching](#nftrewarder-v6--rpc-batching-mar-2026)
 - [Engagement Tracker Silent Failure — `#post-content` Selector Miss After Redesign](#engagement-tracker-silent-failure--post-content-selector-miss-after-redesign-apr-2026)
+
+---
+
+## Web3Auth OAuth reauth — pill, not modal, and only OAuth users need it (2026-04-27)
+
+**Symptom**: returning user logged in via X (Web3Auth's TWITTER provider) lands on `/play`. Old Blockster session cookie is still valid (`current_user` is set, balances render). But clicking *Place Bet* shows "No Solana wallet connected. Please connect your wallet and try again." Nothing in the console hints why; the UI looks signed in.
+
+**Root cause** (the deeper one — there are layers): Web3Auth's MPC wallet for an OAuth user is keyed to `(verifier, oauth sub)`. To re-derive the keypair after a reload, the SDK either rehydrates its own session (alive ≤ 1–7 days for Sapphire Devnet, then dead) or runs a fresh OAuth handshake. Our silent-reconnect's slow path (`POST /api/auth/web3auth/refresh_jwt`) only returns a Custom JWT for `web3auth_email` / `web3auth_telegram` users, because those are the only verifiers we own. OAuth verifiers are owned by Twitter/Google/Apple — we can't mint a JWT for them and we can't run their OAuth flow without a user gesture (browsers block popups not initiated by user click). So when an OAuth user's Web3Auth session ages out, **there is no silent path to recovery**. The Blockster session cookie staying valid is a red herring — `window.__signer` is null because the JS hook never reinstalls it, and every signing-required action trips the bare-`null` guard in `assets/js/hooks/signer.js:22`'s `getSigner()`.
+
+**First attempt (rejected after 1 hour of use)**: on silent-reconnect failure, push `web3auth_reauth_required` to LiveView; server pops the wallet selector modal with an error flash. Functionally correct, but the modal popped on *every page mount* while the Web3Auth session was dead. User clicks anywhere → modal returns. Browsing was unusable.
+
+**Final pattern — floating "Reconnect wallet" pill, not a modal**:
+
+1. **JS hook** (`assets/js/hooks/web3auth_hook.js`) — `_completeLogin` stashes `provider` in `localStorage["blockster_web3auth_provider"]` (so we know which OAuth flow to re-run). `_silentReconnect`'s `.finally` block checks `!window.__signer` and pushes `web3auth_reauth_required` with the stashed provider. `_logout` clears both the session flag and provider keys.
+2. **Server** (`lib/blockster_v2_web/live/wallet_auth_events.ex`) — `web3auth_reauth_required` handler sets `:needs_wallet_reauth = true` + `:reauth_provider = provider`, no modal, no flash. New `start_wallet_reauth` event handler dispatches based on `:reauth_provider` to the correct `start_web3auth_login` (twitter / google) or `start_telegram_widget` event; falls back to opening the wallet selector if the provider wasn't stashed (returning user from before this code shipped). `web3auth_session_persisted` clears both flags on a successful reconnect.
+3. **Layout** (`lib/blockster_v2_web/components/layouts/redesign.html.heex`) — when `assigns[:needs_wallet_reauth]` is true, renders an amber pill fixed at top-right (`z-50`, above the header's `z-30`) with text "Reconnect wallet". An inline `<style>#ds-user-dropdown { display: none !important; }</style>` block hides the existing user pill so the reconnect pill visually replaces it. **Single integration point** — avoided touching all 32 `<.header>` callsites that would otherwise need a `needs_wallet_reauth={...}` attr threaded through.
+
+User clicks pill → existing OAuth flow runs → MPC re-derives the **same** Solana pubkey because `(verifier, sub)` is stable → `_completeLogin` reinstalls `window.__signer` and pushes `web3auth_authenticated` → `web3auth_session_persisted` clears the flag → user pill returns. No data migration, no wallet swap, no flash.
+
+**Lessons**:
+
+- **Modal-on-mount UX is hostile when the trigger fires every page load.** A floating CTA the user clicks when ready is the right shape for "you need to take action eventually but not right now."
+- **Layout-level overlay > prop-drilling through 32 callsites** when the new state is purely render-time. Inline `<style>` to hide the existing element is ugly but cheap; the alternative was either a global CSS class (which still needs a layout-level toggle) or touching every callsite.
+- **The Custom-JWT silent-reconnect fork** (`/api/auth/web3auth/refresh_jwt`) handles email + telegram for free because we own those verifiers. **Document loudly that OAuth users do NOT hit that path** — it's tempting on first read of the auth_controller code to assume all Web3Auth users get silent recovery.
+
+**Files**: `assets/js/hooks/web3auth_hook.js`, `lib/blockster_v2_web/live/wallet_auth_events.ex`, `lib/blockster_v2_web/components/layouts/redesign.html.heex`.
+
+---
+
+## BEAM caches NXDOMAIN — JWKS fetch fails for ~10 min after a network blip at boot (2026-04-27)
+
+**Symptom**: post-OAuth, server-side JWT verification 401s with `Server rejected session (401): {"error":"Invalid Web3Auth token","detail":"{:jwks_fetch_failed, %Req.TransportError{reason: :nxdomain}}"}`. From the dev shell, `host api-auth.web3auth.io` resolves fine and `curl -sI https://api-auth.web3auth.io/jwks` returns 200. The hostname is alive globally — the failure is BEAM-local.
+
+**Root cause**: Erlang's `:inet_db` caches negative DNS responses (NXDOMAIN) for ~10 minutes by default. If the resolver was momentarily broken when `bin/dev` started — sleeping laptop coming back online, VPN flap, network change between Mnesia init and the first JWKS fetch — the bad answer sticks around long after the network recovered. The OS-level `host` command queries fresh; the BEAM doesn't, until its TTL expires.
+
+**Diagnosis**: from an attached iex, `:inet_res.gethostbyname(~c"api-auth.web3auth.io")` returns `{:error, :nxdomain}` while shell `host` works. That's the smoking gun.
+
+**Fix**: restart `bin/dev`. The negative-DNS cache is in-memory; cold start clears it.
+
+**Why we didn't see it earlier**: the JWKS cache hits when the public key for the current `kid` is already in ETS (from a prior successful fetch this VM lifetime). New `kid` → new fetch → if the resolver's negative cache is hot, the fetch fails. That's why the issue can lurk between deploys/restarts and surface unpredictably.
+
+**Compensating factor that masked the bug end-to-end**: the JS-side signer install happens in `_completeLogin` **before** the `pushEvent("web3auth_authenticated")` that triggers server-side JWT verification (`web3auth_hook.js:503-505`). So even when the server rejected the JWT (no fresh session minted), `window.__signer` was already set client-side. If the user's pre-existing Blockster session cookie was still valid, their next bet succeeded — server-side mint was orthogonal to bet signing. Lucky, but masks the underlying instability.
+
+**Mitigations to consider** (none implemented this session — restart was sufficient):
+
+- Set `:inet_db` to a shorter negative TTL (`:inet_db.set_cache_size/1` and friends) at app start — but tuning the resolver globally has wider implications.
+- Wrap the JWKS fetch in a circuit breaker that retries with a brief delay on `:nxdomain` before failing the whole verification.
+- Pre-warm the JWKS cache at app start so the first user who logs in doesn't hit a cold fetch.
+
+The right durable fix is a retry inside the JWKS fetch — left as a follow-up.
+
+**Files**: `lib/blockster_v2/auth/web3auth.ex` (the JWKS URL is hardcoded on line 20: `https://api-auth.web3auth.io/jwks`).
+
+---
+
+## Hardcoded fallback values mask broken integrations — the `$160` SOL price + the `14.2%` APY (2026-04-27)
+
+**Symptom**: user opens `/pool`, sees "61 SOL ≈ $10k" on the SOL vault TVL line. SOL had been trading well above $160 for months. Adjacent vault cards on the same page showed `est. APY 14.2%` and `18.7%` — the BUX pool, whose actual lifetime return was *negative*. The numbers had been wrong for a long time and nobody noticed because they're plausible at a glance.
+
+**Root cause #1 — SOL price**: `pool_index_live.ex` had a `fmt_total_tvl_usd/1` helper that hardcoded `vault_total_balance × 160.0`. Originally a placeholder while `PriceTracker` was being wired up; the real `PriceTracker.get_price("SOL")` (live CoinGecko poll, cached in the `:token_prices` Mnesia table) was already shipped on other pages — but this one helper was never updated. The number kept rendering plausibly because $160 happened to be in the right order of magnitude.
+
+**Root cause #2 — fake APY**: marketing copy from before the bankroll had any settled bets. `est_apy = if is_sol, do: "14.2", else: "18.7"` literally hardcoded as strings in the LiveView. Same on the `/pool/sol` and `/pool/bux` detail pages (`if is_sol, do: "14.2", else: "18.7"`). The numbers had no relationship to actual LP performance — and once the BUX bankroll's `houseProfit` went negative on devnet, the lie became user-visible.
+
+**Fix**: replaced both with real on-chain math.
+
+- SOL/USD via `BlocksterV2.PriceTracker.get_price("SOL")` everywhere money displays. New `fetch_sol_usd_price/0` helper duplicated on each LV that needs it (`pool_index_live`, `pool_detail_live`, `coin_flip_live`, `wallet_live`) — the helper is small enough that local copies are cheaper than threading a shared utility module.
+- APY → "lifetime return": `(lp_price − 1.0) × 100`. Signed `+`/`−`, red text override when negative. Same shape on the index card and the detail-page header (where the APY pill was nuked entirely after the user pushed back twice).
+
+**Lessons**:
+
+- **Hardcoded fallbacks decay silently.** The `$160` and `14.2` weren't intentionally fake — they were placeholders that survived past the day the real integration shipped. The price was off-by-context-sensitive by ~30% for months and nobody flagged it.
+- **Don't ship marketing-grade prose numbers as code constants.** If the value is meant to be empirically derived, derive it. If you genuinely don't have the data yet, render `—` and let the absence prompt the question.
+- **`lpPrice − 1.0` is the right honest signal** for a pool's lifetime LP return. It can be annualized later with `LpPriceHistory` deltas, but the un-annualized version is at least *true* — and the on-chain math is a single subtraction.
+
+**Files**: `lib/blockster_v2_web/live/pool_index_live.ex`, `lib/blockster_v2_web/live/pool_detail_live.ex`, `lib/blockster_v2_web/components/pool_components.ex`.
 
 ---
 

@@ -106,7 +106,7 @@ defmodule BlocksterV2Web.CartLive.IndexTest do
       # DS header
       assert html =~ "ds-site-header"
       assert html =~ "SolanaWallet"
-      assert html =~ "Why Earn BUX?"
+      assert html =~ "ds-why-earn-bux"
 
       # Page hero
       assert html =~ "0 items"
@@ -140,7 +140,7 @@ defmodule BlocksterV2Web.CartLive.IndexTest do
 
       # DS header
       assert html =~ "ds-site-header"
-      assert html =~ "Why Earn BUX?"
+      assert html =~ "ds-why-earn-bux"
 
       # Page hero
       assert html =~ "Your cart"

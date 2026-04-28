@@ -191,7 +191,7 @@ defmodule BlocksterV2Web.MemberLive.ShowTest do
 
       {:ok, _view, html} = live(conn, ~p"/member/buxbanner")
 
-      assert html =~ "Why Earn BUX?"
+      assert html =~ "ds-why-earn-bux"
       assert html =~ "Redeem BUX to enter sponsored airdrops"
     end
 

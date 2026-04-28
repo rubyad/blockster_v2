@@ -35,6 +35,7 @@ Phoenix LiveView web3 content platform — shop, hubs, events, token-based engag
 **Tokens**:
 - BUX tokens live ON-CHAIN. Mnesia is a cache; on-chain is source of truth. To move BUX out of a user's wallet: `approve()` + `transferFrom()` — NEVER mint as a shortcut.
 - Primary wallet field is `wallet_address` (Solana pubkey for new users, EVM EOA for legacy). `smart_wallet_address` is legacy EVM ERC-4337, `nil` for Solana users — NEVER use it for BuxMinter calls.
+- **BUX never displays a USD value.** No `≈ $X` line under any BUX figure (TVL, Profit, balances, position values, anywhere). The only acceptable secondary line under a BUX value is plain prose ("in vault", "issued", "to LPs"). SOL gets full SOL-primary + USD-secondary treatment via live `PriceTracker.get_price("SOL")`; BUX gets neither a market price nor a USD conversion. Counterpart to the SOL-FIRST RULE in the Shop section.
 
 **AI / dependencies**:
 - AI Manager (`ai_manager.ex`) must always use Claude Opus. Never downgrade to Sonnet/Haiku.
@@ -79,12 +80,12 @@ Phoenix LiveView web3 content platform — shop, hubs, events, token-based engag
 ## Running Locally
 
 ```bash
-WIDGETS_ENABLED=true bin/dev   # settler + 2 Elixir nodes (full cluster) — DEFAULT, always use this
-bin/dev single                 # single node, no cluster (discouraged)
-bin/dev settler                # settler only
+SOCIAL_LOGIN_ENABLED=true WIDGETS_ENABLED=true bin/dev   # settler + 2 Elixir nodes (full cluster) — DEFAULT, always use this
+bin/dev single                                           # single node, no cluster (discouraged)
+bin/dev settler                                          # settler only
 ```
 
-**ALWAYS prefix `bin/dev` with `WIDGETS_ENABLED=true`** when starting local. Widgets are off by default, but the dev workflow assumes they're on — starting without it ships a degraded UI.
+**ALWAYS prefix `bin/dev` with `SOCIAL_LOGIN_ENABLED=true WIDGETS_ENABLED=true`** when starting local. Both flags are off by default, but the dev workflow assumes they're on — starting without them ships a degraded UI and hides the Web3Auth sign-in flow.
 
 | Service | Port | Purpose |
 |---------|------|---------|
@@ -176,6 +177,7 @@ All 10 phases complete — see [docs/social_login_plan.md](docs/social_login_pla
 - **Email flow runs through a Custom JWT, NOT Web3Auth's EMAIL_PASSWORDLESS popup**. In-app OTP (two-stage inline entry) → `Auth.EmailOtpStore` (ETS) → `Auth.Web3AuthSigning.sign_id_token` → `connectTo(AUTH, { authConnection: CUSTOM, authConnectionId: "blockster-email", extraLoginOptions: {id_token, verifierIdField: "sub"} })`. No popup, no captcha. See docs/social_login_plan.md Appendix E for the "why".
 - Telegram flow: same Custom JWT infrastructure, verifier `blockster-telegram`. Widget embed wires to `POST /api/auth/telegram/verify`.
 - Google/Apple/X: still use Web3Auth's OAuth popup (provider-owned, unavoidable). Those popups are quick, not captcha+code.
+- **OAuth users have no silent-reconnect path** — when a returning X/Google/Apple user's Web3Auth session ages out (~1–7 days), `_silentReconnect` in `web3auth_hook.js` fails and `/api/auth/web3auth/refresh_jwt` returns 400 (we only mint Custom JWTs for email/telegram, the verifiers we own). The hook pushes `web3auth_reauth_required`; `WalletAuthEvents` sets `:needs_wallet_reauth`; `redesign.html.heex` renders a floating amber "Reconnect wallet" pill (top-right, `z-50`) and hides the existing user pill via inline `<style>`. Click → `start_wallet_reauth` → original OAuth flow → MPC re-derives the same pubkey from `(verifier, sub)`. **Do NOT** re-introduce a modal-on-mount UX here — it pops on every page load while the session is dead. Pattern detail: [docs/session_learnings.md](docs/session_learnings.md) "Web3Auth OAuth reauth — pill, not modal".
 - **Email ownership = account ownership**: when a Web3Auth email sign-in matches an existing user by email, `Accounts.reclaim_legacy_via_web3auth/3` creates a new user with the Web3Auth-derived Solana wallet, runs `LegacyMerge.merge_legacy_into!` with `skip_reclaimable_check: true`, and merges: legacy BUX minted to new wallet via settler, username/X/Telegram/phone/content/referrals/fingerprints transferred, old row deactivated. Returning users skip onboarding. This replaces legacy wallet_address wholesale.
 - `wallet_address` is ALWAYS the primary wallet. For a Web3Auth sign-in that subsumes an existing user, this means the Web3Auth-derived Solana pubkey REPLACES whatever was there (EVM EOA or old Phantom wallet).
 - `smart_wallet_address` is legacy EVM ERC-4337 only. NULL for all Web3Auth users and new Solana users.

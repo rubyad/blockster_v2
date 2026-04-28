@@ -143,7 +143,7 @@ defmodule BlocksterV2Web.ShopLive.ShowTest do
       # DS header
       assert html =~ "ds-site-header"
       assert html =~ "SolanaWallet"
-      assert html =~ "Why Earn BUX?"
+      assert html =~ "ds-why-earn-bux"
 
       # Footer
       assert html =~ "Hustle hard. All in on crypto."

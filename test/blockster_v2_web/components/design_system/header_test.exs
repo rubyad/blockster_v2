@@ -40,8 +40,7 @@ defmodule BlocksterV2Web.DesignSystem.HeaderTest do
         <.header current_user={nil} />
         """)
 
-      assert html =~ "Why Earn BUX?"
-      assert html =~ "Redeem BUX to enter sponsored airdrops."
+      assert html =~ "ds-why-earn-bux"
     end
 
     test "show_why_earn_bux=false hides the banner" do

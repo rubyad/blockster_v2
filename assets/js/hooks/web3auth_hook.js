@@ -24,6 +24,11 @@ import { Transaction, Keypair } from "@solana/web3.js"
 import nacl from "@toruslabs/tweetnacl-js"
 
 const STORAGE_KEY = "blockster_web3auth_session"
+// localStorage key: which provider the user originally signed in with
+// (twitter / google / email / telegram / etc). Used on silent-reconnect
+// failure to tell the server which tile to highlight when prompting the
+// user to re-authenticate.
+const PROVIDER_KEY = "blockster_web3auth_provider"
 // sessionStorage key: survives the same-tab OAuth redirect, clears on tab close.
 // Set before navigating to Web3Auth; read on return to know which provider
 // button the user tapped (pushed back to LiveView as `provider`).
@@ -127,9 +132,22 @@ export const Web3Auth = {
     } else if (hadSession && this._clientId) {
       // Silent init — if the session rehydrates, install the signer but do
       // NOT push wallet_authenticated (the user already has a session cookie).
-      this._silentReconnect().catch((e) => {
-        console.warn("[Web3Auth] silent reconnect failed:", e?.message || e)
-      })
+      this._silentReconnect()
+        .catch((e) => {
+          console.warn("[Web3Auth] silent reconnect failed:", e?.message || e)
+        })
+        .finally(() => {
+          // If neither the fast path nor the slow path produced a signer,
+          // the user's Web3Auth session has aged out. We can't silently
+          // re-derive the wallet (OAuth users have their MPC wallet keyed
+          // to the OAuth provider, which requires a fresh popup). Notify
+          // LiveView so it can render the Reconnect pill.
+          if (!window.__signer) {
+            let provider = null
+            try { provider = localStorage.getItem(PROVIDER_KEY) } catch (_) {}
+            this.pushEvent("web3auth_reauth_required", { provider: provider || "" })
+          }
+        })
     }
   },
 
@@ -506,6 +524,7 @@ export const Web3Auth = {
 
     try {
       localStorage.setItem(STORAGE_KEY, "1")
+      if (provider) localStorage.setItem(PROVIDER_KEY, provider)
     } catch (_) {}
 
     this.pushEvent("web3auth_authenticated", {
@@ -737,7 +756,10 @@ export const Web3Auth = {
   // ── Logout ───────────────────────────────────────────────────
 
   async _logout() {
-    try { localStorage.removeItem(STORAGE_KEY) } catch (_) {}
+    try {
+      localStorage.removeItem(STORAGE_KEY)
+      localStorage.removeItem(PROVIDER_KEY)
+    } catch (_) {}
     clearWeb3AuthSigner()
     this._provider = null
     this._pubkey = null

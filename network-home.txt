@@ -1,0 +1,110 @@
+[GET] http://localhost:4000/ => [200] OK
+[POST] https://www.google-analytics.com/g/collect?v=2&tid=G-XS8GB0GPBW&gtm=45je64m2v889392850za200zd889392850&_p=1777000091111&gcd=13l3l3l3l1l1&npa=0&dma=0&_eu=AAAAAAQ&are=1&cid=1108725267.1771615714&frm=0&pscdl=noapi&rcb=3&sr=2560x1440&uaa=x86&uab=64&uafvl=Google%2520Chrome%3B147.0.7727.116%7CNot.A%252FBrand%3B8.0.0.0%7CChromium%3B147.0.7727.116&uam=&uamb=0&uap=macOS&uapv=12.5.1&uaw=0&ul=en-us&_s=2&tag_exp=0~115938466~115938468~117266400~117512543&sid=1776999970&sct=32&seg=1&dl=http%3A%2F%2Flocalhost%2F&dr=http%3A%2F%2Flocalhost%3A4000%2F&dt=Latest%20Posts%20%C2%B7%20Blockster&en=user_engagement&_et=271186&tfd=271533 => [FAILED] net::ERR_ABORTED
+[POST] https://www.google-analytics.com/g/collect?v=2&tid=G-XS8GB0GPBW&gtm=45je64m2v889392850za200zd889392850&_p=1777000091111&gcd=13l3l3l3l1l1&npa=0&dma=0&_eu=AAAAAAQ&are=1&cid=1108725267.1771615714&frm=0&pscdl=noapi&rcb=3&sr=2560x1440&uaa=x86&uab=64&uafvl=Google%2520Chrome%3B147.0.7727.116%7CNot.A%252FBrand%3B8.0.0.0%7CChromium%3B147.0.7727.116&uam=&uamb=0&uap=macOS&uapv=12.5.1&uaw=0&ul=en-us&_s=2&tag_exp=0~115938466~115938468~117266400~117512543&sid=1776999970&sct=32&seg=1&dl=http%3A%2F%2Flocalhost%2F&dr=http%3A%2F%2Flocalhost%3A4000%2F&dt=Latest%20Posts%20%C2%B7%20Blockster&en=user_engagement&_et=271186&tfd=271533 => [FAILED] net::ERR_ABORTED
+[POST] https://www.google.com/g/collect?v=2&tid=G-XS8GB0GPBW&gtm=45je64m2v889392850za200zd889392850&_p=1777000091111&gcd=13l3l3l3l1l1&npa=0&dma=0&_eu=AAAAAAQ&are=1&cid=1108725267.1771615714&frm=0&pscdl=noapi&rcb=3&sr=2560x1440&uaa=x86&uab=64&uafvl=Google%2520Chrome%3B147.0.7727.116%7CNot.A%252FBrand%3B8.0.0.0%7CChromium%3B147.0.7727.116&uam=&uamb=0&uap=macOS&uapv=12.5.1&uaw=0&ul=en-us&_s=2&tag_exp=0%7E115938466%7E115938468%7E117266400%7E117512543&sid=1776999970&sct=32&seg=1&dl=http%3A%2F%2Flocalhost%2F&dr=http%3A%2F%2Flocalhost%3A4000%2F&dt=Latest+Posts+%C2%B7+Blockster&en=user_engagement&_et=271186&tfd=271533&gaf=1
+[GET] https://www.googletagmanager.com/gtag/js?id=G-XS8GB0GPBW => [200] 
+[GET] http://localhost:4000/assets/css/app.css => [304] Not Modified
+[GET] https://api.fontshare.com/v2/css?f[]=satoshi@400,500,700,900&display=swap => [200] 
+[GET] https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap => [200] 
+[GET] https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap => [200] 
+[GET] http://localhost:4000/assets/js/app.js => [304] Not Modified
+[GET] https://platform.twitter.com/widgets.js => [200] 
+[GET] https://ik.imagekit.io/blockster/blockster-icon.png => [200] 
+[GET] https://ik.imagekit.io/blockster/solana-sol-logo.png => [200] 
+[GET] https://fonts.googleapis.com/css2?family=Inter:wght@100;200;300;400;500;600;700;800;900&display=swap => [200] 
+[GET] https://ik.imagekit.io/blockster/984a3be4-7edf-422a-9dc4-f127223d6560.png?tr=w-500,h-500,q-90,f-auto => [200] 
+[GET] https://ik.imagekit.io/blockster/2b3f49f4-1b1c-47d0-9ca0-bc521989b234.png?tr=w-500,h-500,q-90,f-auto => [200] 
+[GET] https://ik.imagekit.io/blockster/8f05a87f-6841-46fa-a6f8-49a0c08830de.png?tr=w-500,h-500,q-90,f-auto => [200] 
+[GET] https://ik.imagekit.io/blockster/719c4f1d-c7ba-4a52-b290-67cf5bc4d377.png?tr=w-500,h-500,q-90,f-auto => [200] 
+[GET] https://ik.imagekit.io/blockster/170946e2-fba4-4a57-85ee-b805dadbf1f4.png?tr=w-500,h-500,q-90,f-auto => [200] 
+[GET] https://images.unsplash.com/photo-1518546305927-5a555bb7020d?w=1200&h=600&fit=crop => [200] 
+[GET] https://images.unsplash.com/photo-1622630998477-20aa696ecb05?w=1200&h=600&fit=crop => [200] 
+[GET] https://images.unsplash.com/photo-1640340434855-6084b1f4901c?w=1200&h=600&fit=crop => [200] 
+[GET] http://localhost:4000/phoenix/live_reload/frame => [200] OK
+[GET] https://fonts.gstatic.com/s/inter/v20/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa1ZL7W0Q5nw.woff2 => [200] 
+[GET] https://cdn.fontshare.com/wf/TTX2Z3BF3P6Y5BQT3IV2VNOK6FL22KUT/7QYRJOI3JIMYHGY6CH7SOIFRQLZOLNJ6/KFIAZD4RUMEZIYV6FQ3T3GP5PDBDB6JY.woff2 => [200] 
+[GET] https://cdn.fontshare.com/wf/LAFFD4SDUCDVQEXFPDC7C53EQ4ZELWQI/PXCT3G6LO6ICM5I3NTYENYPWJAECAWDD/GHM6WVH6MILNYOOCXHXB5GTSGNTMGXZR.woff2 => [200] 
+[GET] https://cdn.fontshare.com/wf/NHPGVFYUXYXE33DZ75OIT4JFGHITX5PE/PSUTMASCDJTVPERDYJZPN23BVUFUCQIF/J64QX5IPOHK56I2KYUNBQ5M2XWZEYKYX.woff2 => [200] 
+[GET] https://fonts.gstatic.com/s/jetbrainsmono/v24/tDbv2o-flEEny0FZhsfKu5WU4zr3E_BX0PnT8RD8yKwBNntkaToggR7BYRbKPxDcwgknk-4.woff2 => [200] 
+[GET] https://ik.imagekit.io/blockster/dd5ef38c-671e-4a70-8a6d-13c12cae7d87.png?tr=w-500,h-600,q-90,f-auto => [200] 
+[GET] https://ik.imagekit.io/blockster/63fad1d7-8813-410a-aeba-fbe243c036eb.png?tr=w-800,h-600,q-90,f-auto => [200] 
+[GET] https://platform.twitter.com/widgets/widget_iframe.2f70fb173b9000da126c79afe2098f02.html?origin=http%3A%2F%2Flocalhost%3A4000 => [200] 
+[GET] https://syndication.twitter.com/settings?session_id=c2ce9902a5927dad7a56b0e6c616881e356137db => [200] 
+[GET] https://ik.imagekit.io/blockster/rogue-logo-white.png => [200] 
+[GET] https://ik.imagekit.io/blockster/ads/grayandsons/1776222731-879ba0a4c7b8-submariner-snug.jpg?tr=w-1200,q-95,f-auto => [200] 
+[GET] https://wallet.web3auth.io/v5/frame => [200] 
+[GET] https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap => [200] 
+[GET] https://api.web3auth.io/signer-service/api/v2/configuration?project_id=BFBFYsroKJuuISi3qWf4SWt5UiElyf4Yqdsvc9786YxgOnCJT-Kcq7yLa9z6S2ZBOo6YXv90ytzypYgjt_YucBw&network=sapphire_devnet => [200] OK
+[GET] https://assets.web3auth.io/v2/wallet-registry.json => [200] 
+[POST] https://api.web3auth.io/session-service/v2/store/get => [200] OK
+[GET] https://ik.imagekit.io/blockster/favicon-32x32.png => [200] 
+[GET] https://wallet.web3auth.io/v5/frame => [200] 
+[GET] https://wallet.web3auth.io/v5/assets/index-DREUXLud.js => [200] 
+[GET] https://wallet.web3auth.io/v5/assets/index-BDgtTjdd.css => [200] 
+[GET] https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap => [200] 
+[GET] https://wallet.web3auth.io/v5/assets/index-CQouAA6A.js => [200] 
+[GET] https://wallet.web3auth.io/v5/assets/normalize-s9NUxXGc.js => [200] 
+[GET] https://wallet.web3auth.io/v5/assets/index-CZigwRjP.js => [200] 
+[GET] https://wallet.web3auth.io/v5/assets/InformationCircleSolidIcon-DM_aD-Gw.js => [200] 
+[GET] https://wallet.web3auth.io/v5/assets/XSolidIcon-CF1mwotE.js => [200] 
+[GET] https://wallet.web3auth.io/v5/assets/Frame-CmLNV4iF.js => [200] 
+[GET] https://wallet.web3auth.io/v5/assets/Button.esm-B5Z4Pfr4.js => [200] 
+[GET] https://wallet.web3auth.io/v5/assets/Button-DgYaDyiR.css => [200] 
+[GET] https://wallet.web3auth.io/v5/assets/Modal.esm-CoV_-kOK.js => [200] 
+[GET] https://wallet.web3auth.io/v5/assets/Modal-DYQIx-HI.css => [200] 
+[GET] https://wallet.web3auth.io/v5/assets/use-confirm-sign-o874F6hP.js => [200] 
+[GET] https://wallet.web3auth.io/v5/assets/use-confirm-transaction-5hSnMSJ2.js => [200] 
+[GET] https://wallet.web3auth.io/v5/assets/helpers-DnXw3Vsh.js => [200] 
+[GET] https://wallet.web3auth.io/v5/assets/sha256-CsdeHlbJ.js => [200] 
+[GET] https://wallet.web3auth.io/v5/assets/v4-TfA884Ue.js => [200] 
+[GET] https://wallet.web3auth.io/v5/assets/ITransactionController-BHhvmNbH.js => [200] 
+[GET] https://wallet.web3auth.io/v5/assets/solana-wMyqDnyh.js => [200] 
+[GET] https://wallet.web3auth.io/v5/assets/index-B6b5TLoe.js => [200] 
+[GET] https://wallet.web3auth.io/v5/assets/common-DKKVQveQ.js => [200] 
+[GET] https://wallet.web3auth.io/v5/assets/Instruction-CrWk9kCp.js => [200] 
+[GET] https://wallet.web3auth.io/v5/assets/unwrapOptionRecursively-DKRWflBr.js => [200] 
+[GET] https://wallet.web3auth.io/v5/assets/interfaces-Cgmgp7W8.js => [200] 
+[GET] https://wallet.web3auth.io/v5/assets/maths-BbhagDaI.js => [200] 
+[GET] https://wallet.web3auth.io/v5/assets/use-network-xJcKQekn.js => [200] 
+[GET] https://wallet.web3auth.io/v5/assets/use-token-Jt2FG7NI.js => [200] 
+[GET] https://wallet.web3auth.io/v5/assets/abis-yoc29-B6.js => [200] 
+[GET] https://wallet.web3auth.io/v5/assets/abstract-signer-DjL8-MuD.js => [200] 
+[POST] https://o503538.ingest.us.sentry.io/api/4506858564419584/envelope/?sentry_version=7&sentry_key=cdd6953986e1705adf488b91bf5d8eaa&sentry_client=sentry.javascript.vue%2F9.47.1 => [200] 
+[GET] https://wallet.web3auth.io/v5/assets/AddFunds.esm-DZNWjLJ6.js => [200] 
+[GET] https://wallet.web3auth.io/v5/assets/Receive.esm-CipJts2e.js => [200] 
+[GET] https://wallet.web3auth.io/v5/assets/scanner-DeXuJ71C-BHyZDAzq.js => [200] 
+[GET] https://wallet.web3auth.io/v5/assets/_plugin-vue_export-helper-CHgC5LLL-B6hajuI4.js => [200] 
+[GET] https://wallet.web3auth.io/v5/assets/CreditCardIcon-DLf9vaW5.js => [200] 
+[GET] https://api.web3auth.io/signer-service/api/feature-access?client_id=BFBFYsroKJuuISi3qWf4SWt5UiElyf4Yqdsvc9786YxgOnCJT-Kcq7yLa9z6S2ZBOo6YXv90ytzypYgjt_YucBw&network=sapphire_devnet&is_wallet_service=true&enable_gating=true => [200] OK
+[GET] https://wallet.web3auth.io/v5/assets/clipboardCopy-C-55ViHa-BT20cMdj.js => [200] 
+[GET] https://wallet.web3auth.io/v5/assets/_plugin-vue_export-helper-CHgC5LLL-lGy7RumW.js => [200] 
+[GET] https://wallet.web3auth.io/v5/assets/DownloadIcon-CPIQRkQ6.js => [200] 
+[GET] https://wallet.web3auth.io/v5/assets/SolanaController-BNnqzcUM.js => [200] 
+[GET] https://wallet.web3auth.io/v5/assets/AbstractTorusController-kBonoF8j.js => [200] 
+[GET] https://wallet.web3auth.io/v5/assets/BaseController-DAjni3A3.js => [200] 
+[GET] https://wallet.web3auth.io/v5/assets/errors-CJ6Kx8uv.js => [200] 
+[GET] https://wallet.web3auth.io/v5/assets/broadcast-channel-DUSSBhlj.js => [200] 
+[POST] https://summer-sleek-shape.solana-devnet.quiknode.pro/92b7f51caa76f2981879528aee40a3e8e58cac60/ => [200] 
+[POST] https://api.web3auth.io/session-service/v2/store/get => [200] OK
+[GET] https://wallet.web3auth.io/v5/assets/index-CAAvFjgK.js => [200] 
+[GET] https://wallet.web3auth.io/v5/assets/ProgramError-DTj9EAxd.js => [200] 
+[GET] https://wallet.web3auth.io/v5/assets/index-ym2DHFpG.js => [200] 
+[POST] https://summer-sleek-shape.solana-devnet.quiknode.pro/92b7f51caa76f2981879528aee40a3e8e58cac60/ => [200] 
+[GET] https://api-wallet.web3auth.io/user?fetchTx=false => [200] OK
+[POST] https://summer-sleek-shape.solana-devnet.quiknode.pro/92b7f51caa76f2981879528aee40a3e8e58cac60/ => [200] 
+[GET] https://api-wallet.web3auth.io/transaction => [200] OK
+[POST] https://api-wallet.web3auth.io/user/recordLogin => [201] Created
+[GET] https://api-wallet.web3auth.io/currency?fsym=SOL&tsyms=USD => [200] OK
+[GET] https://api-wallet.web3auth.io/currency?fsym=SOL&tsyms=USD => [200] OK
+[POST] https://summer-sleek-shape.solana-devnet.quiknode.pro/92b7f51caa76f2981879528aee40a3e8e58cac60/ => [200] 
+[GET] https://api-wallet.web3auth.io/tokens?chainId=0x67&address=EPhSojGV2NNMDh8dR2NUYA41eDPib3ey35c7pRhUnXoo => [200] OK
+[POST] https://summer-sleek-shape.solana-devnet.quiknode.pro/92b7f51caa76f2981879528aee40a3e8e58cac60/ => [200] 
+[GET] https://api-wallet.web3auth.io/nfts?chainId=0x67&address=EPhSojGV2NNMDh8dR2NUYA41eDPib3ey35c7pRhUnXoo => [200] OK
+[GET] https://api-wallet.web3auth.io/currency?fsym=SOL&tsyms=USD => [200] OK
+[POST] https://summer-sleek-shape.solana-devnet.quiknode.pro/92b7f51caa76f2981879528aee40a3e8e58cac60/ => [200] 
+[GET] https://api-wallet.web3auth.io/tokens?chainId=0x67&address=EPhSojGV2NNMDh8dR2NUYA41eDPib3ey35c7pRhUnXoo => [200] OK
+[GET] https://api-wallet.web3auth.io/nfts?chainId=0x67&address=EPhSojGV2NNMDh8dR2NUYA41eDPib3ey35c7pRhUnXoo => [200] OK
+[POST] https://summer-sleek-shape.solana-devnet.quiknode.pro/92b7f51caa76f2981879528aee40a3e8e58cac60/ => [200] 
+[POST] https://summer-sleek-shape.solana-devnet.quiknode.pro/92b7f51caa76f2981879528aee40a3e8e58cac60/ => [200] 
+[POST] https://www.google-analytics.com/g/collect?v=2&tid=G-XS8GB0GPBW&gtm=45je64m2v889392850za200zd889392850&_p=1777000362373&gcd=13l3l3l3l1l1&npa=0&dma=0&_eu=AAAAAAQ&are=1&cid=1108725267.1771615714&frm=0&pscdl=noapi&rcb=15&sr=2560x1440&uaa=x86&uab=64&uafvl=Google%2520Chrome%3B147.0.7727.116%7CNot.A%252FBrand%3B8.0.0.0%7CChromium%3B147.0.7727.116&uam=&uamb=0&uap=macOS&uapv=12.5.1&uaw=0&ul=en-us&_s=1&tag_exp=0~115616985~115938466~115938469~117266400~117512543&sid=1776999970&sct=32&seg=1&dl=http%3A%2F%2Flocalhost%2F&dt=Latest%20Posts%20%C2%B7%20Blockster&en=page_view&_ee=1&tfd=5408 => [204] 
+[POST] https://www.google-analytics.com/g/collect?v=2&tid=G-XS8GB0GPBW&gtm=45je64m2v889392850za200zd889392850&_p=1777000362373&gcd=13l3l3l3l1l1&npa=0&dma=0&_eu=AAAAAAQ&are=1&cid=1108725267.1771615714&frm=0&pscdl=noapi&rcb=15&sr=2560x1440&uaa=x86&uab=64&uafvl=Google%2520Chrome%3B147.0.7727.116%7CNot.A%252FBrand%3B8.0.0.0%7CChromium%3B147.0.7727.116&uam=&uamb=0&uap=macOS&uapv=12.5.1&uaw=0&ul=en-us&_s=1&tag_exp=0~115616985~115938466~115938469~117266400~117512543&sid=1776999970&sct=32&seg=1&dl=http%3A%2F%2Flocalhost%2F&dt=Latest%20Posts%20%C2%B7%20Blockster&en=page_view&_ee=1&tfd=5408 => [204] 

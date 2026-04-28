@@ -237,6 +237,7 @@ defmodule BlocksterV2Web.PoolComponents do
   attr :vault_type, :string, required: true
   attr :timeframe, :string, default: "24H"
   attr :period_stats, :map, default: %{total: 0, wins: 0, volume: 0.0, payout: 0.0, profit: 0.0}
+  attr :sol_usd_price, :float, default: 0.0
 
   def pool_stats_grid(assigns) do
     is_sol = assigns.vault_type == "sol"
@@ -247,6 +248,9 @@ defmodule BlocksterV2Web.PoolComponents do
 
     lp_price_val = get_vault_stat(assigns.pool_stats, vault, "lpPrice")
     lp_supply_val = get_vault_stat(assigns.pool_stats, vault, "lpSupply")
+    bankroll_val =
+      get_vault_stat(assigns.pool_stats, vault, "netBalance") ||
+        get_vault_stat(assigns.pool_stats, vault, "totalBalance")
     vol = assigns.period_stats.volume
     total = assigns.period_stats.total
     wins = assigns.period_stats.wins
@@ -262,6 +266,7 @@ defmodule BlocksterV2Web.PoolComponents do
       |> assign(tf: tf)
       |> assign(lp_price_val: lp_price_val)
       |> assign(lp_supply_val: lp_supply_val)
+      |> assign(bankroll_val: bankroll_val)
       |> assign(vol: vol)
       |> assign(total: total)
       |> assign(wins: wins)
@@ -274,52 +279,58 @@ defmodule BlocksterV2Web.PoolComponents do
       <.stat_card
         label="LP price"
         value={if @loading, do: nil, else: format_price(@lp_price_val)}
-        sub_line={@token <> " per LP"}
+        unit={@token}
+        sub_line={token_amount_sub_line(@lp_price_val, @vault, @sol_usd_price, "per LP")}
         loading={@loading}
       />
       <.stat_card
         label="LP supply"
         value={if @loading, do: nil, else: format_number(@lp_supply_val)}
-        sub_line={@lp_token <> " issued"}
+        unit={@lp_token}
+        sub_line={token_amount_sub_line(@bankroll_val, @vault, @sol_usd_price, "issued")}
+        loading={@loading}
+      />
+      <.stat_card
+        label="Bankroll"
+        value={if @loading, do: nil, else: format_tvl(@bankroll_val)}
+        unit={@token}
+        sub_line={token_amount_sub_line(@bankroll_val, @vault, @sol_usd_price, "in vault")}
         loading={@loading}
       />
       <.stat_card
         label={"Volume " <> String.downcase(@tf)}
         value={if @loading, do: nil, else: format_tvl(@vol)}
-        sub_line={@token <> " wagered"}
+        unit={@token}
+        sub_line={token_amount_sub_line(@vol, @vault, @sol_usd_price, "wagered")}
         loading={@loading}
       />
       <.stat_card
         label={"Bets " <> String.downcase(@tf)}
         value={if @loading, do: nil, else: format_integer(@total)}
-        sub_line={"#{format_integer(@total)} total"}
-        loading={@loading}
-      />
-      <.stat_card
-        label={"Win rate " <> String.downcase(@tf)}
-        value={if @loading, do: nil, else: format_win_rate_value(@total, @wins)}
-        value_suffix="%"
-        sub_line={format_integer(@wins) <> " of " <> format_integer(@total)}
+        sub_line={format_win_rate_value(@total, @wins) <> "% win rate"}
         loading={@loading}
       />
       <.stat_card
         label={"Profit " <> String.downcase(@tf)}
-        value={if @loading, do: nil, else: format_profit_value(@profit)}
-        sub_line={@token <> " to LPs"}
+        value={if @loading, do: nil, else: format_profit_for_vault(@profit, @vault)}
+        unit={@token}
+        sub_line={token_amount_sub_line(@profit, @vault, @sol_usd_price, "to LPs")}
         color={profit_color(@profit)}
         loading={@loading}
       />
       <.stat_card
         label={"Payout " <> String.downcase(@tf)}
         value={if @loading, do: nil, else: format_tvl(@payout)}
-        sub_line={@token <> " to winners"}
+        unit={@token}
+        sub_line={token_amount_sub_line(@payout, @vault, @sol_usd_price, "to winners")}
         loading={@loading}
       />
       <.stat_card
-        label="House edge"
+        label={"House edge " <> String.downcase(@tf)}
         value={if @loading, do: nil, else: format_house_edge(@house_edge_pct)}
         value_suffix="%"
-        sub_line={"realized " <> String.downcase(@tf)}
+        sub_line="realized"
+        color={profit_color(@house_edge_pct)}
         loading={@loading}
       />
     </div>
@@ -331,6 +342,7 @@ defmodule BlocksterV2Web.PoolComponents do
   attr :label, :string, required: true
   attr :value, :string, default: nil
   attr :value_suffix, :string, default: ""
+  attr :unit, :string, default: ""
   attr :sub_line, :string, default: ""
   attr :color, :string, default: nil
   attr :loading, :boolean, default: false
@@ -346,7 +358,7 @@ defmodule BlocksterV2Web.PoolComponents do
           "font-mono font-bold text-[18px] leading-none tabular-nums",
           @color || "text-[#141414]"
         ]}>
-          <%= @value %><span :if={@value_suffix != ""} class="text-[12px]"><%= @value_suffix %></span>
+          <%= @value %><span :if={@value_suffix != ""} class="text-[12px]"><%= @value_suffix %></span><span :if={@unit != ""} class="ml-1 text-[11px] font-normal text-neutral-400"><%= @unit %></span>
         </div>
       <% end %>
       <div :if={@sub_line != ""} class="text-[10px] text-neutral-500 font-mono mt-1"><%= @sub_line %></div>
@@ -633,6 +645,23 @@ defmodule BlocksterV2Web.PoolComponents do
 
   def format_tvl(_), do: "0.00"
 
+  defp token_amount_sub_line(amount, "sol", sol_usd, _fallback) when is_number(amount) and amount > 0 and is_number(sol_usd) and sol_usd > 0 do
+    "≈ " <> format_usd(amount * sol_usd)
+  end
+
+  defp token_amount_sub_line(_, _, _, fallback), do: fallback
+
+  defp format_usd(val) when is_number(val) and val >= 1_000_000,
+    do: "$#{:erlang.float_to_binary(val / 1_000_000, decimals: 2)}M"
+
+  defp format_usd(val) when is_number(val) and val >= 1_000,
+    do: "$#{:erlang.float_to_binary(val / 1_000, decimals: 2)}k"
+
+  defp format_usd(val) when is_number(val) and val > 0,
+    do: "$#{:erlang.float_to_binary(val / 1.0, decimals: 2)}"
+
+  defp format_usd(_), do: "$0.00"
+
   @doc false
   def format_price(val) when is_number(val) and val > 0 do
     :erlang.float_to_binary(val / 1.0, decimals: 6)
@@ -676,6 +705,36 @@ defmodule BlocksterV2Web.PoolComponents do
   end
 
   def format_profit_value(_), do: "0.0000"
+
+  @doc false
+  def format_profit_for_vault(val, "bux") when is_number(val) do
+    [int_str, frac_str] =
+      :erlang.float_to_binary(abs(val) / 1.0, decimals: 2)
+      |> String.split(".")
+
+    sign =
+      cond do
+        val > 0 -> "+"
+        val < 0 -> "-"
+        true -> ""
+      end
+
+    "#{sign}#{commafy(String.to_integer(int_str))}.#{frac_str}"
+  end
+
+  def format_profit_for_vault(_, "bux"), do: "0.00"
+  def format_profit_for_vault(val, _), do: format_profit_value(val)
+
+  defp commafy(int) when is_integer(int) do
+    int
+    |> Integer.to_string()
+    |> String.reverse()
+    |> String.graphemes()
+    |> Enum.chunk_every(3)
+    |> Enum.map(&Enum.join/1)
+    |> Enum.join(",")
+    |> String.reverse()
+  end
 
   @doc false
   def format_integer(val) when is_number(val) and val >= 1_000_000 do

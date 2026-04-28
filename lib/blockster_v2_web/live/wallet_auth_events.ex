@@ -116,6 +116,56 @@ defmodule BlocksterV2Web.WalletAuthEvents do
         {:noreply, assign(socket, show_wallet_selector: false, connecting_wallet_name: nil)}
       end
 
+      # Pushed by the Web3Auth JS hook when a returning user's Web3Auth session
+      # has expired and silent reconnect failed. OAuth (X / Google / Apple)
+      # users' wallets are keyed to the OAuth provider's MPC verifier — we
+      # can't re-derive the keypair server-side. Set a flag so the layout
+      # renders a "Reconnect wallet" pill that swaps in for the normal user
+      # pill. We deliberately do NOT open the modal here — that's done on
+      # explicit user click via `start_wallet_reauth` below.
+      def handle_event("web3auth_reauth_required", %{"provider" => provider}, socket) do
+        {:noreply,
+         socket
+         |> assign(:needs_wallet_reauth, true)
+         |> assign(:reauth_provider, if(provider == "", do: nil, else: provider))}
+      end
+
+      # Triggered by the Reconnect-wallet pill. Dispatches to the original
+      # provider's start_*_login if known; otherwise opens the wallet modal
+      # so the user can pick.
+      def handle_event("start_wallet_reauth", _params, socket) do
+        case socket.assigns[:reauth_provider] do
+          "twitter" ->
+            {:noreply,
+             socket
+             |> assign(:connecting, true)
+             |> assign(:connecting_provider, "twitter")
+             |> push_event("start_web3auth_login", %{provider: "twitter"})}
+
+          "google" ->
+            {:noreply,
+             socket
+             |> assign(:connecting, true)
+             |> assign(:connecting_provider, "google")
+             |> push_event("start_web3auth_login", %{provider: "google"})}
+
+          "telegram" ->
+            {:noreply,
+             socket
+             |> assign(:connecting, true)
+             |> assign(:connecting_provider, "telegram")
+             |> push_event("start_telegram_widget", %{})}
+
+          _ ->
+            # Unknown / not stashed — let the user pick from the modal.
+            {:noreply,
+             socket
+             |> assign(:show_wallet_selector, true)
+             |> assign(:connecting, false)
+             |> assign(:connecting_wallet_name, nil)}
+        end
+      end
+
       # ── Wallet Connection ──
 
       def handle_event("select_wallet", %{"name" => wallet_name}, socket) do
@@ -496,7 +546,9 @@ defmodule BlocksterV2Web.WalletAuthEvents do
            |> assign(:pending_web3auth_provider, nil)
            |> assign(:connecting, false)
            |> assign(:connecting_provider, nil)
-           |> assign(:show_wallet_selector, false)}
+           |> assign(:show_wallet_selector, false)
+           |> assign(:needs_wallet_reauth, false)
+           |> assign(:reauth_provider, nil)}
         else
           {:noreply, socket}
         end

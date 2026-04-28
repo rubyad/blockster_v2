@@ -9,6 +9,83 @@ Chronological record of all Solana migration changes and post-migration updates 
 
 ---
 
+## Pool + /play UI Polish + Web3Auth Reauth-Pill Pattern (2026-04-27) ✅
+
+Two unrelated tracks landed in one session: (a) a sweep of the pool surfaces (`/pool`, `/pool/sol`, `/pool/bux`) and the play page (`/play`) to kill hardcoded marketing numbers and standardize how SOL/BUX values render, and (b) a new "Reconnect wallet" pill UX that replaces the modal-on-mount we briefly shipped earlier in the day for Web3Auth OAuth (X / Google / Apple) users whose sessions had aged out.
+
+### Pool index (`lib/blockster_v2_web/live/pool_index_live.ex`)
+
+- **Top stat boxes removed** — Total TVL, Bets settled, House profit (the three header cards above the vault tiles, both mobile and desktop). They were either hardcoded or duplicated info from the vault cards below.
+- **"The bankroll is the bank — and the depositors are the house"** — sentence removed from the page hero.
+- **Hardcoded $160 SOL/USD price** in `fmt_total_tvl_usd` (now removed) was producing the "61 SOL ≈ $10k" bug. SOL TVL USD line on the SOL vault card now reads `≈ {fmt_usd(balance × @sol_usd_price)}` from `fetch_sol_usd_price/0` (synchronous read of `BlocksterV2.PriceTracker.get_price("SOL")` cached in the `:token_prices` Mnesia table).
+- **No USD on BUX surfaces** — every `≈ $X` line under BUX values was deleted (the "BUX has no USD value" rule applies everywhere money moves on the BUX side).
+- **BUX values get full integer formatting** — new `fmt_bux_full/1` (comma-separated integers) and `fmt_bux_signed/1` (+/− prefix) replaced the lossy `fmt_bux_compact/1` ("1.0M") inside the BUX vault card's TVL / Supply / Volume / Profit / user-position rows. `fmt_bux_compact/1` itself is gone.
+- **Hardcoded APY (`14.2%` / `18.7%`) and decorative SVG sparklines removed** from both vault cards. APY replaced with a computed lifetime return: `(lp_price − 1.0) × 100`, signed `+`/`−`, with a red text override when negative (`#dc2626`). The sparklines were never wired to real data — `LpPriceHistory` exists but threading it into the index card is a separate change.
+- **Profit text colors** — both SOL and BUX vault-card profit pills now use `profit_color_class/1` (green ≥0, red <0) instead of the previous always-green class.
+
+### Pool detail (`lib/blockster_v2_web/live/pool_detail_live.ex` + `lib/blockster_v2_web/components/pool_components.ex`)
+
+- **Fake "Est. APY" pill removed** from the header (mobile + desktop) on both `/pool/sol` and `/pool/bux`. Removed the dead `est_apy = if is_sol, do: "14.2", else: "18.7"` assign and its leading divider. Header now shows only TVL · LP supply · Bets.
+- **8-card stats grid** redesigned in `pool_components.pool_stats_grid/1`:
+  1. **LP price** — `format_price/1` value, `unit={@token}`, sub-line `≈ $X` (price × `@sol_usd_price`).
+  2. **LP supply** — `format_number/1` value, `unit={@lp_token}` (e.g. `SOL-LP`), sub-line shows the **same USD as Bankroll** (since `total_lp × lp_price = bankroll`, both USD figures are identical by construction — the duplication is intentional).
+  3. **Bankroll** — `format_tvl/1` of `netBalance` (fallback `totalBalance`), `unit={@token}`, sub-line USD via `token_amount_sub_line/4`.
+  4. **Volume {tf}** — `format_tvl/1`, USD sub-line.
+  5. **Bets {tf}** — `format_integer/1` of bet count, sub-line `"X% win rate"` (the standalone "Win rate" card was removed and folded in here).
+  6. **Profit {tf}** — `format_profit_for_vault/2`: SOL keeps 4-decimal precision, BUX uses 2-decimal + comma-delimited (`+1,234.56`), `profit_color/1` for sign.
+  7. **Payout {tf}** — `format_tvl/1`, USD sub-line.
+  8. **House edge {tf}** — `format_house_edge/1` with `%` suffix, `profit_color/1` so a negative edge renders red. Sub-line trimmed to `"realized"` once the timeframe moved into the label.
+- **`stat_card` got a new `unit` attr** distinct from `value_suffix`: renders at `text-[11px] font-normal text-neutral-400 ml-1` so the token tag (`SOL`, `BUX`, `SOL-LP`, `BUX-LP`) reads as a small grey suffix rather than competing with the bold value. `value_suffix` remains for tight `%` rendering.
+- **`format_usd/1`** simplified to always render 2 decimals below $1k (was integer-only between $1 and $999, which dropped cents on LP-price USD readings).
+- **Timeframe-driven labels** — the previously hardcoded `24h` strings next to the LP-price change chip and on the Bets pill now bind to `String.downcase(@timeframe)` so they update when the user switches the chart timeframe.
+- **Your Position USD line** — `position_value_line/3` no longer multiplies BUX by `0.01` (the old fake exchange rate). For SOL it reads from live `PriceTracker.get_price("SOL")`; for BUX it omits the USD half entirely.
+
+### /play page (`lib/blockster_v2_web/live/coin_flip_live.ex`)
+
+- **Hero copy rewritten** to: *"Self-custodial and provably fair. Every bet is a trustless on-chain transaction with instant payouts, funded by our peer-to-peer bankroll."*
+- **Top SOL Pool / BUX Pool boxes show both balances simultaneously** instead of only the selected token. New `:fetch_pool_balances` async hits `BuxMinter.get_pool_stats/0` once on mount, derives both vault `netBalance`s from the same response, assigns `sol_house_balance` + `bux_house_balance`. Existing `:fetch_house_balance` (which feeds max-bet calc + the in-game "House: …" indicator) keeps using only the selected token.
+- **Logos inline with values** — `solana-sol-logo.png` / `blockster-icon.png` rendered at 20px next to the balance number, both right-aligned within the box. Three-line stack: label → logo + value → "View pool ↗" link.
+- **BUX uses compact format** in the pool box (`format_balance_compact/1`, `1.0M` / `12.3k`); SOL keeps `format_balance/1`'s precision.
+- **Server commitment hash in the provably-fair dropdown is now a Solscan link** to the Bankroll Program account (`49up2uzZANpjTC3sgggbZazdHBii2vY9mVK3vk5dT2tm`) rather than a plain text copy. The hash itself isn't natively indexable on Solscan; linking to the program account is the most useful "verify on-chain" target available pre-bet (the bet tx hasn't been signed yet).
+
+### Announcement banner (`lib/blockster_v2_web/components/announcement_banner.ex` + `design_system.ex`)
+
+`AnnouncementBanner.pick/1` collapsed from a rotation pool of ~12 messages to a single static message: **"Double your BUX!"** with a **"Play Now →"** pill linking to `/play`. The conditional helpers (`always/0`, `conditional_x/1`, `conditional_referral/1`, `conditional_profile/1`) were dead code after the collapse and removed. Static fallback in `design_system.why_earn_bux_banner/1` updated to match.
+
+### Web3Auth Reauth-Pill (NEW UX PATTERN) — `assets/js/hooks/web3auth_hook.js` + `wallet_auth_events.ex` + `redesign.html.heex`
+
+**Problem.** Web3Auth's OAuth-derived wallets (X / Google / Apple) are keyed to `(verifier, oauth sub)` inside their MPC. When Web3Auth's own session ages out (typically 1–7 days for Sapphire), our silent-reconnect's fast path (`_silentReconnect` in `web3auth_hook.js`) fails because `init().connected` is false; the slow path (`/api/auth/web3auth/refresh_jwt`) only handles `web3auth_email` / `web3auth_telegram` users, not OAuth, because we can't fake an OAuth flow without user gesture. Users land on /play with a valid Blockster session cookie but no `window.__signer`; the next bet click trips `getSigner() === null` and shows "No Solana wallet connected".
+
+**First attempt** (same session): on silent-reconnect failure push `web3auth_reauth_required` → server pops the wallet selector modal with an error flash. This worked but was annoying — the modal popped on **every page mount** while Web3Auth's session was dead, even when the user was just browsing.
+
+**Final pattern: floating Reconnect pill, no modal on mount.**
+
+1. **JS** (`web3auth_hook.js`) — on `_completeLogin`, also stash `provider` in `localStorage["blockster_web3auth_provider"]`. On `_silentReconnect`'s `.finally` block, if `!window.__signer`, push `web3auth_reauth_required` with the stashed provider. `_logout` clears both keys.
+2. **Server** (`wallet_auth_events.ex`) — `web3auth_reauth_required` handler now sets `:needs_wallet_reauth = true` + `:reauth_provider`, no modal, no flash. New `start_wallet_reauth` event handler reads `:reauth_provider` and pushes the appropriate `start_web3auth_login` (twitter / google) or `start_telegram_widget` event; falls back to opening the wallet selector modal if the provider wasn't stashed (e.g. session predated the new code path). `web3auth_session_persisted` clears `:needs_wallet_reauth` + `:reauth_provider` on a successful re-auth.
+3. **Layout** (`redesign.html.heex`) — when `assigns[:needs_wallet_reauth]` is true, renders an amber pill fixed at top-right (`z-50`, above the header's `z-30`) with text "Reconnect wallet". An inline `<style>#ds-user-dropdown { display: none !important; }</style>` block hides the existing user pill so the reconnect pill visually replaces it without each header callsite needing per-page wiring (touching all 32 callsites across the codebase was the alternative).
+
+User clicks the pill → existing OAuth flow runs → MPC re-derives the SAME Solana pubkey from `(TWITTER verifier, oauth sub)` (stable), so the reconnected signer is for the user's canonical wallet. No data migration, no wallet swap, no flash.
+
+**Adjacent fix discovered along the way**: the JWKS-fetch error (`%Req.TransportError{reason: :nxdomain}` for `api-auth.web3auth.io`) inside `BlocksterV2.Auth.Web3Auth.JwksCache.get/2` turns out to be a BEAM-side negative-DNS cache — `:inet_db` retains NXDOMAIN responses for ~10 minutes when the resolver was briefly broken at boot (sleeping laptop / VPN flap). Restart of `bin/dev` clears it. Hostname is alive globally; the failure is BEAM-local. Documented in session_learnings.md.
+
+### Files touched
+
+```
+lib/blockster_v2_web/live/pool_index_live.ex
+lib/blockster_v2_web/live/pool_detail_live.ex
+lib/blockster_v2_web/components/pool_components.ex
+lib/blockster_v2_web/live/coin_flip_live.ex
+lib/blockster_v2_web/components/announcement_banner.ex
+lib/blockster_v2_web/components/design_system.ex
+lib/blockster_v2_web/components/layouts/redesign.html.heex
+lib/blockster_v2_web/live/wallet_auth_events.ex
+assets/js/hooks/web3auth_hook.js
+```
+
+No tests added in this session — UI sweep + UX pattern, both verified manually. The new web3auth reauth path warrants a test (mock localStorage + assert pill renders) but was deferred to keep scope focused.
+
+---
+
 ## Referrals UI Parked — Feature Deferred Until Post-Launch (2026-04-27) 🟨
 
 Strips every user-visible referral surface on `feat/solana-migration` so the day-1 mainnet deploy ships without promising any rewards (BUX or SOL) for inviting friends. Decision came after a pre-deploy audit found the referral plumbing only half-wired: backend Mnesia + Anchor support exist, but the new-Web3Auth signup path doesn't call `Referrals.process_signup_referral`, the settler has no `/set-player-referrer` route, and the settler's `settle_bet` tx builder hardcodes `NONE` for tier-1/tier-2 referrer accounts — so the on-chain rewards path is inert.

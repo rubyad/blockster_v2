@@ -124,7 +124,7 @@ defmodule BlocksterV2Web.ShopLive.IndexTest do
       # DS header
       assert html =~ "ds-site-header"
       assert html =~ "SolanaWallet"
-      assert html =~ "Why Earn BUX?"
+      assert html =~ "ds-why-earn-bux"
 
       # Hero banner
       assert html =~ "Spend the BUX you earned"

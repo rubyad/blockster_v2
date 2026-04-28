@@ -12,6 +12,7 @@ defmodule BlocksterV2Web.PoolDetailLive do
   alias BlocksterV2.CoinFlipGame
   alias BlocksterV2.LpPriceHistory
   alias BlocksterV2.PoolPositions
+  alias BlocksterV2.PriceTracker
 
   import BlocksterV2Web.PoolComponents
 
@@ -459,7 +460,6 @@ defmodule BlocksterV2Web.PoolDetailLive do
     current_share_pct = compute_share_pct(user_lp, lp_supply)
     new_share_pct = compute_new_share_pct(user_lp, lp_supply, lp_price, assigns.amount, assigns.tab)
 
-    est_apy = if is_sol, do: "14.2", else: "18.7"
     display_token = if is_sol, do: "SOL", else: "BUX"
     bets_24h = assigns.period_stats.total
 
@@ -495,7 +495,6 @@ defmodule BlocksterV2Web.PoolDetailLive do
       |> assign(multiply: multiply)
       |> assign(current_share_pct: current_share_pct)
       |> assign(new_share_pct: new_share_pct)
-      |> assign(est_apy: est_apy)
       |> assign(display_token: display_token)
       |> assign(bets_24h: bets_24h)
       |> assign(position_summary: position_summary)
@@ -573,7 +572,7 @@ defmodule BlocksterV2Web.PoolDetailLive do
                   >
                     <%= change_arrow(@chart_price_stats.change_pct) %> <%= format_change_pct(@chart_price_stats.change_pct) %>
                   </span>
-                  <span class="text-[10px] md:text-[11px] text-white/85 font-mono">24h</span>
+                  <span class="text-[10px] md:text-[11px] text-white/85 font-mono"><%= String.downcase(@timeframe) %></span>
                 </div>
               </div>
 
@@ -590,12 +589,8 @@ defmodule BlocksterV2Web.PoolDetailLive do
                   <div class="text-[9px] uppercase tracking-[0.14em] text-white/80 mt-1"><%= @lp_token %> supply</div>
                 </div>
                 <div class="bg-black/25 backdrop-blur ring-1 ring-white/15 rounded-xl px-3 py-2">
-                  <div class="font-mono font-bold text-[18px] text-[#CAFC00] leading-none tabular-nums"><%= @est_apy %><span class="text-[12px]">%</span></div>
-                  <div class="text-[9px] uppercase tracking-[0.14em] text-white/80 mt-1">Est. APY</div>
-                </div>
-                <div class="bg-black/25 backdrop-blur ring-1 ring-white/15 rounded-xl px-3 py-2">
                   <div class="font-mono font-bold text-[18px] text-white leading-none tabular-nums"><%= @bets_24h %></div>
-                  <div class="text-[9px] uppercase tracking-[0.14em] text-white/80 mt-1">Bets · 24h</div>
+                  <div class="text-[9px] uppercase tracking-[0.14em] text-white/80 mt-1">Bets · <%= String.downcase(@timeframe) %></div>
                 </div>
               </div>
               <div class="hidden md:flex items-center flex-wrap gap-x-8 gap-y-3">
@@ -610,13 +605,8 @@ defmodule BlocksterV2Web.PoolDetailLive do
                 </div>
                 <div class="w-px h-10 bg-white/30"></div>
                 <div>
-                  <div class="font-mono font-bold text-[24px] text-[#CAFC00] leading-none tabular-nums"><%= @est_apy %><span class="text-[14px]">%</span></div>
-                  <div class="text-[10px] uppercase tracking-[0.14em] text-white/90 mt-1.5">Est. APY</div>
-                </div>
-                <div class="w-px h-10 bg-white/30"></div>
-                <div>
                   <div class="font-mono font-bold text-[24px] text-white leading-none tabular-nums"><%= @bets_24h %></div>
-                  <div class="text-[10px] uppercase tracking-[0.14em] text-white/90 mt-1.5">Bets · 24h</div>
+                  <div class="text-[10px] uppercase tracking-[0.14em] text-white/90 mt-1.5">Bets · <%= String.downcase(@timeframe) %></div>
                 </div>
               </div>
             </div>
@@ -871,6 +861,7 @@ defmodule BlocksterV2Web.PoolDetailLive do
                 vault_type={@vault_type}
                 timeframe={@timeframe}
                 period_stats={@period_stats}
+                sol_usd_price={fetch_sol_usd_price()}
               />
 
               <.activity_table
@@ -1236,13 +1227,6 @@ defmodule BlocksterV2Web.PoolDetailLive do
   defp position_value_line(user_lp, lp_price, token) when is_number(user_lp) and user_lp > 0 and is_number(lp_price) and lp_price > 0 do
     worth = user_lp * lp_price
 
-    usd =
-      case token do
-        "SOL" -> worth * 160.0
-        "BUX" -> worth * 0.01
-        _ -> 0.0
-      end
-
     # SHOP/POOL: coerce to float before `:erlang.float_to_binary` — `worth`
     # can be an integer if `user_lp` and `lp_price` are both integer-typed
     # (never true today, but cheap insurance against PubSub integer payloads).
@@ -1253,18 +1237,38 @@ defmodule BlocksterV2Web.PoolDetailLive do
         true -> :erlang.float_to_binary(worth / 1.0, decimals: 4)
       end
 
-    usd_str =
-      cond do
-        usd >= 1_000_000 -> "$#{:erlang.float_to_binary(usd / 1_000_000, decimals: 2)}M"
-        usd >= 1_000 -> "$#{:erlang.float_to_binary(usd / 1_000, decimals: 2)}k"
-        usd > 0 -> "$#{:erlang.float_to_binary(usd, decimals: 2)}"
-        true -> "$0"
-      end
+    case token do
+      "BUX" ->
+        "≈ #{worth_str} #{token}"
 
-    "≈ #{worth_str} #{token} · #{usd_str}"
+      "SOL" ->
+        usd = worth * fetch_sol_usd_price()
+
+        usd_str =
+          cond do
+            usd >= 1_000_000 -> "$#{:erlang.float_to_binary(usd / 1_000_000, decimals: 2)}M"
+            usd >= 1_000 -> "$#{:erlang.float_to_binary(usd / 1_000, decimals: 2)}k"
+            usd > 0 -> "$#{:erlang.float_to_binary(usd, decimals: 2)}"
+            true -> "$0"
+          end
+
+        "≈ #{worth_str} #{token} · #{usd_str}"
+
+      _ ->
+        "≈ #{worth_str} #{token}"
+    end
   end
 
   defp position_value_line(_, _, _), do: "≈ —"
+
+  defp fetch_sol_usd_price do
+    case PriceTracker.get_price("SOL") do
+      {:ok, %{usd_price: price}} when is_number(price) and price > 0 -> price * 1.0
+      _ -> 0.0
+    end
+  rescue
+    _ -> 0.0
+  end
 
   defp compute_share_pct(user_lp, supply) when is_number(user_lp) and user_lp > 0 and is_number(supply) and supply > 0 do
     user_lp / supply * 100

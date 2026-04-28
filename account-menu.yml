@@ -1,0 +1,1253 @@
+- generic [ref=e1]:
+  - generic [ref=e3]:
+    - banner [ref=e4]:
+      - generic [ref=e5]:
+        - generic [ref=e6]:
+          - link "Blockster home" [ref=e7] [cursor=pointer]:
+            - /url: /
+            - generic [ref=e8]:
+              - generic [ref=e9]: BL
+              - img "o" [ref=e10]
+              - generic [ref=e11]: CKSTER
+          - generic [ref=e14]: Solana mainnet
+        - navigation [ref=e16]:
+          - link "Home" [ref=e17] [cursor=pointer]:
+            - /url: /
+          - link "Hubs" [ref=e18] [cursor=pointer]:
+            - /url: /hubs
+          - link "Shop" [ref=e19] [cursor=pointer]:
+            - /url: /shop
+          - link "Play" [ref=e20] [cursor=pointer]:
+            - /url: /play
+          - link "Pool" [ref=e21] [cursor=pointer]:
+            - /url: /pool
+        - generic [ref=e22]:
+          - button "Search" [ref=e23] [cursor=pointer]:
+            - img [ref=e24]
+          - button "Notifications" [ref=e27] [cursor=pointer]:
+            - img [ref=e28]
+          - link "Cart" [ref=e30] [cursor=pointer]:
+            - /url: /cart
+            - img [ref=e31]
+            - generic [ref=e33]: "1"
+          - generic [ref=e34]:
+            - button "BUX 994,957.25 BUX" [active] [ref=e35] [cursor=pointer]:
+              - img "BUX" [ref=e36]
+              - generic [ref=e37]: 994,957.25
+              - generic [ref=e38]: BUX
+              - img [ref=e39]
+            - generic [ref=e1118]:
+              - generic [ref=e1119]:
+                - generic [ref=e1120]:
+                  - generic [ref=e1121]: Account
+                  - generic [ref=e1122]: ·
+                  - generic [ref=e1125]: signed in
+                - generic [ref=e1126]:
+                  - generic [ref=e1128]: U
+                  - generic [ref=e1129]:
+                    - generic [ref=e1130]: user_Dw9ozk
+                    - generic [ref=e1134]: Email login
+                - generic [ref=e1135]:
+                  - link "View wallet on Solscan" [ref=e1136] [cursor=pointer]:
+                    - /url: https://solscan.io/account/EPhSojGV2NNMDh8dR2NUYA41eDPib3ey35c7pRhUnXoo?cluster=devnet
+                    - img [ref=e1137]
+                    - code [ref=e1139]: EPhS…nXoo
+                  - button "Copy wallet address" [ref=e1140] [cursor=pointer]:
+                    - img [ref=e1141]
+                    - generic [ref=e1144]: copy
+              - generic [ref=e1145]:
+                - generic [ref=e1146]:
+                  - generic [ref=e1147]: Balances
+                  - generic [ref=e1150]: live
+                - generic [ref=e1151]:
+                  - generic [ref=e1152]:
+                    - img [ref=e1153]
+                    - generic [ref=e1154]:
+                      - generic [ref=e1155]: SOL
+                      - generic [ref=e1156]: ≈ $0.00
+                    - generic [ref=e1157]: "29.3517"
+                  - generic [ref=e1159]:
+                    - img [ref=e1160]
+                    - generic [ref=e1161]:
+                      - generic [ref=e1162]: BUX
+                      - generic [ref=e1163]: engagement token
+                    - generic [ref=e1164]: 994,957.25
+              - generic [ref=e1165]:
+                - link "My profile" [ref=e1166] [cursor=pointer]:
+                  - /url: /member/EPhSojGV2NNMDh8dR2NUYA41eDPib3ey35c7pRhUnXoo
+                  - img [ref=e1168]
+                  - generic [ref=e1171]: My profile
+                  - img [ref=e1172]
+                - link "Wallet & self-custody" [ref=e1174] [cursor=pointer]:
+                  - /url: /wallet
+                  - img [ref=e1176]
+                  - generic [ref=e1179]: Wallet & self-custody
+                  - img [ref=e1181]
+                - link "Notifications" [ref=e1183] [cursor=pointer]:
+                  - /url: /notifications
+                  - img [ref=e1185]
+                  - generic [ref=e1188]: Notifications
+                  - img [ref=e1189]
+              - button "Sign out" [ref=e1192] [cursor=pointer]:
+                - img [ref=e1194]
+                - generic [ref=e1197]: Sign out
+              - generic [ref=e1198]:
+                - generic [ref=e1199]: Signed in
+                - generic [ref=e1200]: ·
+                - generic [ref=e1201]: ED25519
+                - generic [ref=e1202]: ·
+                - generic [ref=e1203]: EPhSoj
+                - generic [ref=e1204]: REV 01
+      - generic [ref=e43]:
+        - generic [ref=e44]: Every article you read earns you BUX. Start stacking.
+        - link "Read →" [ref=e45] [cursor=pointer]:
+          - /url: /
+    - generic [ref=e47] [cursor=pointer]:
+      - generic [ref=e48]:
+        - generic [ref=e49]:
+          - img "Rogue Trader" [ref=e50]
+          - generic [ref=e51]: TRADER
+        - generic [ref=e55]: Live
+      - generic [ref=e57]:
+        - generic [ref=e58]:
+          - generic [ref=e60]: RESERVE
+          - generic [ref=e61]:
+            - generic [ref=e62]: "1.8488"
+            - generic [ref=e63]: /
+            - generic [ref=e64]: "1.8862"
+          - generic [ref=e65]:
+            - generic [ref=e66]: ▲
+            - text: +73.41%
+        - generic [ref=e67]:
+          - generic [ref=e69]: BULL
+          - generic [ref=e70]:
+            - generic [ref=e71]: "1.5619"
+            - generic [ref=e72]: /
+            - generic [ref=e73]: "1.5935"
+          - generic [ref=e74]:
+            - generic [ref=e75]: ▼
+            - text: −0.84%
+        - generic [ref=e76]:
+          - generic [ref=e78]: WOLF
+          - generic [ref=e79]:
+            - generic [ref=e80]: "1.2958"
+            - generic [ref=e81]: /
+            - generic [ref=e82]: "1.3219"
+          - generic [ref=e83]:
+            - generic [ref=e84]: ▲
+            - text: +1.90%
+        - generic [ref=e85]:
+          - generic [ref=e87]: REGIME
+          - generic [ref=e88]:
+            - generic [ref=e89]: "1.2708"
+            - generic [ref=e90]: /
+            - generic [ref=e91]: "1.2965"
+          - generic [ref=e92]:
+            - generic [ref=e93]: ▲
+            - text: +0.48%
+        - generic [ref=e94]:
+          - generic [ref=e96]: SAGE
+          - generic [ref=e97]:
+            - generic [ref=e98]: "1.2314"
+            - generic [ref=e99]: /
+            - generic [ref=e100]: "1.2562"
+          - generic [ref=e101]:
+            - generic [ref=e102]: ▼
+            - text: −8.34%
+        - generic [ref=e103]:
+          - generic [ref=e105]: EMBER
+          - generic [ref=e106]:
+            - generic [ref=e107]: "1.2116"
+            - generic [ref=e108]: /
+            - generic [ref=e109]: "1.2360"
+          - generic [ref=e110]:
+            - generic [ref=e111]: ▲
+            - text: +58.02%
+        - generic [ref=e112]:
+          - generic [ref=e114]: MACRO
+          - generic [ref=e115]:
+            - generic [ref=e116]: "1.1727"
+            - generic [ref=e117]: /
+            - generic [ref=e118]: "1.1964"
+          - generic [ref=e119]:
+            - generic [ref=e120]: ▼
+            - text: −14.84%
+        - generic [ref=e121]:
+          - generic [ref=e123]: BEAR
+          - generic [ref=e124]:
+            - generic [ref=e125]: "1.1609"
+            - generic [ref=e126]: /
+            - generic [ref=e127]: "1.1844"
+          - generic [ref=e128]:
+            - generic [ref=e129]: ▲
+            - text: +23.30%
+        - generic [ref=e130]:
+          - generic [ref=e132]: GRAIN
+          - generic [ref=e133]:
+            - generic [ref=e134]: "1.1387"
+            - generic [ref=e135]: /
+            - generic [ref=e136]: "1.1617"
+          - generic [ref=e137]:
+            - generic [ref=e138]: ▼
+            - text: −11.04%
+        - generic [ref=e139]:
+          - generic [ref=e141]: CRUDE
+          - generic [ref=e142]:
+            - generic [ref=e143]: "1.1148"
+            - generic [ref=e144]: /
+            - generic [ref=e145]: "1.1373"
+          - generic [ref=e146]:
+            - generic [ref=e147]: ▲
+            - text: +16.03%
+        - generic [ref=e148]:
+          - generic [ref=e150]: FORGE
+          - generic [ref=e151]:
+            - generic [ref=e152]: "1.0231"
+            - generic [ref=e153]: /
+            - generic [ref=e154]: "1.0438"
+          - generic [ref=e155]:
+            - generic [ref=e156]: ▲
+            - text: +15.33%
+        - generic [ref=e157]:
+          - generic [ref=e159]: RALLY
+          - generic [ref=e160]:
+            - generic [ref=e161]: "0.9975"
+            - generic [ref=e162]: /
+            - generic [ref=e163]: "1.0177"
+          - generic [ref=e164]:
+            - generic [ref=e165]: ▼
+            - text: −24.92%
+        - generic [ref=e166]:
+          - generic [ref=e168]: PIVOT
+          - generic [ref=e169]:
+            - generic [ref=e170]: "0.9719"
+            - generic [ref=e171]: /
+            - generic [ref=e172]: "0.9915"
+          - generic [ref=e173]:
+            - generic [ref=e174]: ▼
+            - text: −26.61%
+        - generic [ref=e175]:
+          - generic [ref=e177]: SWIFT
+          - generic [ref=e178]:
+            - generic [ref=e179]: "0.9546"
+            - generic [ref=e180]: /
+            - generic [ref=e181]: "0.9739"
+          - generic [ref=e182]:
+            - generic [ref=e183]: ▲
+            - text: +54.74%
+        - generic [ref=e184]:
+          - generic [ref=e186]: GLOBE
+          - generic [ref=e187]:
+            - generic [ref=e188]: "0.8911"
+            - generic [ref=e189]: /
+            - generic [ref=e190]: "0.9091"
+          - generic [ref=e191]:
+            - generic [ref=e192]: ▼
+            - text: −31.04%
+        - generic [ref=e193]:
+          - generic [ref=e195]: SECTOR
+          - generic [ref=e196]:
+            - generic [ref=e197]: "0.8764"
+            - generic [ref=e198]: /
+            - generic [ref=e199]: "0.8941"
+          - generic [ref=e200]:
+            - generic [ref=e201]: ▼
+            - text: −19.31%
+        - generic [ref=e202]:
+          - generic [ref=e204]: HAWK
+          - generic [ref=e205]:
+            - generic [ref=e206]: "0.8697"
+            - generic [ref=e207]: /
+            - generic [ref=e208]: "0.8873"
+          - generic [ref=e209]:
+            - generic [ref=e210]: ▼
+            - text: −9.86%
+        - generic [ref=e211]:
+          - generic [ref=e213]: PACIFIC
+          - generic [ref=e214]:
+            - generic [ref=e215]: "0.7623"
+            - generic [ref=e216]: /
+            - generic [ref=e217]: "0.7777"
+          - generic [ref=e218]:
+            - generic [ref=e219]: ▼
+            - text: −12.93%
+        - generic [ref=e220]:
+          - generic [ref=e222]: ORACLE
+          - generic [ref=e223]:
+            - generic [ref=e224]: "0.6769"
+            - generic [ref=e225]: /
+            - generic [ref=e226]: "0.6906"
+          - generic [ref=e227]:
+            - generic [ref=e228]: ▼
+            - text: −7.54%
+        - generic [ref=e229]:
+          - generic [ref=e231]: STERLING
+          - generic [ref=e232]:
+            - generic [ref=e233]: "0.6725"
+            - generic [ref=e234]: /
+            - generic [ref=e235]: "0.6861"
+          - generic [ref=e236]:
+            - generic [ref=e237]: ▼
+            - text: −2.96%
+        - generic [ref=e238]:
+          - generic [ref=e240]: QUANT
+          - generic [ref=e241]:
+            - generic [ref=e242]: "0.6278"
+            - generic [ref=e243]: /
+            - generic [ref=e244]: "0.6405"
+          - generic [ref=e245]:
+            - generic [ref=e246]: ▼
+            - text: −53.96%
+        - generic [ref=e247]:
+          - generic [ref=e249]: AURUM
+          - generic [ref=e250]:
+            - generic [ref=e251]: "0.6254"
+            - generic [ref=e252]: /
+            - generic [ref=e253]: "0.6381"
+          - generic [ref=e254]:
+            - generic [ref=e255]: ▼
+            - text: −27.40%
+        - generic [ref=e256]:
+          - generic [ref=e258]: EURO
+          - generic [ref=e259]:
+            - generic [ref=e260]: "0.6119"
+            - generic [ref=e261]: /
+            - generic [ref=e262]: "0.6242"
+          - generic [ref=e263]:
+            - generic [ref=e264]: ▲
+            - text: +31.78%
+        - generic [ref=e265]:
+          - generic [ref=e267]: KRONOS
+          - generic [ref=e268]:
+            - generic [ref=e269]: "0.5933"
+            - generic [ref=e270]: /
+            - generic [ref=e271]: "0.6053"
+          - generic [ref=e272]:
+            - generic [ref=e273]: ▲
+            - text: +60.29%
+        - generic [ref=e274]:
+          - generic [ref=e276]: TITAN
+          - generic [ref=e277]:
+            - generic [ref=e278]: "0.5522"
+            - generic [ref=e279]: /
+            - generic [ref=e280]: "0.5633"
+          - generic [ref=e281]:
+            - generic [ref=e282]: ▼
+            - text: −32.09%
+        - generic [ref=e283]:
+          - generic [ref=e285]: ZEUS
+          - generic [ref=e286]:
+            - generic [ref=e287]: "0.4062"
+            - generic [ref=e288]: /
+            - generic [ref=e289]: "0.4145"
+          - generic [ref=e290]:
+            - generic [ref=e291]: ▲
+            - text: +7.40%
+        - generic [ref=e292]:
+          - generic [ref=e294]: SAMURAI
+          - generic [ref=e295]:
+            - generic [ref=e296]: "0.4022"
+            - generic [ref=e297]: /
+            - generic [ref=e298]: "0.4103"
+          - generic [ref=e299]:
+            - generic [ref=e300]: ▼
+            - text: −23.16%
+        - generic [ref=e301]:
+          - generic [ref=e303]: ATLAS
+          - generic [ref=e304]:
+            - generic [ref=e305]: "0.3353"
+            - generic [ref=e306]: /
+            - generic [ref=e307]: "0.3421"
+          - generic [ref=e308]:
+            - generic [ref=e309]: ▼
+            - text: −43.88%
+        - generic [ref=e310]:
+          - generic [ref=e312]: FLUX
+          - generic [ref=e313]:
+            - generic [ref=e314]: "0.2069"
+            - generic [ref=e315]: /
+            - generic [ref=e316]: "0.2111"
+          - generic [ref=e317]:
+            - generic [ref=e318]: ▼
+            - text: −47.99%
+        - generic [ref=e319]:
+          - generic [ref=e321]: HERMES
+          - generic [ref=e322]:
+            - generic [ref=e323]: "0.0377"
+            - generic [ref=e324]: /
+            - generic [ref=e325]: "0.0385"
+          - generic [ref=e326]:
+            - generic [ref=e327]: ▲
+            - text: +284.42%
+        - generic [ref=e328]:
+          - generic [ref=e330]: RESERVE
+          - generic [ref=e331]:
+            - generic [ref=e332]: "1.8488"
+            - generic [ref=e333]: /
+            - generic [ref=e334]: "1.8862"
+          - generic [ref=e335]:
+            - generic [ref=e336]: ▲
+            - text: +73.41%
+        - generic [ref=e337]:
+          - generic [ref=e339]: BULL
+          - generic [ref=e340]:
+            - generic [ref=e341]: "1.5619"
+            - generic [ref=e342]: /
+            - generic [ref=e343]: "1.5935"
+          - generic [ref=e344]:
+            - generic [ref=e345]: ▼
+            - text: −0.84%
+        - generic [ref=e346]:
+          - generic [ref=e348]: WOLF
+          - generic [ref=e349]:
+            - generic [ref=e350]: "1.2958"
+            - generic [ref=e351]: /
+            - generic [ref=e352]: "1.3219"
+          - generic [ref=e353]:
+            - generic [ref=e354]: ▲
+            - text: +1.90%
+        - generic [ref=e355]:
+          - generic [ref=e357]: REGIME
+          - generic [ref=e358]:
+            - generic [ref=e359]: "1.2708"
+            - generic [ref=e360]: /
+            - generic [ref=e361]: "1.2965"
+          - generic [ref=e362]:
+            - generic [ref=e363]: ▲
+            - text: +0.48%
+        - generic [ref=e364]:
+          - generic [ref=e366]: SAGE
+          - generic [ref=e367]:
+            - generic [ref=e368]: "1.2314"
+            - generic [ref=e369]: /
+            - generic [ref=e370]: "1.2562"
+          - generic [ref=e371]:
+            - generic [ref=e372]: ▼
+            - text: −8.34%
+        - generic [ref=e373]:
+          - generic [ref=e375]: EMBER
+          - generic [ref=e376]:
+            - generic [ref=e377]: "1.2116"
+            - generic [ref=e378]: /
+            - generic [ref=e379]: "1.2360"
+          - generic [ref=e380]:
+            - generic [ref=e381]: ▲
+            - text: +58.02%
+        - generic [ref=e382]:
+          - generic [ref=e384]: MACRO
+          - generic [ref=e385]:
+            - generic [ref=e386]: "1.1727"
+            - generic [ref=e387]: /
+            - generic [ref=e388]: "1.1964"
+          - generic [ref=e389]:
+            - generic [ref=e390]: ▼
+            - text: −14.84%
+        - generic [ref=e391]:
+          - generic [ref=e393]: BEAR
+          - generic [ref=e394]:
+            - generic [ref=e395]: "1.1609"
+            - generic [ref=e396]: /
+            - generic [ref=e397]: "1.1844"
+          - generic [ref=e398]:
+            - generic [ref=e399]: ▲
+            - text: +23.30%
+        - generic [ref=e400]:
+          - generic [ref=e402]: GRAIN
+          - generic [ref=e403]:
+            - generic [ref=e404]: "1.1387"
+            - generic [ref=e405]: /
+            - generic [ref=e406]: "1.1617"
+          - generic [ref=e407]:
+            - generic [ref=e408]: ▼
+            - text: −11.04%
+        - generic [ref=e409]:
+          - generic [ref=e411]: CRUDE
+          - generic [ref=e412]:
+            - generic [ref=e413]: "1.1148"
+            - generic [ref=e414]: /
+            - generic [ref=e415]: "1.1373"
+          - generic [ref=e416]:
+            - generic [ref=e417]: ▲
+            - text: +16.03%
+        - generic [ref=e418]:
+          - generic [ref=e420]: FORGE
+          - generic [ref=e421]:
+            - generic [ref=e422]: "1.0231"
+            - generic [ref=e423]: /
+            - generic [ref=e424]: "1.0438"
+          - generic [ref=e425]:
+            - generic [ref=e426]: ▲
+            - text: +15.33%
+        - generic [ref=e427]:
+          - generic [ref=e429]: RALLY
+          - generic [ref=e430]:
+            - generic [ref=e431]: "0.9975"
+            - generic [ref=e432]: /
+            - generic [ref=e433]: "1.0177"
+          - generic [ref=e434]:
+            - generic [ref=e435]: ▼
+            - text: −24.92%
+        - generic [ref=e436]:
+          - generic [ref=e438]: PIVOT
+          - generic [ref=e439]:
+            - generic [ref=e440]: "0.9719"
+            - generic [ref=e441]: /
+            - generic [ref=e442]: "0.9915"
+          - generic [ref=e443]:
+            - generic [ref=e444]: ▼
+            - text: −26.61%
+        - generic [ref=e445]:
+          - generic [ref=e447]: SWIFT
+          - generic [ref=e448]:
+            - generic [ref=e449]: "0.9546"
+            - generic [ref=e450]: /
+            - generic [ref=e451]: "0.9739"
+          - generic [ref=e452]:
+            - generic [ref=e453]: ▲
+            - text: +54.74%
+        - generic [ref=e454]:
+          - generic [ref=e456]: GLOBE
+          - generic [ref=e457]:
+            - generic [ref=e458]: "0.8911"
+            - generic [ref=e459]: /
+            - generic [ref=e460]: "0.9091"
+          - generic [ref=e461]:
+            - generic [ref=e462]: ▼
+            - text: −31.04%
+        - generic [ref=e463]:
+          - generic [ref=e465]: SECTOR
+          - generic [ref=e466]:
+            - generic [ref=e467]: "0.8764"
+            - generic [ref=e468]: /
+            - generic [ref=e469]: "0.8941"
+          - generic [ref=e470]:
+            - generic [ref=e471]: ▼
+            - text: −19.31%
+        - generic [ref=e472]:
+          - generic [ref=e474]: HAWK
+          - generic [ref=e475]:
+            - generic [ref=e476]: "0.8697"
+            - generic [ref=e477]: /
+            - generic [ref=e478]: "0.8873"
+          - generic [ref=e479]:
+            - generic [ref=e480]: ▼
+            - text: −9.86%
+        - generic [ref=e481]:
+          - generic [ref=e483]: PACIFIC
+          - generic [ref=e484]:
+            - generic [ref=e485]: "0.7623"
+            - generic [ref=e486]: /
+            - generic [ref=e487]: "0.7777"
+          - generic [ref=e488]:
+            - generic [ref=e489]: ▼
+            - text: −12.93%
+        - generic [ref=e490]:
+          - generic [ref=e492]: ORACLE
+          - generic [ref=e493]:
+            - generic [ref=e494]: "0.6769"
+            - generic [ref=e495]: /
+            - generic [ref=e496]: "0.6906"
+          - generic [ref=e497]:
+            - generic [ref=e498]: ▼
+            - text: −7.54%
+        - generic [ref=e499]:
+          - generic [ref=e501]: STERLING
+          - generic [ref=e502]:
+            - generic [ref=e503]: "0.6725"
+            - generic [ref=e504]: /
+            - generic [ref=e505]: "0.6861"
+          - generic [ref=e506]:
+            - generic [ref=e507]: ▼
+            - text: −2.96%
+        - generic [ref=e508]:
+          - generic [ref=e510]: QUANT
+          - generic [ref=e511]:
+            - generic [ref=e512]: "0.6278"
+            - generic [ref=e513]: /
+            - generic [ref=e514]: "0.6405"
+          - generic [ref=e515]:
+            - generic [ref=e516]: ▼
+            - text: −53.96%
+        - generic [ref=e517]:
+          - generic [ref=e519]: AURUM
+          - generic [ref=e520]:
+            - generic [ref=e521]: "0.6254"
+            - generic [ref=e522]: /
+            - generic [ref=e523]: "0.6381"
+          - generic [ref=e524]:
+            - generic [ref=e525]: ▼
+            - text: −27.40%
+        - generic [ref=e526]:
+          - generic [ref=e528]: EURO
+          - generic [ref=e529]:
+            - generic [ref=e530]: "0.6119"
+            - generic [ref=e531]: /
+            - generic [ref=e532]: "0.6242"
+          - generic [ref=e533]:
+            - generic [ref=e534]: ▲
+            - text: +31.78%
+        - generic [ref=e535]:
+          - generic [ref=e537]: KRONOS
+          - generic [ref=e538]:
+            - generic [ref=e539]: "0.5933"
+            - generic [ref=e540]: /
+            - generic [ref=e541]: "0.6053"
+          - generic [ref=e542]:
+            - generic [ref=e543]: ▲
+            - text: +60.29%
+        - generic [ref=e544]:
+          - generic [ref=e546]: TITAN
+          - generic [ref=e547]:
+            - generic [ref=e548]: "0.5522"
+            - generic [ref=e549]: /
+            - generic [ref=e550]: "0.5633"
+          - generic [ref=e551]:
+            - generic [ref=e552]: ▼
+            - text: −32.09%
+        - generic [ref=e553]:
+          - generic [ref=e555]: ZEUS
+          - generic [ref=e556]:
+            - generic [ref=e557]: "0.4062"
+            - generic [ref=e558]: /
+            - generic [ref=e559]: "0.4145"
+          - generic [ref=e560]:
+            - generic [ref=e561]: ▲
+            - text: +7.40%
+        - generic [ref=e562]:
+          - generic [ref=e564]: SAMURAI
+          - generic [ref=e565]:
+            - generic [ref=e566]: "0.4022"
+            - generic [ref=e567]: /
+            - generic [ref=e568]: "0.4103"
+          - generic [ref=e569]:
+            - generic [ref=e570]: ▼
+            - text: −23.16%
+        - generic [ref=e571]:
+          - generic [ref=e573]: ATLAS
+          - generic [ref=e574]:
+            - generic [ref=e575]: "0.3353"
+            - generic [ref=e576]: /
+            - generic [ref=e577]: "0.3421"
+          - generic [ref=e578]:
+            - generic [ref=e579]: ▼
+            - text: −43.88%
+        - generic [ref=e580]:
+          - generic [ref=e582]: FLUX
+          - generic [ref=e583]:
+            - generic [ref=e584]: "0.2069"
+            - generic [ref=e585]: /
+            - generic [ref=e586]: "0.2111"
+          - generic [ref=e587]:
+            - generic [ref=e588]: ▼
+            - text: −47.99%
+        - generic [ref=e589]:
+          - generic [ref=e591]: HERMES
+          - generic [ref=e592]:
+            - generic [ref=e593]: "0.0377"
+            - generic [ref=e594]: /
+            - generic [ref=e595]: "0.0385"
+          - generic [ref=e596]:
+            - generic [ref=e597]: ▲
+            - text: +284.42%
+      - generic [ref=e599]: Deposit SOL →
+    - generic [ref=e600]:
+      - generic [ref=e605]:
+        - generic [ref=e606]:
+          - link "Binance and Cristiano Ronaldo Launch 7he Selection People Binance and Cristiano Ronaldo Launch 7he Selection February 26, 2026 BUX 1,750" [ref=e608] [cursor=pointer]:
+            - /url: /binance-and-cristiano-ronaldo-launch-7he-selection
+            - img "Binance and Cristiano Ronaldo Launch 7he Selection" [ref=e610]
+            - generic [ref=e611]:
+              - list [ref=e613]:
+                - listitem [ref=e614]: People
+              - heading "Binance and Cristiano Ronaldo Launch 7he Selection" [level=4] [ref=e615]
+              - paragraph [ref=e616]: February 26, 2026
+              - generic "1,750 BUX earned" [ref=e618]:
+                - generic [ref=e619]:
+                  - img "BUX" [ref=e620]
+                  - generic [ref=e621]: 1,750
+          - link "Museum of the Moving Image and Tezos Foundation Launch Blockchain Art Initiative Museum of the Moving Image and Tezos Foundation Launch Blockchain Art Initiative February 26, 2026 BUX 2,135" [ref=e623] [cursor=pointer]:
+            - /url: /museum-of-the-moving-image-tezos-foundation-launch-blockchain-art-initiative
+            - img "Museum of the Moving Image and Tezos Foundation Launch Blockchain Art Initiative" [ref=e625]
+            - generic [ref=e626]:
+              - generic:
+                - list
+              - heading "Museum of the Moving Image and Tezos Foundation Launch Blockchain Art Initiative" [level=4] [ref=e627]
+              - paragraph [ref=e628]: February 26, 2026
+              - generic "2,135 BUX earned" [ref=e630]:
+                - generic [ref=e631]:
+                  - img "BUX" [ref=e632]
+                  - generic [ref=e633]: 2,135
+        - link "Prediction Protocol Myriad Launches on BNB Chain to Expand Across Asia Market Analysis Prediction Protocol Myriad Launches on BNB Chain to Expand Across Asia Myriad prediction protocol deploys on BNB Chain, targeting rapid expansion across Asian markets with localized prediction services. February 26, 2026 BUX 1,697" [ref=e636] [cursor=pointer]:
+          - /url: /prediction-protocol-myriad-launches-on-bnb-chain-to-expand-across-asia
+          - img "Prediction Protocol Myriad Launches on BNB Chain to Expand Across Asia" [ref=e638]
+          - generic [ref=e639]:
+            - list [ref=e641]:
+              - listitem [ref=e642]: Market Analysis
+            - heading "Prediction Protocol Myriad Launches on BNB Chain to Expand Across Asia" [level=3] [ref=e643]
+            - paragraph [ref=e644]: Myriad prediction protocol deploys on BNB Chain, targeting rapid expansion across Asian markets with localized prediction services.
+            - paragraph [ref=e645]: February 26, 2026
+            - generic "1,697 BUX earned" [ref=e647]:
+              - generic [ref=e648]:
+                - img "BUX" [ref=e649]
+                - generic [ref=e650]: 1,697
+        - generic [ref=e651]:
+          - link "Final Bosu Meets My Neighbor Alice Gaming Final Bosu Meets My Neighbor Alice February 26, 2026 BUX 1,607" [ref=e653] [cursor=pointer]:
+            - /url: /final-bosu-meets-my-neighbor-alice
+            - img "Final Bosu Meets My Neighbor Alice" [ref=e655]
+            - generic [ref=e656]:
+              - list [ref=e658]:
+                - listitem [ref=e659]: Gaming
+              - heading "Final Bosu Meets My Neighbor Alice" [level=4] [ref=e660]
+              - paragraph [ref=e661]: February 26, 2026
+              - generic "1,607 BUX earned" [ref=e663]:
+                - generic [ref=e664]:
+                  - img "BUX" [ref=e665]
+                  - generic [ref=e666]: 1,607
+          - link "Hilton Anaheim Turns Into a Digital Playground with Disney Pinnacle x Dapper Labs Scavenger Hunt Hilton Anaheim Turns Into a Digital Playground with Disney Pinnacle x Dapper Labs Scavenger Hunt February 26, 2026 BUX 1,302" [ref=e668] [cursor=pointer]:
+            - /url: /hilton-anaheim-disney-pinnacle-dapper-labs-scavenger-hunt
+            - img "Hilton Anaheim Turns Into a Digital Playground with Disney Pinnacle x Dapper Labs Scavenger Hunt" [ref=e670]
+            - generic [ref=e671]:
+              - generic:
+                - list
+              - heading "Hilton Anaheim Turns Into a Digital Playground with Disney Pinnacle x Dapper Labs Scavenger Hunt" [level=4] [ref=e672]
+              - paragraph [ref=e673]: February 26, 2026
+              - generic "1,302 BUX earned" [ref=e675]:
+                - generic [ref=e676]:
+                  - img "BUX" [ref=e677]
+                  - generic [ref=e678]: 1,302
+      - generic [ref=e679]:
+        - generic [ref=e684]:
+          - link "KuCard and Plaza Premium Lounge Partner for Crypto Travel Benefits February 26, 2026 BUX 2,024 KuCard teams up with Plaza Premium Lounge to offer crypto users exclusive airport lounge access and travel benefits worldwide." [ref=e686] [cursor=pointer]:
+            - /url: /kucard-plaza-premium-lounge-partner-for-crypto-travel-benefits
+            - generic:
+              - generic:
+                - img
+            - generic [ref=e688]:
+              - generic [ref=e689]:
+                - heading "KuCard and Plaza Premium Lounge Partner for Crypto Travel Benefits" [level=4] [ref=e690]
+                - paragraph [ref=e691]: February 26, 2026
+              - generic [ref=e692]:
+                - generic "2,024 BUX earned" [ref=e693]:
+                  - generic [ref=e694]:
+                    - img "BUX" [ref=e695]
+                    - generic [ref=e696]: 2,024
+                - paragraph: KuCard teams up with Plaza Premium Lounge to offer crypto users exclusive airport lounge access and travel benefits worldwide.
+          - 'link "Market Analysis Bitcoin ETF Approval Triggers Institutional Gold Rush: $10B Inflows in Firs... February 25, 2026 BUX 1,523 Bitcoin ETF approvals trigger massive institutional adoption with $10B in Q1 inflows, marking crypto''s entrance into mainstream portfolios." [ref=e698] [cursor=pointer]':
+            - /url: /bitcoin-etf-institutional-gold-rush
+            - generic [ref=e700]:
+              - generic [ref=e701]:
+                - text: Market Analysis
+                - 'heading "Bitcoin ETF Approval Triggers Institutional Gold Rush: $10B Inflows in Firs..." [level=4] [ref=e702]'
+                - paragraph [ref=e703]: February 25, 2026
+              - generic [ref=e704]:
+                - generic "1,523 BUX earned" [ref=e705]:
+                  - generic [ref=e706]:
+                    - img "BUX" [ref=e707]
+                    - generic [ref=e708]: 1,523
+                - paragraph: Bitcoin ETF approvals trigger massive institutional adoption with $10B in Q1 inflows, marking crypto's entrance into mainstream portfolios.
+          - link "Tech Ethereum Staking Yields Hit 7% as Network Activity Surges Post-Merge February 24, 2026 BUX 1,576 Ethereum staking yields reach 7% as institutional adoption accelerates, transforming ETH into a premier yield-bearing digital asset." [ref=e710] [cursor=pointer]:
+            - /url: /ethereum-staking-yields-network-surge
+            - generic [ref=e712]:
+              - generic [ref=e713]:
+                - text: Tech
+                - heading "Ethereum Staking Yields Hit 7% as Network Activity Surges Post-Merge" [level=4] [ref=e714]
+                - paragraph [ref=e715]: February 24, 2026
+              - generic [ref=e716]:
+                - generic "1,576 BUX earned" [ref=e717]:
+                  - generic [ref=e718]:
+                    - img "BUX" [ref=e719]
+                    - generic [ref=e720]: 1,576
+                - paragraph: Ethereum staking yields reach 7% as institutional adoption accelerates, transforming ETH into a premier yield-bearing digital asset.
+        - generic [ref=e725]:
+          - generic [ref=e726]: Sponsored
+          - link [ref=e1235] [cursor=pointer]:
+            - /url: https://fateswap.io
+            - generic [ref=e730]:
+              - generic [ref=e731]:
+                - generic [ref=e732]:
+                  - img [ref=e733]:
+                    - generic [ref=e737]: FATESWAP
+                  - generic [ref=e739]: Solana DEX
+                - generic [ref=e740]:
+                  - generic [ref=e741]: Bal
+                  - generic [ref=e742]: $100
+              - generic [ref=e743]:
+                - button "Buy" [ref=e744]:
+                  - img [ref=e745]
+                  - text: Buy
+                - button "Sell" [ref=e747]:
+                  - img [ref=e748]
+                  - text: Sell
+              - generic [ref=e757]:
+                - generic:
+                  - paragraph:
+                    - generic: "1"
+                    - text: Pick a token to buy
+                  - generic:
+                    - generic:
+                      - img "USDC"
+                      - generic: USDC Stablecoin
+                      - generic:
+                        - generic: $1.00
+                        - text: stable
+                    - generic:
+                      - img "SOL"
+                      - generic: SOL Solana
+                      - generic:
+                        - generic: +2.1%
+                        - text: $134.22
+                    - generic:
+                      - generic: T
+                      - generic: USDT Stablecoin
+                      - generic:
+                        - generic: $1.00
+                        - text: stable
+                    - generic:
+                      - generic: B
+                      - generic: BONK Memecoin
+                      - generic:
+                        - generic: +14.2%
+                        - text: $0.000034
+                - generic:
+                  - paragraph:
+                    - generic: "2"
+                    - text: Set your discount
+                  - generic:
+                    - img "USDC"
+                    - generic:
+                      - text: USDC
+                      - generic: Buying
+                    - generic:
+                      - generic: $1.00
+                      - text: market
+                  - generic:
+                    - text: Buy USDC at
+                    - generic: 50% off
+                    - generic: below market price
+                  - generic:
+                    - generic: 1%
+                    - generic: 10%
+                    - generic: 25%
+                    - generic: 50%
+                    - generic: 75%
+                    - generic: 90%
+                  - generic:
+                    - generic:
+                      - paragraph: You pay
+                      - text: $50
+                      - generic: 0.37 SOL
+                    - generic:
+                      - paragraph: You get (if filled)
+                      - text: $100
+                      - generic: of USDC
+                - generic:
+                  - paragraph:
+                    - generic: "3"
+                    - text: Place your fate order
+                  - generic:
+                    - generic:
+                      - img "USDC"
+                      - generic: Buying USDC
+                      - generic: 50% off
+                    - generic:
+                      - generic: You pay
+                      - generic: $50.00
+                    - generic:
+                      - generic: You get if filled
+                      - generic: $100.00 USDC
+                    - generic:
+                      - generic: Fill chance
+                      - generic: 49.25%
+                    - generic:
+                      - generic: Settle
+                      - generic: ~2 sec · On-chain
+                  - generic:
+                    - img
+                    - text: Buy USDC at 50% Discount
+                - generic:
+                  - paragraph:
+                    - generic: "4"
+                    - generic: •
+                    - text: Revealing fate
+                  - generic:
+                    - generic:
+                      - text: "47.83"
+                      - generic: Fill if below 49.25
+                    - generic:
+                      - generic:
+                        - generic: FILLED
+                        - generic: NOT FILLED
+                - generic:
+                  - generic:
+                    - img
+                    - text: Order Filled
+                  - generic:
+                    - generic: $100
+                    - generic: →
+                    - generic: $50
+                  - generic:
+                    - generic:
+                      - img "USDC"
+                      - generic: $100
+                      - generic: USDC
+                    - paragraph: You bought $100 of USDC for $50
+                    - generic: Doubled your money · on-chain
+                - generic:
+                  - paragraph:
+                    - generic: "1"
+                    - text: Set your premium
+                  - generic:
+                    - img "USDC"
+                    - generic:
+                      - text: USDC
+                      - generic: Selling
+                    - generic:
+                      - generic: $1.00
+                      - text: market
+                  - generic:
+                    - text: Sell USDC at
+                    - generic: 100% premium
+                    - generic: above market price
+                  - generic:
+                    - generic: 1%
+                    - generic: 25%
+                    - generic: 50%
+                    - generic: 100%
+                    - generic: 250%
+                    - generic: 900%
+                  - generic:
+                    - generic:
+                      - paragraph: You stake
+                      - text: $100
+                      - generic: of USDC
+                    - generic:
+                      - paragraph: You get (if filled)
+                      - text: $200
+                      - generic: paid in SOL
+                - generic [ref=e1236]:
+                  - paragraph [ref=e1237]:
+                    - generic [ref=e1238]: "2"
+                    - text: Place your fate order
+                  - generic [ref=e1239]:
+                    - generic [ref=e1240]:
+                      - img "USDC" [ref=e1241]
+                      - generic [ref=e1242]: Selling USDC
+                      - generic [ref=e1243]: 100% premium
+                    - generic [ref=e1244]:
+                      - generic [ref=e1245]: You stake
+                      - generic [ref=e1246]: $100.00 USDC
+                    - generic [ref=e1247]:
+                      - generic [ref=e1248]: You get if filled
+                      - generic [ref=e1249]: $200.00
+                    - generic [ref=e1250]:
+                      - generic [ref=e1251]: Fill chance
+                      - generic [ref=e1252]: 49.25%
+                    - generic [ref=e1253]:
+                      - generic [ref=e1254]: Settle
+                      - generic [ref=e1255]: ~2 sec · On-chain
+                  - generic [ref=e1256]:
+                    - img [ref=e1257]
+                    - text: Sell USDC at 100% premium
+                - generic:
+                  - paragraph:
+                    - generic: "3"
+                    - generic: •
+                    - text: Revealing fate
+                  - generic:
+                    - generic:
+                      - text: "00.00"
+                      - generic: Fill if below 49.25
+                    - generic:
+                      - generic:
+                        - generic: FILLED
+                        - generic: NOT FILLED
+                - generic:
+                  - generic:
+                    - img
+                    - text: Order Filled
+                  - generic:
+                    - generic: $100
+                    - generic: →
+                    - generic: $200
+                  - generic:
+                    - generic:
+                      - img "SOL"
+                      - generic: $200
+                      - generic: paid out
+                    - paragraph: You sold $100 of USDC for $200
+                    - generic: Doubled your money · on-chain
+              - generic:
+                - img
+              - generic [ref=e787]:
+                - generic [ref=e788]: Gamble for a better price than market
+                - generic [ref=e789]: Trade Now →
+        - generic [ref=e790]:
+          - generic [ref=e791]:
+            - generic [ref=e792]:
+              - generic [ref=e793]:
+                - generic [ref=e794]: Browse
+                - heading "Explore 68 hubs" [level=2] [ref=e795]
+              - link "View all hubs →" [ref=e797] [cursor=pointer]:
+                - /url: /hubs
+                - text: View all hubs
+                - generic [ref=e798]: →
+            - generic [ref=e799]:
+              - link "F Flare Smart contract platform for decentralized applications 1 posts Visit hub" [ref=e800] [cursor=pointer]:
+                - /url: /hub/flare
+                - generic [ref=e801]:
+                  - generic [ref=e804]: F
+                  - heading "Flare" [level=3] [ref=e805]
+                  - paragraph [ref=e806]: Smart contract platform for decentralized applications
+                  - generic [ref=e807]:
+                    - generic [ref=e809]: 1 posts
+                    - generic [ref=e810]: Visit hub
+              - link "0 0G Decentralized storage network 0 posts Visit hub" [ref=e811] [cursor=pointer]:
+                - /url: /hub/0g
+                - generic [ref=e812]:
+                  - generic [ref=e815]: "0"
+                  - heading "0G" [level=3] [ref=e816]
+                  - paragraph [ref=e817]: Decentralized storage network
+                  - generic [ref=e818]:
+                    - generic [ref=e820]: 0 posts
+                    - generic [ref=e821]: Visit hub
+              - link "A Aave DeFi lending protocol 0 posts Visit hub" [ref=e822] [cursor=pointer]:
+                - /url: /hub/aave
+                - generic [ref=e823]:
+                  - generic [ref=e826]: A
+                  - heading "Aave" [level=3] [ref=e827]
+                  - paragraph [ref=e828]: DeFi lending protocol
+                  - generic [ref=e829]:
+                    - generic [ref=e831]: 0 posts
+                    - generic [ref=e832]: Visit hub
+              - link "A Apex Fusion DeFi protocol 0 posts Visit hub" [ref=e833] [cursor=pointer]:
+                - /url: /hub/apex-fusion
+                - generic [ref=e834]:
+                  - generic [ref=e837]: A
+                  - heading "Apex Fusion" [level=3] [ref=e838]
+                  - paragraph [ref=e839]: DeFi protocol
+                  - generic [ref=e840]:
+                    - generic [ref=e842]: 0 posts
+                    - generic [ref=e843]: Visit hub
+              - link "A Aptos Layer 1 blockchain for everyone 0 posts Visit hub" [ref=e844] [cursor=pointer]:
+                - /url: /hub/aptos
+                - generic [ref=e845]:
+                  - generic [ref=e848]: A
+                  - heading "Aptos" [level=3] [ref=e849]
+                  - paragraph [ref=e850]: Layer 1 blockchain for everyone
+                  - generic [ref=e851]:
+                    - generic [ref=e853]: 0 posts
+                    - generic [ref=e854]: Visit hub
+              - link "A Arbitrum Ethereum layer 2 scaling 0 posts Visit hub" [ref=e855] [cursor=pointer]:
+                - /url: /hub/arbitrum
+                - generic [ref=e856]:
+                  - generic [ref=e859]: A
+                  - heading "Arbitrum" [level=3] [ref=e860]
+                  - paragraph [ref=e861]: Ethereum layer 2 scaling
+                  - generic [ref=e862]:
+                    - generic [ref=e864]: 0 posts
+                    - generic [ref=e865]: Visit hub
+              - link "A Avalanche Lightning fast blockchain platform 0 posts Visit hub" [ref=e866] [cursor=pointer]:
+                - /url: /hub/avalanche
+                - generic [ref=e867]:
+                  - generic [ref=e870]: A
+                  - heading "Avalanche" [level=3] [ref=e871]
+                  - paragraph [ref=e872]: Lightning fast blockchain platform
+                  - generic [ref=e873]:
+                    - generic [ref=e875]: 0 posts
+                    - generic [ref=e876]: Visit hub
+              - link "B BNB Chain Binance Smart Chain ecosystem 0 posts Visit hub" [ref=e877] [cursor=pointer]:
+                - /url: /hub/bnb-chain
+                - generic [ref=e878]:
+                  - generic [ref=e881]: B
+                  - heading "BNB Chain" [level=3] [ref=e882]
+                  - paragraph [ref=e883]: Binance Smart Chain ecosystem
+                  - generic [ref=e884]:
+                    - generic [ref=e886]: 0 posts
+                    - generic [ref=e887]: Visit hub
+              - link "+60 more hubs Browse all categories" [ref=e888] [cursor=pointer]:
+                - /url: /hubs
+                - generic [ref=e889]:
+                  - img [ref=e891]
+                  - heading "+60 more hubs" [level=3] [ref=e893]
+                  - paragraph [ref=e894]: Browse all categories
+          - generic [ref=e898]:
+            - generic [ref=e899]: Sponsored
+            - link "Moonpay Buy SOL with a card in 30 seconds. No KYC for orders under $150. Trusted by 30 million users. Powering the on-ramp for the largest Solana wallets and dApps in the ecosystem. Get Started" [ref=e900] [cursor=pointer]:
+              - /url: https://www.moonpay.com/buy/sol
+              - generic [ref=e902]:
+                - generic [ref=e903]:
+                  - generic [ref=e905]: Moonpay
+                  - heading "Buy SOL with a card in 30 seconds. No KYC for orders under $150." [level=3] [ref=e906]
+                  - paragraph [ref=e907]: Trusted by 30 million users. Powering the on-ramp for the largest Solana wallets and dApps in the ecosystem.
+                - generic [ref=e909]:
+                  - text: Get Started
+                  - img [ref=e910]
+      - generic [ref=e916]:
+        - generic [ref=e917]:
+          - 'link "Tech Feb 23 BUX 2,415 Solana DEX Volume Flips Ethereum: The Speed and Cost Advantage" [ref=e919] [cursor=pointer]':
+            - /url: /solana-dex-volume-flips-ethereum
+            - generic [ref=e920]:
+              - generic [ref=e921]:
+                - list [ref=e922]:
+                  - listitem [ref=e923]: Tech
+                  - listitem [ref=e924]: Feb 23
+                - generic "2,415 BUX earned" [ref=e925]:
+                  - generic [ref=e926]:
+                    - img "BUX" [ref=e927]
+                    - generic [ref=e928]: 2,415
+              - 'heading "Solana DEX Volume Flips Ethereum: The Speed and Cost Advantage" [level=4] [ref=e929]'
+          - generic [ref=e930]:
+            - 'link "Tech Feb 22 BUX 4,820 AI and Crypto Convergence: The $100B Market Nobody Saw Coming" [ref=e932] [cursor=pointer]':
+              - /url: /ai-crypto-convergence-100b-market
+              - generic [ref=e934]:
+                - generic [ref=e935]:
+                  - list [ref=e936]:
+                    - listitem [ref=e937]: Tech
+                    - listitem [ref=e938]: Feb 22
+                  - generic "4,820 BUX earned" [ref=e939]:
+                    - generic [ref=e940]:
+                      - img "BUX" [ref=e941]
+                      - generic [ref=e942]: 4,820
+                - 'heading "AI and Crypto Convergence: The $100B Market Nobody Saw Coming" [level=4] [ref=e943]'
+            - 'link "Market Analysis Feb 21 BUX 2,560 Real World Assets Hit $10 Trillion: The Tokenization Revolution Is Here" [ref=e945] [cursor=pointer]':
+              - /url: /real-world-assets-tokenization-revolution
+              - generic [ref=e947]:
+                - generic [ref=e948]:
+                  - list [ref=e949]:
+                    - listitem [ref=e950]: Market Analysis
+                    - listitem [ref=e951]: Feb 21
+                  - generic "2,560 BUX earned" [ref=e952]:
+                    - generic [ref=e953]:
+                      - img "BUX" [ref=e954]
+                      - generic [ref=e955]: 2,560
+                - 'heading "Real World Assets Hit $10 Trillion: The Tokenization Revolution Is Here" [level=4] [ref=e956]'
+        - generic [ref=e957]:
+          - link "People Oct 30 BUX 0 Edge & Node Launches ampersend, a Control Layer for the Coming AI-Agent Economy" [ref=e959] [cursor=pointer]:
+            - /url: /edge-node-launches-ampersend-control-layer-ai-agent-economy
+            - generic [ref=e960]:
+              - generic [ref=e961]:
+                - list [ref=e962]:
+                  - listitem [ref=e963]: People
+                  - listitem [ref=e964]: Oct 30
+                - generic "No BUX earned yet" [ref=e965]:
+                  - generic [ref=e966]:
+                    - img "BUX" [ref=e967]
+                    - generic [ref=e968]: "0"
+              - heading "Edge & Node Launches ampersend, a Control Layer for the Coming AI-Agent Economy" [level=4] [ref=e969]
+          - generic [ref=e970]:
+            - link "Tech Oct 30 BUX 0 Mono Protocol Presale Stage 15 Gains Momentum With Multi-Chain Innovation, Rewards Hub & Bonus" [ref=e972] [cursor=pointer]:
+              - /url: /mono-protocol-presale-stage-15-multi-chain-innovation
+              - generic [ref=e974]:
+                - generic [ref=e975]:
+                  - list [ref=e976]:
+                    - listitem [ref=e977]: Tech
+                    - listitem [ref=e978]: Oct 30
+                  - generic "No BUX earned yet" [ref=e979]:
+                    - generic [ref=e980]:
+                      - img "BUX" [ref=e981]
+                      - generic [ref=e982]: "0"
+                - heading "Mono Protocol Presale Stage 15 Gains Momentum With Multi-Chain Innovation, Rewards Hub & Bonus" [level=4] [ref=e983]
+            - link "Market Analysis Oct 30 BUX 0 Mass & MoonPay Make Bank-to-DeFi Transfers Instant With Virtual Accounts" [ref=e985] [cursor=pointer]:
+              - /url: /mass-moonpay-bank-to-defi-instant-virtual-accounts
+              - generic [ref=e987]:
+                - generic [ref=e988]:
+                  - list [ref=e989]:
+                    - listitem [ref=e990]: Market Analysis
+                    - listitem [ref=e991]: Oct 30
+                  - generic "No BUX earned yet" [ref=e992]:
+                    - generic [ref=e993]:
+                      - img "BUX" [ref=e994]
+                      - generic [ref=e995]: "0"
+                - heading "Mass & MoonPay Make Bank-to-DeFi Transfers Instant With Virtual Accounts" [level=4] [ref=e996]
+      - generic [ref=e1003]:
+        - link "Tech Oct 30 BUX 0 Nansen Brings Full On-Chain Intelligence Stack to Plasma as Stablecoin Layer-1 Surges" [ref=e1005] [cursor=pointer]:
+          - /url: /nansen-full-on-chain-intelligence-plasma-stablecoin
+          - generic [ref=e1007]:
+            - generic [ref=e1008]:
+              - list [ref=e1009]:
+                - listitem [ref=e1010]: Tech
+                - listitem [ref=e1011]: Oct 30
+              - generic "No BUX earned yet" [ref=e1012]:
+                - generic [ref=e1013]:
+                  - img "BUX" [ref=e1014]
+                  - generic [ref=e1015]: "0"
+            - heading "Nansen Brings Full On-Chain Intelligence Stack to Plasma as Stablecoin Layer-1 Surges" [level=4] [ref=e1016]
+        - link "Gaming Oct 30 BUX 0 KapKap Secures $10M to Build the AI-Native Attention Economy — Backed by Animoca, Shima & Mechanism" [ref=e1018] [cursor=pointer]:
+          - /url: /kapkap-secures-10m-ai-native-attention-economy
+          - generic [ref=e1020]:
+            - generic [ref=e1021]:
+              - list [ref=e1022]:
+                - listitem [ref=e1023]: Gaming
+                - listitem [ref=e1024]: Oct 30
+              - generic "No BUX earned yet" [ref=e1025]:
+                - generic [ref=e1026]:
+                  - img "BUX" [ref=e1027]
+                  - generic [ref=e1028]: "0"
+            - heading "KapKap Secures $10M to Build the AI-Native Attention Economy — Backed by Animoca, Shima & Mechanism" [level=4] [ref=e1029]
+    - main [ref=e1031]:
+      - generic [ref=e1033]: Loading more · Infinite scroll
+    - contentinfo [ref=e1035]:
+      - generic [ref=e1037]:
+        - generic [ref=e1038]:
+          - generic [ref=e1039]:
+            - generic [ref=e1041]:
+              - generic [ref=e1042]: BL
+              - img "o" [ref=e1043]
+              - generic [ref=e1044]: CKSTER
+            - heading "All in on Solana." [level=3] [ref=e1045]
+            - paragraph [ref=e1046]: The home feed of the Solana ecosystem. Builders, protocols, culture — daily.
+            - generic [ref=e1047]:
+              - img [ref=e1048]
+              - generic [ref=e1051]: 1111 Lincoln Road, Suite 500 · Miami Beach, FL 33139 · USA
+          - generic [ref=e1052]:
+            - generic [ref=e1053]: Read
+            - list [ref=e1054]:
+              - listitem [ref=e1055]:
+                - link "Latest" [ref=e1056] [cursor=pointer]:
+                  - /url: /
+              - listitem [ref=e1057]:
+                - link "Hubs" [ref=e1058] [cursor=pointer]:
+                  - /url: /hubs
+              - listitem [ref=e1059]:
+                - link "How it works" [ref=e1060] [cursor=pointer]:
+                  - /url: /how-it-works
+              - listitem [ref=e1061]:
+                - link "Docs" [ref=e1062] [cursor=pointer]:
+                  - /url: /docs
+          - generic [ref=e1063]:
+            - generic [ref=e1064]: Earn
+            - list [ref=e1065]:
+              - listitem [ref=e1066]:
+                - link "BUX Token" [ref=e1067] [cursor=pointer]:
+                  - /url: /pool/bux
+              - listitem [ref=e1068]:
+                - link "Pool" [ref=e1069] [cursor=pointer]:
+                  - /url: /pool
+              - listitem [ref=e1070]:
+                - link "Play" [ref=e1071] [cursor=pointer]:
+                  - /url: /play
+              - listitem [ref=e1072]:
+                - link "Shop" [ref=e1073] [cursor=pointer]:
+                  - /url: /shop
+              - listitem [ref=e1074]:
+                - link "Airdrop" [ref=e1075] [cursor=pointer]:
+                  - /url: /airdrop
+          - generic [ref=e1076]:
+            - generic [ref=e1077]: Stay in the loop
+            - paragraph [ref=e1078]: The best of crypto × AI. No spam, no shilling.
+            - generic [ref=e1079]:
+              - textbox "you@somewhere.com" [ref=e1080]
+              - button "Subscribe" [ref=e1081]
+            - generic [ref=e1084]: SOLANA · MAINNET LIVE
+        - generic [ref=e1085]:
+          - generic [ref=e1086]: © 2026 Blockster Inc. · All rights reserved.
+          - generic [ref=e1087]:
+            - link "Media kit" [ref=e1088] [cursor=pointer]:
+              - /url: /media-kit
+            - link "Privacy" [ref=e1089] [cursor=pointer]:
+              - /url: /privacy
+            - link "Terms" [ref=e1090] [cursor=pointer]:
+              - /url: /terms
+            - link "Cookie Policy" [ref=e1091] [cursor=pointer]:
+              - /url: /cookies
+  - img [ref=e1093] [cursor=pointer]

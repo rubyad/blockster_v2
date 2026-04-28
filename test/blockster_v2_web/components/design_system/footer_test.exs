@@ -57,7 +57,10 @@ defmodule BlocksterV2Web.DesignSystem.FooterTest do
       assert html =~ ">CKSTER</span>"
     end
 
-    test "renders the newsletter form with the locked subhead" do
+    test "renders the community column with social links + mainnet-live indicator" do
+      # Newsletter form replaced 2026-04-27 — the column now hosts community
+      # social links (X, Telegram group, Telegram bot) and keeps the
+      # "SOLANA · MAINNET LIVE" status pill the user explicitly wanted retained.
       assigns = %{}
 
       html =
@@ -65,9 +68,30 @@ defmodule BlocksterV2Web.DesignSystem.FooterTest do
         <.footer />
         """)
 
-      assert html =~ "The best of crypto × AI. No spam, no shilling."
-      assert html =~ ~s(name="email")
-      assert html =~ "Subscribe"
+      assert html =~ ">Community</div>"
+      assert html =~ "x.com/BlocksterCom"
+      assert html =~ "t.me/+7bIzOyrYBEc3OTdh"
+      assert html =~ "@BlocksterCom on X"
+      assert html =~ "Join Telegram"
+      assert html =~ "SOLANA · MAINNET LIVE"
+
+      refute html =~ ~s(name="email")
+      refute html =~ "Subscribe"
+      # Airdrop link removed from Earn column 2026-04-27 per product call.
+      # The /airdrop route still works; just no footer link to it.
+    end
+
+    test "Earn column does not include the Airdrop link" do
+      assigns = %{}
+
+      html =
+        rendered_to_string(~H"""
+        <.footer />
+        """)
+
+      refute html =~ ~s(>Airdrop</a)
+      refute html =~ ~s(>Airdrop</.link)
+      refute html =~ ~s(href="/airdrop")
     end
 
     test "renders Read and Earn link columns" do

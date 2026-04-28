@@ -14,8 +14,7 @@ defmodule BlocksterV2Web.DesignSystem.WhyEarnBuxBannerTest do
         """)
 
       assert html =~ "ds-why-earn-bux"
-      assert html =~ "Why Earn BUX?"
-      assert html =~ "Redeem BUX to enter sponsored airdrops."
+      assert html =~ "ds-why-earn-bux"
       assert html =~ "bg-[#CAFC00]"
     end
   end

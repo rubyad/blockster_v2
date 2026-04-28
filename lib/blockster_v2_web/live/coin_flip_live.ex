@@ -81,6 +81,8 @@ defmodule BlocksterV2Web.CoinFlipLive do
         |> assign(current_bet: default_bet_amount(balances, "SOL"))
         |> assign(placed_stake: default_bet_amount(balances, "SOL"))
         |> assign(house_balance: 0.0)
+        |> assign(sol_house_balance: 0.0)
+        |> assign(bux_house_balance: 0.0)
         |> assign(max_bet: 0.0)
         |> assign(predictions: [nil])
         |> assign(results: [])
@@ -113,6 +115,7 @@ defmodule BlocksterV2Web.CoinFlipLive do
         user_id = current_user.id
         socket
         |> start_async(:fetch_house_balance, fn -> fetch_house_balance_async("SOL", 1) end)
+        |> start_async(:fetch_pool_balances, fn -> fetch_pool_balances_async() end)
         |> start_async(:load_recent_games, fn -> load_recent_games(user_id, limit: 30) end)
       else
         socket
@@ -137,6 +140,8 @@ defmodule BlocksterV2Web.CoinFlipLive do
         |> assign(current_bet: default_bet_amount(balances, "SOL"))
         |> assign(placed_stake: default_bet_amount(balances, "SOL"))
         |> assign(house_balance: 0.0)
+        |> assign(sol_house_balance: 0.0)
+        |> assign(bux_house_balance: 0.0)
         |> assign(max_bet: 0.0)
         |> assign(predictions: [nil])
         |> assign(results: [])
@@ -167,6 +172,7 @@ defmodule BlocksterV2Web.CoinFlipLive do
         |> assign(settlement_sig: nil)
         |> assign(next_game_session: nil)
         |> start_async(:fetch_house_balance, fn -> fetch_house_balance_async("SOL", 1) end)
+        |> start_async(:fetch_pool_balances, fn -> fetch_pool_balances_async() end)
 
       {:ok, socket}
     end
@@ -244,7 +250,7 @@ defmodule BlocksterV2Web.CoinFlipLive do
               </BlocksterV2Web.DesignSystem.eyebrow>
               <h1 class="text-[80px] mb-3 leading-[0.96] font-bold tracking-[-0.022em] text-[#141414]">Coin Flip</h1>
               <p class="text-[16px] leading-[1.5] text-neutral-600 max-w-[520px]">
-                Pick a side, place a bet, watch it settle on chain in under a second. Every flip is verifiable. Every payout is funded by the public bankroll.
+                Self-custodial and provably fair. Every bet is a trustless on-chain transaction with instant payouts, funded by our peer-to-peer bankroll.
               </p>
               <div class="mt-3 flex items-center gap-4 text-[12px] font-mono">
                 <.link navigate={~p"/docs/coin-flip"} class="text-neutral-500 hover:text-[#141414] transition-colors cursor-pointer">How Coin Flip works ↗</.link>
@@ -256,15 +262,17 @@ defmodule BlocksterV2Web.CoinFlipLive do
               <div class="grid grid-cols-3 gap-3">
                 <div class="bg-white rounded-2xl border border-neutral-200/70 p-4 text-right shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
                   <div class="text-[9px] uppercase tracking-[0.14em] text-neutral-500 mb-1">SOL Pool</div>
-                  <div class="font-mono font-bold text-[18px] text-[#141414]">
-                    <%= if @selected_token == "SOL", do: format_balance(@house_balance), else: "—" %>
+                  <div class="flex items-center justify-end gap-1.5 font-mono font-bold text-[18px] text-[#141414]">
+                    <img src="https://ik.imagekit.io/blockster/solana-sol-logo.png" alt="SOL" class="w-5 h-5 shrink-0" />
+                    <span class="truncate"><%= format_balance(@sol_house_balance) %></span>
                   </div>
                   <.link navigate={~p"/pool/sol"} class="text-[10px] text-[#22C55E] font-mono hover:underline">View pool ↗</.link>
                 </div>
                 <div class="bg-white rounded-2xl border border-neutral-200/70 p-4 text-right shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
                   <div class="text-[9px] uppercase tracking-[0.14em] text-neutral-500 mb-1">BUX Pool</div>
-                  <div class="font-mono font-bold text-[18px] text-[#141414]">
-                    <%= if @selected_token == "BUX", do: format_balance(@house_balance), else: "—" %>
+                  <div class="flex items-center justify-end gap-1.5 font-mono font-bold text-[18px] text-[#141414]">
+                    <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="BUX" class="w-5 h-5 shrink-0" />
+                    <span class="truncate"><%= format_balance_compact(@bux_house_balance) %></span>
                   </div>
                   <.link navigate={~p"/pool/bux"} class="text-[10px] text-[#22C55E] font-mono hover:underline">View pool ↗</.link>
                 </div>
@@ -542,9 +550,15 @@ defmodule BlocksterV2Web.CoinFlipLive do
                       <div class="flex items-center justify-between text-[10px] font-mono gap-3">
                         <span class="text-neutral-500 shrink-0">Server commitment</span>
                         <%= if @server_seed_hash do %>
-                          <span class="text-[#141414] truncate" title={@server_seed_hash}>
-                            <%= String.slice(@server_seed_hash, 0, 8) %>…<%= String.slice(@server_seed_hash, -6, 6) %>
-                          </span>
+                          <a
+                            href={BlocksterV2Web.Solscan.account_url("49up2uzZANpjTC3sgggbZazdHBii2vY9mVK3vk5dT2tm")}
+                            target="_blank"
+                            rel="noopener"
+                            class="text-[#141414] hover:text-[#7D00FF] hover:underline truncate"
+                            title={"View Bankroll Program on Solscan · " <> @server_seed_hash}
+                          >
+                            <%= String.slice(@server_seed_hash, 0, 8) %>…<%= String.slice(@server_seed_hash, -6, 6) %> ↗
+                          </a>
                           <button
                             type="button"
                             id="copy-server-hash"
@@ -1881,6 +1895,17 @@ defmodule BlocksterV2Web.CoinFlipLive do
   def handle_async(:fetch_house_balance, {:exit, _reason}, socket), do: {:noreply, socket}
 
   @impl true
+  def handle_async(:fetch_pool_balances, {:ok, {sol, bux}}, socket) do
+    {:noreply,
+     socket
+     |> assign(:sol_house_balance, sol)
+     |> assign(:bux_house_balance, bux)}
+  end
+
+  @impl true
+  def handle_async(:fetch_pool_balances, {:exit, _reason}, socket), do: {:noreply, socket}
+
+  @impl true
   def handle_async(:load_recent_games, {:ok, games}, socket) do
     {:noreply, assign(socket, :recent_games, games) |> assign(:games_offset, length(games)) |> assign(:games_loading, false)}
   end
@@ -2399,6 +2424,15 @@ defmodule BlocksterV2Web.CoinFlipLive do
 
   defp format_balance(_), do: "0.00"
 
+  defp format_balance_compact(amount) when is_number(amount) and amount >= 1_000_000,
+    do: :erlang.float_to_binary(amount / 1_000_000, decimals: 1) <> "M"
+
+  defp format_balance_compact(amount) when is_number(amount) and amount >= 10_000,
+    do: :erlang.float_to_binary(amount / 1_000, decimals: 1) <> "k"
+
+  defp format_balance_compact(amount) when is_number(amount), do: format_balance(amount)
+  defp format_balance_compact(_), do: "0"
+
   defp format_integer(amount) when is_integer(amount) do
     amount |> Integer.to_string() |> String.reverse() |> String.graphemes()
     |> Enum.chunk_every(3) |> Enum.map(&Enum.join/1) |> Enum.join(",") |> String.reverse()
@@ -2486,6 +2520,24 @@ defmodule BlocksterV2Web.CoinFlipLive do
         {0.0, 0.0}
     end
   end
+
+  defp fetch_pool_balances_async do
+    case BuxMinter.get_pool_stats() do
+      {:ok, stats} ->
+        {extract_balance(stats, "sol"), extract_balance(stats, "bux")}
+
+      _ ->
+        {0.0, 0.0}
+    end
+  end
+
+  defp extract_balance(stats, vault_key) when is_map(stats) do
+    vault = stats[vault_key] || %{}
+    raw = vault["netBalance"] || vault["totalBalance"] || 0.0
+    if is_number(raw), do: raw * 1.0, else: 0.0
+  end
+
+  defp extract_balance(_, _), do: 0.0
 
   defp calculate_max_bet(house_balance, difficulty_level) do
     # Must replicate on-chain integer math EXACTLY, including intermediate truncations.

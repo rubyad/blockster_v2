@@ -1,0 +1,218 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e3]:
+    - banner [ref=e4]:
+      - generic [ref=e5]:
+        - generic [ref=e6]:
+          - link "Blockster home" [ref=e7] [cursor=pointer]:
+            - /url: /
+            - generic [ref=e8]:
+              - generic [ref=e9]: BL
+              - img "o" [ref=e10]
+              - generic [ref=e11]: CKSTER
+          - generic [ref=e14]: Solana mainnet
+        - navigation [ref=e16]:
+          - link "Home" [ref=e17] [cursor=pointer]:
+            - /url: /
+          - link "Hubs" [ref=e18] [cursor=pointer]:
+            - /url: /hubs
+          - link "Shop" [ref=e19] [cursor=pointer]:
+            - /url: /shop
+          - link "Play" [ref=e20] [cursor=pointer]:
+            - /url: /play
+          - link "Pool" [ref=e21] [cursor=pointer]:
+            - /url: /pool
+        - generic [ref=e22]:
+          - button "Search" [ref=e23] [cursor=pointer]:
+            - img [ref=e24]
+          - button "Notifications" [ref=e27] [cursor=pointer]:
+            - img [ref=e28]
+          - link "Cart" [ref=e30] [cursor=pointer]:
+            - /url: /cart
+            - img [ref=e31]
+            - generic [ref=e33]: "1"
+          - button "SOL 29.3517 SOL" [ref=e35] [cursor=pointer]:
+            - img "SOL" [ref=e36]
+            - generic [ref=e37]: "29.3517"
+            - generic [ref=e38]: SOL
+            - img [ref=e39]
+      - generic [ref=e43]:
+        - generic [ref=e44]: Why Earn BUX? Redeem BUX to enter sponsored airdrops.
+        - generic [ref=e45]:
+          - img [ref=e46]
+          - text: Coming Soon
+    - main [ref=e48]:
+      - generic [ref=e49]:
+        - generic [ref=e50]: 1 item · ready when you are
+        - heading "Your cart" [level=1] [ref=e51]
+        - paragraph [ref=e52]: Apply BUX tokens for a discount on each item, then pay the remainder in SOL from your connected wallet.
+      - generic [ref=e54]:
+        - generic [ref=e55]:
+          - generic [ref=e57]:
+            - link "Hot Signal" [ref=e58] [cursor=pointer]:
+              - /url: /shop/hot-signal
+              - img "Hot Signal" [ref=e60]
+            - generic [ref=e61]:
+              - generic [ref=e62]:
+                - generic [ref=e63]:
+                  - generic [ref=e66]: Nolcha Shows
+                  - link "Hot Signal" [ref=e67] [cursor=pointer]:
+                    - /url: /shop/hot-signal
+                    - heading "Hot Signal" [level=3] [ref=e68]
+                - button "Remove" [ref=e69] [cursor=pointer]:
+                  - img [ref=e70]
+              - generic [ref=e72]:
+                - generic [ref=e73]:
+                  - button "−" [disabled] [ref=e74]
+                  - generic [ref=e75]: "1"
+                  - button "+" [ref=e76] [cursor=pointer]
+                - generic [ref=e77]:
+                  - generic [ref=e78]: 2.5611 SOL
+                  - generic [ref=e79]: ≈ $220.00
+              - generic [ref=e80]:
+                - generic [ref=e82]: BUX to redeem · max 11,000 (50% off)
+                - generic [ref=e83]:
+                  - spinbutton [ref=e84]: "22000"
+                  - generic [ref=e85]:
+                    - generic [ref=e86]: −2.5611 SOL
+                    - generic [ref=e87]: ≈ −$220.00
+          - link "Continue shopping" [ref=e89] [cursor=pointer]:
+            - /url: /shop
+            - img [ref=e90]
+            - text: Continue shopping
+        - generic [ref=e93]:
+          - generic [ref=e94]:
+            - generic [ref=e95]: Order summary
+            - generic [ref=e96]:
+              - generic [ref=e97]:
+                - generic [ref=e98]: Subtotal · 1 item
+                - generic [ref=e99]:
+                  - generic [ref=e100]: 2.5611 SOL
+                  - generic [ref=e101]: ≈ $220.00
+              - generic [ref=e102]:
+                - generic [ref=e103]: BUX discount · 22,000 BUX
+                - generic [ref=e104]:
+                  - generic [ref=e105]: −2.5611 SOL
+                  - generic [ref=e106]: ≈ −$220.00
+            - generic [ref=e107]:
+              - generic [ref=e108]: Total
+              - generic [ref=e109]:
+                - generic [ref=e110]:
+                  - generic [ref=e111]: FREE
+                  - generic [ref=e112]: ≈ $0.00
+                - generic [ref=e113]: + 22,000 BUX burned
+            - button "Proceed to checkout" [ref=e114] [cursor=pointer]:
+              - text: Proceed to checkout
+              - img [ref=e115]
+            - generic [ref=e117]:
+              - generic [ref=e118]:
+                - img "SOL" [ref=e119]
+                - generic [ref=e120]: Pay in SOL
+              - generic [ref=e121]: ·
+              - generic [ref=e122]: BUX burned on Solana
+          - generic [ref=e123]: At checkout, your BUX is burned on chain to apply the discount, then you send the remaining SOL from your connected wallet.
+      - generic [ref=e124]:
+        - generic [ref=e126]:
+          - generic [ref=e127]: Often bought with what's in your cart
+          - heading "You might also like" [level=2] [ref=e128]
+        - generic [ref=e129]:
+          - link "Air Force 1 '07 LV8 Air Force 1 '07 LV8 1.34 SOL 0.669 SOL ≈ $57.50 · with BUX" [ref=e223] [cursor=pointer]:
+            - /url: /shop/air-force-1-07-lv8
+            - img "Air Force 1 '07 LV8" [ref=e224]
+            - generic [ref=e133]:
+              - heading "Air Force 1 '07 LV8" [level=3] [ref=e225]
+              - generic [ref=e135]:
+                - generic [ref=e136]: 1.34 SOL
+                - generic [ref=e137]: 0.669 SOL
+                - generic [ref=e138]: ≈ $57.50 · with BUX
+          - link "Midnight Current Midnight Current 2.56 SOL 1.28 SOL ≈ $110.00 · with BUX" [ref=e226] [cursor=pointer]:
+            - /url: /shop/midnight-current
+            - img "Midnight Current" [ref=e227]
+            - generic [ref=e142]:
+              - heading "Midnight Current" [level=3] [ref=e228]
+              - generic [ref=e144]:
+                - generic [ref=e145]: 2.56 SOL
+                - generic [ref=e146]: 1.28 SOL
+                - generic [ref=e147]: ≈ $110.00 · with BUX
+          - link "Test P1 Test P1 0.116 SOL 0.058 SOL ≈ $5.00 · with BUX" [ref=e229] [cursor=pointer]:
+            - /url: /shop/test-p1-debug
+            - img "Test P1" [ref=e230]
+            - generic [ref=e151]:
+              - heading "Test P1" [level=3] [ref=e231]
+              - generic [ref=e153]:
+                - generic [ref=e154]: 0.116 SOL
+                - generic [ref=e155]: 0.058 SOL
+                - generic [ref=e156]: ≈ $5.00 · with BUX
+          - link "Decentralized Betting Hoodie Decentralized Betting Hoodie 2.10 SOL 1.05 SOL ≈ $90.00 · with BUX" [ref=e232] [cursor=pointer]:
+            - /url: /shop/decentralized-betting-hoodie
+            - img "Decentralized Betting Hoodie" [ref=e233]
+            - generic [ref=e160]:
+              - heading "Decentralized Betting Hoodie" [level=3] [ref=e234]
+              - generic [ref=e162]:
+                - generic [ref=e163]: 2.10 SOL
+                - generic [ref=e164]: 1.05 SOL
+                - generic [ref=e165]: ≈ $90.00 · with BUX
+    - contentinfo [ref=e166]:
+      - generic [ref=e168]:
+        - generic [ref=e169]:
+          - generic [ref=e170]:
+            - generic [ref=e172]:
+              - generic [ref=e173]: BL
+              - img "o" [ref=e174]
+              - generic [ref=e175]: CKSTER
+            - heading "All in on Solana." [level=3] [ref=e176]
+            - paragraph [ref=e177]: The home feed of the Solana ecosystem. Builders, protocols, culture — daily.
+            - generic [ref=e178]:
+              - img [ref=e179]
+              - generic [ref=e182]: 1111 Lincoln Road, Suite 500 · Miami Beach, FL 33139 · USA
+          - generic [ref=e183]:
+            - generic [ref=e184]: Read
+            - list [ref=e185]:
+              - listitem [ref=e186]:
+                - link "Latest" [ref=e187] [cursor=pointer]:
+                  - /url: /
+              - listitem [ref=e188]:
+                - link "Hubs" [ref=e189] [cursor=pointer]:
+                  - /url: /hubs
+              - listitem [ref=e190]:
+                - link "How it works" [ref=e191] [cursor=pointer]:
+                  - /url: /how-it-works
+              - listitem [ref=e192]:
+                - link "Docs" [ref=e193] [cursor=pointer]:
+                  - /url: /docs
+          - generic [ref=e194]:
+            - generic [ref=e195]: Earn
+            - list [ref=e196]:
+              - listitem [ref=e197]:
+                - link "BUX Token" [ref=e198] [cursor=pointer]:
+                  - /url: /pool/bux
+              - listitem [ref=e199]:
+                - link "Pool" [ref=e200] [cursor=pointer]:
+                  - /url: /pool
+              - listitem [ref=e201]:
+                - link "Play" [ref=e202] [cursor=pointer]:
+                  - /url: /play
+              - listitem [ref=e203]:
+                - link "Shop" [ref=e204] [cursor=pointer]:
+                  - /url: /shop
+              - listitem [ref=e205]:
+                - link "Airdrop" [ref=e206] [cursor=pointer]:
+                  - /url: /airdrop
+          - generic [ref=e207]:
+            - generic [ref=e208]: Stay in the loop
+            - paragraph [ref=e209]: The best of crypto × AI. No spam, no shilling.
+            - generic [ref=e210]:
+              - textbox "you@somewhere.com" [ref=e211]
+              - button "Subscribe" [ref=e212]
+            - generic [ref=e215]: SOLANA · MAINNET LIVE
+        - generic [ref=e216]:
+          - generic [ref=e217]: © 2026 Blockster Inc. · All rights reserved.
+          - generic [ref=e218]:
+            - link "Media kit" [ref=e219] [cursor=pointer]:
+              - /url: /media-kit
+            - link "Privacy" [ref=e220] [cursor=pointer]:
+              - /url: /privacy
+            - link "Terms" [ref=e221] [cursor=pointer]:
+              - /url: /terms
+            - link "Cookie Policy" [ref=e222] [cursor=pointer]:
+              - /url: /cookies
+  - img [ref=e236] [cursor=pointer]

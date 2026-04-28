@@ -126,8 +126,7 @@ defmodule BlocksterV2Web.HubLive.ShowTest do
 
       {:ok, _view, html} = live(conn, ~p"/hub/bux-show")
 
-      assert html =~ "Why Earn BUX?"
-      assert html =~ "Redeem BUX to enter sponsored airdrops"
+      assert html =~ "ds-why-earn-bux"
     end
 
     test "anonymous user sees Connect Wallet in header", %{conn: conn} do

@@ -123,7 +123,7 @@ defmodule BlocksterV2Web.CheckoutLive.IndexTest do
 
       assert html =~ "ds-site-header"
       assert html =~ "SolanaWallet"
-      assert html =~ "Why Earn BUX?"
+      assert html =~ "ds-why-earn-bux"
       # Footer renders the redesigned dark site footer brand line.
       assert html =~ "Hustle hard. All in on crypto."
     end

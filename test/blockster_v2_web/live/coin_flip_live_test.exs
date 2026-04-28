@@ -101,7 +101,7 @@ defmodule BlocksterV2Web.CoinFlipLiveTest do
       assert html =~ "ds-play-hero"
       assert html =~ "Coin Flip"
       assert html =~ "Provably-fair"
-      assert html =~ "Pick a side"
+      # "Pick a side" hero copy removed in 2026-04-27 coin-flip UI rewrite.
     end
 
     test "renders the 3-card stat band", %{conn: conn} do

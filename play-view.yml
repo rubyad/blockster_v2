@@ -1,0 +1,358 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e4]:
+    - banner [ref=e5]:
+      - generic [ref=e6]:
+        - generic [ref=e7]:
+          - link "Blockster home" [ref=e8] [cursor=pointer]:
+            - /url: /
+            - generic [ref=e9]:
+              - generic [ref=e10]: BL
+              - img "o" [ref=e11]
+              - generic [ref=e12]: CKSTER
+          - generic [ref=e15]: Solana mainnet
+        - navigation [ref=e17]:
+          - link "Home" [ref=e18] [cursor=pointer]:
+            - /url: /
+          - link "Hubs" [ref=e19] [cursor=pointer]:
+            - /url: /hubs
+          - link "Shop" [ref=e20] [cursor=pointer]:
+            - /url: /shop
+          - link "Play" [ref=e21] [cursor=pointer]:
+            - /url: /play
+          - link "Pool" [ref=e22] [cursor=pointer]:
+            - /url: /pool
+        - generic [ref=e23]:
+          - button "Search" [ref=e24] [cursor=pointer]:
+            - img [ref=e25]
+          - button "Notifications" [ref=e28] [cursor=pointer]:
+            - img [ref=e29]
+            - generic [ref=e247]: "2"
+          - link "Cart" [ref=e31] [cursor=pointer]:
+            - /url: /cart
+            - img [ref=e32]
+          - button "SOL 29.3517 SOL" [ref=e35] [cursor=pointer]:
+            - img "SOL" [ref=e36]
+            - generic [ref=e37]: "29.3517"
+            - generic [ref=e38]: SOL
+            - img [ref=e39]
+      - generic [ref=e43]:
+        - generic [ref=e44]: Why Earn BUX? Redeem BUX to enter sponsored airdrops.
+        - generic [ref=e45]:
+          - img [ref=e46]
+          - text: Coming Soon
+    - main [ref=e48]:
+      - generic [ref=e50]:
+        - generic [ref=e51]:
+          - generic [ref=e52]: Provably-fair · On-chain · Sub-1% house edge
+          - heading "Coin Flip" [level=1] [ref=e53]
+          - paragraph [ref=e54]: Pick a side, place a bet, watch it settle on chain in under a second. Every flip is verifiable. Every payout is funded by the public bankroll.
+          - generic [ref=e55]:
+            - link "How Coin Flip works ↗" [ref=e56] [cursor=pointer]:
+              - /url: /docs/coin-flip
+            - link "Verify a game ↗" [ref=e57] [cursor=pointer]:
+              - /url: /docs/provably-fair
+            - link "Security audit ↗" [ref=e58] [cursor=pointer]:
+              - /url: /docs/security-audit
+        - generic [ref=e60]:
+          - generic [ref=e61]:
+            - generic [ref=e62]: SOL Pool
+            - generic [ref=e63]: "60.33"
+            - link "View pool ↗" [ref=e64] [cursor=pointer]:
+              - /url: /pool/sol
+          - generic [ref=e65]:
+            - generic [ref=e66]: BUX Pool
+            - generic [ref=e67]: —
+            - link "View pool ↗" [ref=e68] [cursor=pointer]:
+              - /url: /pool/bux
+          - generic [ref=e69]:
+            - generic [ref=e70]: House Edge
+            - generic [ref=e71]: 0.92%
+            - text: verified
+      - generic [ref=e248]:
+        - generic [ref=e249]:
+          - img [ref=e250]
+          - generic [ref=e252]: You have a stuck bet older than 5 minutes.
+        - button "Reclaim" [ref=e253] [cursor=pointer]
+      - generic [ref=e73]:
+        - generic [ref=e74]:
+          - generic [ref=e75]:
+            - generic [ref=e76]:
+              - button "SOL SOL" [ref=e77] [cursor=pointer]:
+                - img "SOL" [ref=e78]
+                - text: SOL
+              - button "BUX BUX" [ref=e79] [cursor=pointer]:
+                - img "BUX" [ref=e80]
+                - text: BUX
+            - generic [ref=e81]:
+              - generic [ref=e82]: "Your balance: 29.35 SOL"
+              - generic [ref=e83]:
+                - text: "House:"
+                - link "60.33 SOL ↗" [ref=e254] [cursor=pointer]:
+                  - /url: /pool/sol
+          - generic [ref=e85]:
+            - generic [ref=e86]:
+              - generic [ref=e87]: Difficulty
+              - generic [ref=e88]: Higher difficulty = bigger payout · lower odds
+            - generic [ref=e89]:
+              - button "Win one 1.02× 5 flips" [ref=e90] [cursor=pointer]:
+                - generic [ref=e91]: Win one
+                - generic [ref=e92]: 1.02×
+                - generic [ref=e93]: 5 flips
+              - button "Win one 1.05× 4 flips" [ref=e94] [cursor=pointer]:
+                - generic [ref=e95]: Win one
+                - generic [ref=e96]: 1.05×
+                - generic [ref=e97]: 4 flips
+              - button "Win one 1.13× 3 flips" [ref=e98] [cursor=pointer]:
+                - generic [ref=e99]: Win one
+                - generic [ref=e100]: 1.13×
+                - generic [ref=e101]: 3 flips
+              - button "Win one 1.32× 2 flips" [ref=e102] [cursor=pointer]:
+                - generic [ref=e103]: Win one
+                - generic [ref=e104]: 1.32×
+                - generic [ref=e105]: 2 flips
+              - button "Win all 1.98× 1 flip" [ref=e106] [cursor=pointer]:
+                - generic [ref=e107]: Win all
+                - generic [ref=e108]: 1.98×
+                - generic [ref=e109]: 1 flip
+              - button "Win all 3.96× 2 flips" [ref=e110] [cursor=pointer]:
+                - generic [ref=e111]: Win all
+                - generic [ref=e112]: 3.96×
+                - generic [ref=e113]: 2 flips
+              - button "Win all 7.92× 3 flips" [ref=e114] [cursor=pointer]:
+                - generic [ref=e115]: Win all
+                - generic [ref=e116]: 7.92×
+                - generic [ref=e117]: 3 flips
+              - button "Win all 15.84× 4 flips" [ref=e118] [cursor=pointer]:
+                - generic [ref=e119]: Win all
+                - generic [ref=e120]: 15.84×
+                - generic [ref=e121]: 4 flips
+              - button "Win all 31.68× 5 flips" [ref=e122] [cursor=pointer]:
+                - generic [ref=e123]: Win all
+                - generic [ref=e124]: 31.68×
+                - generic [ref=e125]: 5 flips
+          - generic [ref=e126]:
+            - generic [ref=e127]:
+              - generic [ref=e128]: Bet amount
+              - generic [ref=e129]:
+                - button "½" [ref=e130] [cursor=pointer]
+                - button "2×" [ref=e131] [cursor=pointer]
+                - button "MAX 0.6094" [ref=e255] [cursor=pointer]
+            - generic [ref=e133]:
+              - textbox [ref=e134]: "0.5"
+              - generic [ref=e135]: SOL
+            - generic [ref=e136]:
+              - button "0.01" [ref=e137] [cursor=pointer]
+              - button "0.05" [ref=e138] [cursor=pointer]
+              - button "0.1" [ref=e139] [cursor=pointer]
+              - button "0.25" [ref=e140] [cursor=pointer]
+              - button "0.5" [ref=e141] [cursor=pointer]
+              - button "1" [ref=e142] [cursor=pointer]
+          - generic [ref=e144]:
+            - generic [ref=e145]:
+              - generic [ref=e146]: Potential profit
+              - generic [ref=e147]: + 0.49 SOL
+              - generic [ref=e148]: "Total payout: 0.99 SOL"
+            - generic [ref=e149]:
+              - generic [ref=e150]: Multiplier
+              - generic [ref=e151]: 1.98×
+          - generic [ref=e152]:
+            - generic [ref=e153]:
+              - generic [ref=e154]: Pick your side · 1 flip · win all
+              - generic [ref=e155]: Click a coin to cycle through 🚀 / 💩. SHA256(server:client:nonce) determines every flip.
+            - button "1" [ref=e157] [cursor=pointer]:
+              - generic [ref=e158]: "1"
+          - group [ref=e160]:
+            - generic "Provably fair · Server seed locked View commitment hash" [ref=e161] [cursor=pointer]:
+              - generic [ref=e164]: Provably fair · Server seed locked
+              - generic [ref=e165]: View commitment hash
+          - button "Make your prediction" [disabled] [ref=e167]
+        - generic [ref=e168]:
+          - generic [ref=e169]:
+            - generic [ref=e170]: Your stats
+            - generic [ref=e171]: No stats yet. Place your first bet to start tracking.
+          - generic [ref=e172]:
+            - generic [ref=e173]:
+              - generic [ref=e258]: Your recent games
+              - generic [ref=e259]: last 5
+            - generic [ref=e174]:
+              - generic [ref=e175]:
+                - generic [ref=e176]:
+                  - img [ref=e260]
+                  - generic [ref=e261]: 0.05 SOL
+                - generic [ref=e177]:
+                  - generic [ref=e262]: + 0.049
+                  - generic [ref=e263]: 1.98×
+              - generic [ref=e179]:
+                - generic [ref=e180]:
+                  - img [ref=e264]
+                  - generic [ref=e265]: 100.00 BUX
+                - generic [ref=e181]:
+                  - generic [ref=e266]: + 98.00
+                  - generic [ref=e267]: 1.98×
+              - generic [ref=e268]:
+                - generic [ref=e269]:
+                  - img [ref=e270]
+                  - generic [ref=e271]: 0.1 SOL
+                - generic [ref=e272]:
+                  - generic [ref=e273]: − 0.1
+                  - generic [ref=e274]: 1.32×
+          - generic [ref=e275]:
+            - generic [ref=e276]: Two modes
+            - generic [ref=e277]:
+              - generic [ref=e278]:
+                - generic [ref=e279]: Win One
+                - generic [ref=e280]:
+                  - text: Win if
+                  - strong [ref=e281]: any one
+                  - text: of N flips matches your prediction. Lower payout, much higher odds.
+              - generic [ref=e282]:
+                - generic [ref=e283]: Win All
+                - generic [ref=e284]:
+                  - text: Win only if
+                  - strong [ref=e285]: all N flips
+                  - text: match. Higher payout, lower odds. 31.68× is a 5-in-a-row streak.
+      - generic [ref=e183]:
+        - generic [ref=e185]:
+          - generic [ref=e186]: Your last bets
+          - heading "Recent games" [level=2] [ref=e187]
+        - table [ref=e287]:
+          - rowgroup [ref=e288]:
+            - row "# Bet Predictions Results Mult W/L P/L Verify" [ref=e289]:
+              - columnheader "#" [ref=e290]
+              - columnheader "Bet" [ref=e291]
+              - columnheader "Predictions" [ref=e292]
+              - columnheader "Results" [ref=e293]
+              - columnheader "Mult" [ref=e294]
+              - columnheader "W/L" [ref=e295]
+              - columnheader "P/L" [ref=e296]
+              - columnheader "Verify" [ref=e297]
+          - rowgroup [ref=e298]:
+            - row "#1 0.05 SOL 🚀 🚀 1.98× W + 0.049 SOL ✓" [ref=e299]:
+              - cell "#1" [ref=e300]:
+                - link "#1" [ref=e301] [cursor=pointer]:
+                  - /url: https://solscan.io/tx/2V1xNN9TYnJrK4oFpCVwDUTw5JDwPaGmaNzBZVCeThQstKUUMLnjtJBPvFzxQ8rMaFQBXQ4JjpANYiinzsPKzLjN?cluster=devnet
+              - cell "0.05 SOL" [ref=e302]:
+                - generic [ref=e303]:
+                  - img [ref=e304]
+                  - generic [ref=e305]: "0.05"
+                  - generic [ref=e306]: SOL
+              - cell "🚀" [ref=e307]:
+                - generic [ref=e309]: 🚀
+              - cell "🚀" [ref=e310]:
+                - generic [ref=e312]: 🚀
+              - cell "1.98×" [ref=e313]
+              - cell "W" [ref=e314]
+              - cell "+ 0.049 SOL" [ref=e315]:
+                - link "+ 0.049 SOL" [ref=e316] [cursor=pointer]:
+                  - /url: https://solscan.io/tx/failed_no_onchain_order?cluster=devnet
+              - cell "✓" [ref=e317]:
+                - button "✓" [ref=e318] [cursor=pointer]
+            - row "#2 100.00 BUX 🚀 🚀 1.98× W + 98.00 BUX ✓" [ref=e319]:
+              - cell "#2" [ref=e320]:
+                - link "#2" [ref=e321] [cursor=pointer]:
+                  - /url: https://solscan.io/tx/vEzd5ZXHZyDwPVLjPPWXJcJjqxqTsQKLuSAQiHu2XcZ7poTVEP8jLZwru4BiHe48FHRXfQG58N69DTSU2NvQyLQ?cluster=devnet
+              - cell "100.00 BUX" [ref=e322]:
+                - generic [ref=e323]:
+                  - img [ref=e324]
+                  - generic [ref=e325]: "100.00"
+                  - generic [ref=e326]: BUX
+              - cell "🚀" [ref=e327]:
+                - generic [ref=e329]: 🚀
+              - cell "🚀" [ref=e330]:
+                - generic [ref=e332]: 🚀
+              - cell "1.98×" [ref=e333]
+              - cell "W" [ref=e334]
+              - cell "+ 98.00 BUX" [ref=e335]:
+                - link "+ 98.00 BUX" [ref=e336] [cursor=pointer]:
+                  - /url: https://solscan.io/tx/2zTcoVMyrnwPUJafx6ok5rXoPk3HoZNLdwGeSSV1kNfFhUZr3HX7547JRGSVVSKiW7AT8PaJLSVWpQwYMhyLgWxr?cluster=devnet
+              - cell "✓" [ref=e337]:
+                - button "✓" [ref=e338] [cursor=pointer]
+            - row "#0 0.1 SOL 🚀 🚀 💩 💩 1.32× L − 0.1 SOL ✓" [ref=e339]:
+              - cell "#0" [ref=e340]:
+                - link "#0" [ref=e341] [cursor=pointer]:
+                  - /url: https://solscan.io/tx/5TdQaZWnQ6uP2GKQTcX3hDpYnaMTqL1BU6dc5owDi9mvyu8xnQKkzcw5wY5gK8XBpR37soAZGE6mEB3UqmUs14t7?cluster=devnet
+              - cell "0.1 SOL" [ref=e342]:
+                - generic [ref=e343]:
+                  - img [ref=e344]
+                  - generic [ref=e345]: "0.1"
+                  - generic [ref=e346]: SOL
+              - cell "🚀 🚀" [ref=e347]:
+                - generic [ref=e348]:
+                  - generic [ref=e349]: 🚀
+                  - generic [ref=e350]: 🚀
+              - cell "💩 💩" [ref=e351]:
+                - generic [ref=e352]:
+                  - generic [ref=e353]: 💩
+                  - generic [ref=e354]: 💩
+              - cell "1.32×" [ref=e355]
+              - cell "L" [ref=e356]
+              - cell "− 0.1 SOL" [ref=e357]:
+                - link "− 0.1 SOL" [ref=e358] [cursor=pointer]:
+                  - /url: https://solscan.io/tx/3vCnJZGmnj5kjJah2zNRgrPjMduMVaus1oTQ3riM8SzXWgFhy5jqttcmMCvG2LPFrX2PKwMnoER1CXFdt4h5c5eZ?cluster=devnet
+              - cell "✓" [ref=e359]:
+                - button "✓" [ref=e360] [cursor=pointer]
+    - contentinfo [ref=e190]:
+      - generic [ref=e192]:
+        - generic [ref=e193]:
+          - generic [ref=e194]:
+            - generic [ref=e196]:
+              - generic [ref=e197]: BL
+              - img "o" [ref=e198]
+              - generic [ref=e199]: CKSTER
+            - heading "All in on Solana." [level=3] [ref=e200]
+            - paragraph [ref=e201]: The home feed of the Solana ecosystem. Builders, protocols, culture — daily.
+            - generic [ref=e202]:
+              - img [ref=e203]
+              - generic [ref=e206]: 1111 Lincoln Road, Suite 500 · Miami Beach, FL 33139 · USA
+          - generic [ref=e207]:
+            - generic [ref=e208]: Read
+            - list [ref=e209]:
+              - listitem [ref=e210]:
+                - link "Latest" [ref=e211] [cursor=pointer]:
+                  - /url: /
+              - listitem [ref=e212]:
+                - link "Hubs" [ref=e213] [cursor=pointer]:
+                  - /url: /hubs
+              - listitem [ref=e214]:
+                - link "How it works" [ref=e215] [cursor=pointer]:
+                  - /url: /how-it-works
+              - listitem [ref=e216]:
+                - link "Docs" [ref=e217] [cursor=pointer]:
+                  - /url: /docs
+          - generic [ref=e218]:
+            - generic [ref=e219]: Earn
+            - list [ref=e220]:
+              - listitem [ref=e221]:
+                - link "BUX Token" [ref=e222] [cursor=pointer]:
+                  - /url: /pool/bux
+              - listitem [ref=e223]:
+                - link "Pool" [ref=e224] [cursor=pointer]:
+                  - /url: /pool
+              - listitem [ref=e225]:
+                - link "Play" [ref=e226] [cursor=pointer]:
+                  - /url: /play
+              - listitem [ref=e227]:
+                - link "Shop" [ref=e228] [cursor=pointer]:
+                  - /url: /shop
+              - listitem [ref=e229]:
+                - link "Airdrop" [ref=e230] [cursor=pointer]:
+                  - /url: /airdrop
+          - generic [ref=e231]:
+            - generic [ref=e232]: Stay in the loop
+            - paragraph [ref=e233]: The best of crypto × AI. No spam, no shilling.
+            - generic [ref=e234]:
+              - textbox "you@somewhere.com" [ref=e235]
+              - button "Subscribe" [ref=e236]
+            - generic [ref=e239]: SOLANA · MAINNET LIVE
+        - generic [ref=e240]:
+          - generic [ref=e241]: © 2026 Blockster Inc. · All rights reserved.
+          - generic [ref=e242]:
+            - link "Media kit" [ref=e243] [cursor=pointer]:
+              - /url: /media-kit
+            - link "Privacy" [ref=e244] [cursor=pointer]:
+              - /url: /privacy
+            - link "Terms" [ref=e245] [cursor=pointer]:
+              - /url: /terms
+            - link "Cookie Policy" [ref=e246] [cursor=pointer]:
+              - /url: /cookies
+  - img [ref=e362] [cursor=pointer]

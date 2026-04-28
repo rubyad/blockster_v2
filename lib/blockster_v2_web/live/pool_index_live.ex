@@ -4,6 +4,7 @@ defmodule BlocksterV2Web.PoolIndexLive do
 
   alias BlocksterV2.BuxMinter
   alias BlocksterV2.CoinFlipGame
+  alias BlocksterV2.PriceTracker
 
   @impl true
   def mount(_params, _session, socket) do
@@ -20,6 +21,7 @@ defmodule BlocksterV2Web.PoolIndexLive do
       |> assign(user_bux_lp: 0.0)
       |> assign(sol_pool_share: 0.0)
       |> assign(bux_pool_share: 0.0)
+      |> assign(sol_usd_price: fetch_sol_usd_price())
 
     socket =
       if connected?(socket) do
@@ -208,6 +210,15 @@ defmodule BlocksterV2Web.PoolIndexLive do
   defp to_float(v) when is_number(v), do: v / 1.0
   defp to_float(_), do: 0.0
 
+  defp fetch_sol_usd_price do
+    case PriceTracker.get_price("SOL") do
+      {:ok, %{usd_price: price}} when is_number(price) and price > 0 -> price * 1.0
+      _ -> 0.0
+    end
+  rescue
+    _ -> 0.0
+  end
+
   defp format_amount(val, decimals) when is_number(val) do
     :erlang.float_to_binary(val * 1.0, decimals: decimals)
   end
@@ -312,54 +323,43 @@ defmodule BlocksterV2Web.PoolIndexLive do
 
   defp fmt_sol(_), do: "0.00"
 
-  defp fmt_bux_compact(val) when is_number(val) and val >= 1_000_000 do
-    :erlang.float_to_binary(val / 1_000_000, decimals: 1) <> "M"
+  defp fmt_bux_full(val) when is_number(val) do
+    val |> round() |> commafy()
   end
 
-  defp fmt_bux_compact(val) when is_number(val) and val >= 1_000 do
-    :erlang.float_to_binary(val / 1_000, decimals: 0) <> "k"
+  defp fmt_bux_full(_), do: "0"
+
+  defp fmt_bux_signed(val) when is_number(val) do
+    rounded = round(val)
+    sign = if rounded >= 0, do: "+", else: "−"
+    "#{sign}#{commafy(abs(rounded))}"
   end
 
-  defp fmt_bux_compact(val) when is_number(val) and val > 0 do
-    :erlang.float_to_binary(val / 1.0, decimals: 0)
+  defp fmt_bux_signed(_), do: "+0"
+
+  defp commafy(int) when is_integer(int) do
+    int
+    |> Integer.to_string()
+    |> String.reverse()
+    |> String.graphemes()
+    |> Enum.chunk_every(3)
+    |> Enum.map(&Enum.join/1)
+    |> Enum.join(",")
+    |> String.reverse()
   end
 
-  defp fmt_bux_compact(_), do: "0"
+  defp fmt_usd(val) when is_number(val) and val > 0 do
+    rounded = round(val)
+    if rounded >= 1, do: "$" <> commafy(rounded), else: "$" <> :erlang.float_to_binary(val / 1.0, decimals: 2)
+  end
+
+  defp fmt_usd(_), do: "$0"
 
   defp fmt_price(val) when is_number(val) do
     :erlang.float_to_binary(val / 1.0, decimals: 4)
   end
 
   defp fmt_price(_), do: "1.0000"
-
-  defp fmt_total_tvl_usd(stats) when is_map(stats) do
-    sol = vault_total_balance(stats, "sol") * 160.0
-    bux = vault_total_balance(stats, "bux") * 0.01
-    total = sol + bux
-
-    cond do
-      total >= 1_000_000 -> "$#{:erlang.float_to_binary(total / 1_000_000, decimals: 2)}M"
-      total >= 1_000 -> "$#{:erlang.float_to_binary(total / 1_000, decimals: 0)}k"
-      total > 0 -> "$#{:erlang.float_to_binary(total / 1.0, decimals: 0)}"
-      true -> "$0"
-    end
-  end
-
-  defp fmt_total_tvl_usd(_), do: "$0"
-
-  defp fmt_bets_settled(stats) when is_map(stats) do
-    sol = vault_total_bets(stats, "sol")
-    bux = vault_total_bets(stats, "bux")
-    total = (sol || 0) + (bux || 0)
-
-    cond do
-      total >= 1_000_000 -> "#{Float.round(total / 1_000_000, 1)}M"
-      total >= 1_000 -> "#{:erlang.float_to_binary(total / 1_000, decimals: 1)}k"
-      true -> "#{total}"
-    end
-  end
-
-  defp fmt_bets_settled(_), do: "0"
 
   defp fmt_house_profit_sol(stats) when is_map(stats) do
     profit = vault_house_profit(stats, "sol")
@@ -368,6 +368,22 @@ defmodule BlocksterV2Web.PoolIndexLive do
   end
 
   defp fmt_house_profit_sol(_), do: "+0.00"
+
+  defp profit_color_class(val) when is_number(val) and val < 0, do: "text-[#b91c1c]"
+  defp profit_color_class(_), do: "text-[#15803d]"
+
+  defp fmt_lifetime_return(lp_price) when is_number(lp_price) do
+    pct = (lp_price - 1.0) * 100.0
+    sign = if pct >= 0, do: "+", else: "−"
+    "#{sign}#{:erlang.float_to_binary(abs(pct), decimals: 2)}%"
+  end
+
+  defp fmt_lifetime_return(_), do: "+0.00%"
+
+  defp lifetime_return_text_class(lp_price, _default) when is_number(lp_price) and lp_price < 1.0,
+    do: "text-[#dc2626]"
+
+  defp lifetime_return_text_class(_, default), do: default
 
   defp activity_pool_dot_class("sol"), do: "bg-gradient-to-br from-[#00FFA3] to-[#00DC82]"
   defp activity_pool_dot_class("bux"), do: "bg-[#CAFC00]"
@@ -453,70 +469,22 @@ defmodule BlocksterV2Web.PoolIndexLive do
             <p class="text-[12px] leading-[1.45] text-neutral-600">
               Deposit SOL or BUX into the bankroll. Earn from every losing bet, withdraw anytime.
             </p>
-            <%!-- Stats as 3-col pills on mobile --%>
-            <div class="grid grid-cols-3 gap-1.5 mt-3">
-              <div class="bg-white rounded-xl border border-neutral-200/70 px-3 py-2.5">
-                <div class="text-[8px] uppercase tracking-[0.14em] text-neutral-500 mb-0.5">TVL</div>
-                <div class="font-mono font-bold text-[14px] text-[#141414] tabular-nums truncate">
-                  {fmt_total_tvl_usd(@pool_stats)}
-                </div>
-              </div>
-              <div class="bg-white rounded-xl border border-neutral-200/70 px-3 py-2.5">
-                <div class="text-[8px] uppercase tracking-[0.14em] text-neutral-500 mb-0.5">Bets</div>
-                <div class="font-mono font-bold text-[14px] text-[#141414] tabular-nums truncate">
-                  {fmt_bets_settled(@pool_stats)}
-                </div>
-              </div>
-              <div class="bg-white rounded-xl border border-neutral-200/70 px-3 py-2.5">
-                <div class="text-[8px] uppercase tracking-[0.14em] text-neutral-500 mb-0.5">Profit</div>
-                <div class="font-mono font-bold text-[14px] text-[#141414] tabular-nums truncate">
-                  {fmt_house_profit_sol(@pool_stats)}
-                </div>
-              </div>
-            </div>
           </div>
 
-          <div class="hidden md:grid grid-cols-12 gap-4 md:gap-8 items-end">
-            <div class="col-span-12 md:col-span-7">
-              <BlocksterV2Web.DesignSystem.eyebrow class="mb-3">
-                Earn from every bet · On-chain settlement
-              </BlocksterV2Web.DesignSystem.eyebrow>
-              <h1 class="text-[80px] mb-3 leading-[0.96] font-bold tracking-[-0.022em] text-[#141414]">
-                Liquidity Pools
-              </h1>
-              <p class="text-[16px] leading-[1.5] text-neutral-600 max-w-[560px]">
-                Deposit SOL or BUX into the bankroll. Earn from every losing bet, get paid in real time, withdraw anytime. The bankroll is the bank — and the depositors are the house.
-              </p>
-              <div class="mt-3 flex items-center gap-4 text-[12px] font-mono">
-                <.link navigate={~p"/docs/pools"} class="text-neutral-500 hover:text-[#141414] transition-colors cursor-pointer">How pools work ↗</.link>
-                <.link navigate={~p"/docs/smart-contracts"} class="text-neutral-500 hover:text-[#141414] transition-colors cursor-pointer">Smart contracts ↗</.link>
-                <.link navigate={~p"/docs/security-audit"} class="text-neutral-500 hover:text-[#141414] transition-colors cursor-pointer">Security audit ↗</.link>
-              </div>
-            </div>
-            <div class="col-span-12 md:col-span-5">
-              <div class="grid grid-cols-3 gap-3">
-                <div class="bg-white rounded-2xl border border-neutral-200/70 p-4 text-right shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
-                  <div class="text-[9px] uppercase tracking-[0.14em] text-neutral-500 mb-1">Total TVL</div>
-                  <div class="font-mono font-bold text-[18px] text-[#141414]">
-                    {fmt_total_tvl_usd(@pool_stats)}
-                  </div>
-                  <div class="text-[10px] text-neutral-500 font-mono">across both pools</div>
-                </div>
-                <div class="bg-white rounded-2xl border border-neutral-200/70 p-4 text-right shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
-                  <div class="text-[9px] uppercase tracking-[0.14em] text-neutral-500 mb-1">Bets settled</div>
-                  <div class="font-mono font-bold text-[18px] text-[#141414]">
-                    {fmt_bets_settled(@pool_stats)}
-                  </div>
-                  <div class="text-[10px] text-neutral-500 font-mono">all time</div>
-                </div>
-                <div class="bg-white rounded-2xl border border-neutral-200/70 p-4 text-right shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
-                  <div class="text-[9px] uppercase tracking-[0.14em] text-neutral-500 mb-1">House profit</div>
-                  <div class="font-mono font-bold text-[18px] text-[#141414]">
-                    {fmt_house_profit_sol(@pool_stats)}
-                  </div>
-                  <div class="text-[10px] text-[#22C55E] font-mono">SOL · all time</div>
-                </div>
-              </div>
+          <div class="hidden md:block">
+            <BlocksterV2Web.DesignSystem.eyebrow class="mb-3">
+              Earn from every bet · On-chain settlement
+            </BlocksterV2Web.DesignSystem.eyebrow>
+            <h1 class="text-[80px] mb-3 leading-[0.96] font-bold tracking-[-0.022em] text-[#141414]">
+              Liquidity Pools
+            </h1>
+            <p class="text-[16px] leading-[1.5] text-neutral-600 max-w-[680px]">
+              Deposit SOL or BUX into the bankroll. Earn from every losing bet, get paid in real time, withdraw anytime.
+            </p>
+            <div class="mt-3 flex items-center gap-4 text-[12px] font-mono">
+              <.link navigate={~p"/docs/pools"} class="text-neutral-500 hover:text-[#141414] transition-colors cursor-pointer">How pools work ↗</.link>
+              <.link navigate={~p"/docs/smart-contracts"} class="text-neutral-500 hover:text-[#141414] transition-colors cursor-pointer">Smart contracts ↗</.link>
+              <.link navigate={~p"/docs/security-audit"} class="text-neutral-500 hover:text-[#141414] transition-colors cursor-pointer">Security audit ↗</.link>
             </div>
           </div>
         </section>
@@ -565,24 +533,7 @@ defmodule BlocksterV2Web.PoolIndexLive do
                   </div>
                 </div>
 
-                <%!-- Mini sparkline (decorative) --%>
-                <div class="mt-2 mb-3 md:mt-3 md:mb-6 h-8 md:h-12">
-                  <svg viewBox="0 0 280 48" class="w-full h-full" preserveAspectRatio="none" aria-hidden="true">
-                    <path
-                      d="M0,38 L20,32 L40,35 L60,28 L80,30 L100,22 L120,25 L140,18 L160,20 L180,12 L200,15 L220,8 L240,10 L260,5 L280,2"
-                      fill="none"
-                      stroke="#CAFC00"
-                      stroke-width="2"
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                    />
-                    <path
-                      d="M0,38 L20,32 L40,35 L60,28 L80,30 L100,22 L120,25 L140,18 L160,20 L180,12 L200,15 L220,8 L240,10 L260,5 L280,2 L280,48 L0,48 Z"
-                      fill="rgba(202, 252, 0, 0.18)"
-                      stroke="none"
-                    />
-                  </svg>
-                </div>
+                <div class="mt-3 md:mt-4 mb-3 md:mb-6"></div>
 
                 <%!-- Stats grid (2x2) --%>
                 <div class="grid grid-cols-2 gap-2 md:gap-3 mb-3 md:mb-6">
@@ -592,7 +543,7 @@ defmodule BlocksterV2Web.PoolIndexLive do
                       {fmt_sol(vault_total_balance(@pool_stats, "sol"))} SOL
                     </div>
                     <div class="text-[10px] text-neutral-500 font-mono">
-                      ≈ ${fmt_bux_compact(vault_total_balance(@pool_stats, "sol") * 160.0)}
+                      ≈ {fmt_usd(vault_total_balance(@pool_stats, "sol") * @sol_usd_price)}
                     </div>
                   </div>
                   <div class="bg-white/95 backdrop-blur rounded-xl p-2.5 md:p-3 ring-1 ring-black/5 shadow-sm">
@@ -613,7 +564,10 @@ defmodule BlocksterV2Web.PoolIndexLive do
                   </div>
                   <div class="bg-white/95 backdrop-blur rounded-xl p-2.5 md:p-3 ring-1 ring-black/5 shadow-sm">
                     <div class="text-[9px] uppercase tracking-[0.12em] text-neutral-500 mb-0.5 md:mb-1">Profit</div>
-                    <div class="font-mono font-bold text-[14px] md:text-[16px] text-[#15803d] tabular-nums truncate">
+                    <div class={[
+                      "font-mono font-bold text-[14px] md:text-[16px] tabular-nums truncate",
+                      profit_color_class(vault_house_profit(@pool_stats, "sol"))
+                    ]}>
                       {fmt_house_profit_sol(@pool_stats)} SOL
                     </div>
                     <div class="text-[10px] text-neutral-500 font-mono">house edge 1%</div>
@@ -645,7 +599,7 @@ defmodule BlocksterV2Web.PoolIndexLive do
                     Enter SOL Pool →
                   </div>
                   <div class="text-[10px] font-mono text-white/80">
-                    est. APY <span class="font-bold text-white">14.2%</span>
+                    return <span class={["font-bold", lifetime_return_text_class(vault_lp_price(@pool_stats, "sol"), "text-white")]}>{fmt_lifetime_return(vault_lp_price(@pool_stats, "sol"))}</span>
                   </div>
                 </div>
               </div>
@@ -688,45 +642,27 @@ defmodule BlocksterV2Web.PoolIndexLive do
                   </div>
                 </div>
 
-                <div class="mt-2 mb-3 md:mt-3 md:mb-6 h-8 md:h-12">
-                  <svg viewBox="0 0 280 48" class="w-full h-full" preserveAspectRatio="none" aria-hidden="true">
-                    <path
-                      d="M0,40 L20,38 L40,32 L60,34 L80,28 L100,30 L120,22 L140,24 L160,16 L180,18 L200,12 L220,14 L240,8 L260,10 L280,4"
-                      fill="none"
-                      stroke="#0a0a0a"
-                      stroke-width="2"
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                    />
-                    <path
-                      d="M0,40 L20,38 L40,32 L60,34 L80,28 L100,30 L120,22 L140,24 L160,16 L180,18 L200,12 L220,14 L240,8 L260,10 L280,4 L280,48 L0,48 Z"
-                      fill="rgba(10, 10, 10, 0.12)"
-                      stroke="none"
-                    />
-                  </svg>
-                </div>
+                <div class="mt-3 md:mt-4 mb-3 md:mb-6"></div>
 
                 <div class="grid grid-cols-2 gap-2 md:gap-3 mb-3 md:mb-6">
                   <div class="bg-white/95 backdrop-blur rounded-xl p-2.5 md:p-3 ring-1 ring-black/5 shadow-sm">
                     <div class="text-[9px] uppercase tracking-[0.12em] text-neutral-500 mb-0.5 md:mb-1">TVL</div>
                     <div class="font-mono font-bold text-[14px] md:text-[16px] text-[#141414] tabular-nums truncate">
-                      {fmt_bux_compact(vault_total_balance(@pool_stats, "bux"))} BUX
+                      {fmt_bux_full(vault_total_balance(@pool_stats, "bux"))} BUX
                     </div>
-                    <div class="text-[10px] text-neutral-500 font-mono">
-                      ≈ ${fmt_bux_compact(vault_total_balance(@pool_stats, "bux") * 0.01)}
-                    </div>
+                    <div class="text-[10px] text-neutral-500 font-mono">in vault</div>
                   </div>
                   <div class="bg-white/95 backdrop-blur rounded-xl p-2.5 md:p-3 ring-1 ring-black/5 shadow-sm">
                     <div class="text-[9px] uppercase tracking-[0.12em] text-neutral-500 mb-0.5 md:mb-1">Supply</div>
                     <div class="font-mono font-bold text-[14px] md:text-[16px] text-[#141414] tabular-nums truncate">
-                      {fmt_bux_compact(vault_lp_supply(@pool_stats, "bux"))}
+                      {fmt_bux_full(vault_lp_supply(@pool_stats, "bux"))}
                     </div>
                     <div class="text-[10px] text-neutral-500 font-mono">BUX-LP</div>
                   </div>
                   <div class="bg-white/95 backdrop-blur rounded-xl p-2.5 md:p-3 ring-1 ring-black/5 shadow-sm">
                     <div class="text-[9px] uppercase tracking-[0.12em] text-neutral-500 mb-0.5 md:mb-1">Volume</div>
                     <div class="font-mono font-bold text-[14px] md:text-[16px] text-[#141414] tabular-nums truncate">
-                      {fmt_bux_compact(vault_total_volume(@pool_stats, "bux"))} BUX
+                      {fmt_bux_full(vault_total_volume(@pool_stats, "bux"))} BUX
                     </div>
                     <div class="text-[10px] text-neutral-500 font-mono">
                       {vault_total_bets(@pool_stats, "bux")} bets
@@ -734,8 +670,11 @@ defmodule BlocksterV2Web.PoolIndexLive do
                   </div>
                   <div class="bg-white/95 backdrop-blur rounded-xl p-2.5 md:p-3 ring-1 ring-black/5 shadow-sm">
                     <div class="text-[9px] uppercase tracking-[0.12em] text-neutral-500 mb-0.5 md:mb-1">Profit</div>
-                    <div class="font-mono font-bold text-[14px] md:text-[16px] text-[#15803d] tabular-nums truncate">
-                      + {fmt_bux_compact(vault_house_profit(@pool_stats, "bux"))} BUX
+                    <div class={[
+                      "font-mono font-bold text-[14px] md:text-[16px] tabular-nums truncate",
+                      profit_color_class(vault_house_profit(@pool_stats, "bux"))
+                    ]}>
+                      {fmt_bux_signed(vault_house_profit(@pool_stats, "bux"))} BUX
                     </div>
                     <div class="text-[10px] text-neutral-500 font-mono">house edge 1%</div>
                   </div>
@@ -750,7 +689,7 @@ defmodule BlocksterV2Web.PoolIndexLive do
                   </div>
                   <div class="flex items-baseline gap-2 flex-wrap">
                     <span class="font-mono font-bold text-[18px] md:text-[22px] text-[#141414] leading-none tabular-nums">
-                      {fmt_bux_compact(@user_bux_lp)}
+                      {fmt_bux_full(@user_bux_lp)}
                     </span>
                     <span class="text-[11px] text-neutral-500">BUX-LP</span>
                     <span class="text-[11px] font-mono text-neutral-500 ml-auto italic">
@@ -764,7 +703,7 @@ defmodule BlocksterV2Web.PoolIndexLive do
                     Enter BUX Pool →
                   </div>
                   <div class="text-[10px] font-mono text-black/75">
-                    est. APY <span class="font-bold text-black">18.7%</span>
+                    return <span class={["font-bold", lifetime_return_text_class(vault_lp_price(@pool_stats, "bux"), "text-black")]}>{fmt_lifetime_return(vault_lp_price(@pool_stats, "bux"))}</span>
                   </div>
                 </div>
               </div>

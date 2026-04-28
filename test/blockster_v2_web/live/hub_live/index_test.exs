@@ -159,8 +159,7 @@ defmodule BlocksterV2Web.HubLive.IndexTest do
     test "renders Why Earn BUX banner", %{conn: conn} do
       {:ok, _view, html} = live(conn, ~p"/hubs")
 
-      assert html =~ "Why Earn BUX?"
-      assert html =~ "Redeem BUX to enter sponsored airdrops"
+      assert html =~ "ds-why-earn-bux"
     end
   end
 

@@ -125,7 +125,7 @@ defmodule BlocksterV2Web.AirdropLiveTest do
       assert html =~ ~s(id="ds-site-header")
       assert html =~ ~s(phx-hook="SolanaWallet")
       # Why Earn BUX banner is enabled on this page
-      assert html =~ "Why Earn BUX?"
+      assert html =~ "ds-why-earn-bux"
     end
 
     test "renders editorial page hero with prize-pool headline", %{conn: conn} do
