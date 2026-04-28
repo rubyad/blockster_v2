@@ -96,6 +96,34 @@ import { Web3Auth } from "./hooks/web3auth_hook.js";
 import { Web3AuthWithdraw } from "./hooks/web3auth_withdraw.js";
 import { Web3AuthExport } from "./hooks/web3auth_export.js";
 import { PasteFromClipboard } from "./hooks/paste_from_clipboard.js";
+import { EmailOtpResume } from "./hooks/email_otp_resume.js";
+
+// Email-OTP resume across mobile app switches: persist {email, savedAt} to
+// localStorage when the LV pushes save_email_otp_state, clear it on
+// clear_email_otp_state. EmailOtpResume hook reads this on mount of any
+// page with the wallet selector layout and re-opens the modal in
+// enter-code stage so users coming back from their email app land where
+// they left off.
+const EMAIL_OTP_STORAGE_KEY = "blockster:email_otp_pending";
+window.addEventListener("phx:save_email_otp_state", (e) => {
+  try {
+    const email = e.detail && e.detail.email;
+    if (!email) return;
+    localStorage.setItem(
+      EMAIL_OTP_STORAGE_KEY,
+      JSON.stringify({ email, savedAt: Date.now() })
+    );
+  } catch (err) {
+    console.warn("[email_otp] save failed:", err);
+  }
+});
+window.addEventListener("phx:clear_email_otp_state", () => {
+  try {
+    localStorage.removeItem(EMAIL_OTP_STORAGE_KEY);
+  } catch (err) {
+    console.warn("[email_otp] clear failed:", err);
+  }
+});
 
 const csrfToken = document
   .querySelector("meta[name='csrf-token']")
@@ -700,7 +728,7 @@ const liveSocket = new LiveSocket("/live", Socket, {
       wallet_address: walletAddress
     };
   },
-  hooks: { TipTapEditor, FeaturedImageUpload, ContentFeaturedImageUpload, HubLogoUpload, HubLogoFormUpload, TwitterWidgets, TagInput, Autocomplete, CopyToClipboard, AutoFocus, ClaimCleanup, InfiniteScroll, TimeTracker, EngagementTracker, PhoneNumberFormatter, BannerUpload, BannerAdminUpload, BannerDrag, TextBlockDrag, TextBlockDragResize, ButtonDrag, AdminControlsDrag, ProductImageUpload, TokenInput, ProductDescriptionEditor, ArtistImageUpload, CoinFlip, BuxBoosterOnchain, CoinFlipSolana, PoolHook, RtSkyscraperWidget, FsSkyscraperWidget, RtChartWidget, RtSquareCompactWidget, RtTickerWidget, FsTickerWidget, RtLeaderboardWidget, FsHeroWidget, CfDemoCycle, CfLiveCycle, DepositBuxInput, VideoWatchTracker, FingerprintHook, ConnectWalletHook, BalanceFetcherHook, WalletTransferHook, BuxPaymentHook, SolanaBuxBurn, RoguePaymentHook, SolPaymentHook, NotificationToastHook, EventTracker, AirdropDepositHook, AirdropSolanaHook, PriceChart, FsA2CombinedAd, FsKineticAd, MobileNavHighlight, DsMobileNavHighlight, OpenInWallet, DesktopNavHighlight, CategoryNavHighlight, ScrollToBottom, ScrollToCenter, TaglineRotator, SolanaWallet, Web3Auth, Web3AuthWithdraw, Web3AuthExport, PasteFromClipboard, ScrollIntoView: { mounted() { this.el.scrollIntoView({ behavior: "smooth", block: "start" }); } } },
+  hooks: { TipTapEditor, FeaturedImageUpload, ContentFeaturedImageUpload, HubLogoUpload, HubLogoFormUpload, TwitterWidgets, TagInput, Autocomplete, CopyToClipboard, AutoFocus, ClaimCleanup, InfiniteScroll, TimeTracker, EngagementTracker, PhoneNumberFormatter, BannerUpload, BannerAdminUpload, BannerDrag, TextBlockDrag, TextBlockDragResize, ButtonDrag, AdminControlsDrag, ProductImageUpload, TokenInput, ProductDescriptionEditor, ArtistImageUpload, CoinFlip, BuxBoosterOnchain, CoinFlipSolana, PoolHook, RtSkyscraperWidget, FsSkyscraperWidget, RtChartWidget, RtSquareCompactWidget, RtTickerWidget, FsTickerWidget, RtLeaderboardWidget, FsHeroWidget, CfDemoCycle, CfLiveCycle, DepositBuxInput, VideoWatchTracker, FingerprintHook, ConnectWalletHook, BalanceFetcherHook, WalletTransferHook, BuxPaymentHook, SolanaBuxBurn, RoguePaymentHook, SolPaymentHook, NotificationToastHook, EventTracker, AirdropDepositHook, AirdropSolanaHook, PriceChart, FsA2CombinedAd, FsKineticAd, MobileNavHighlight, DsMobileNavHighlight, OpenInWallet, DesktopNavHighlight, CategoryNavHighlight, ScrollToBottom, ScrollToCenter, TaglineRotator, SolanaWallet, Web3Auth, Web3AuthWithdraw, Web3AuthExport, PasteFromClipboard, EmailOtpResume, ScrollIntoView: { mounted() { this.el.scrollIntoView({ behavior: "smooth", block: "start" }); } } },
 });
 
 // connect if there are any LiveViews on the page

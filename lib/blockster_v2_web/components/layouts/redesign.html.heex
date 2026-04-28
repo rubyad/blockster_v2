@@ -56,6 +56,12 @@
   </div>
 <% end %>
 
+<%!-- Hidden anchor for the EmailOtpResume JS hook. On mount, reads
+     localStorage for a pending OTP state and re-opens the modal in
+     enter-code stage. Lets mobile users switch to their email app
+     and come back without losing the modal. --%>
+<div id="email-otp-resume" phx-hook="EmailOtpResume" style="display:none"></div>
+
 <BlocksterV2Web.WalletComponents.wallet_selector_modal
   detected_wallets={assigns[:detected_wallets] || []}
   show={assigns[:show_wallet_selector] || false}

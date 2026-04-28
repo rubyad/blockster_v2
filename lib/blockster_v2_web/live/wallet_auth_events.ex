@@ -328,6 +328,7 @@ defmodule BlocksterV2Web.WalletAuthEvents do
                   |> assign(:email_otp_stage, :enter_code)
                   |> assign(:email_otp_error, nil)
                   |> assign(:email_otp_resend_cooldown, 60)
+                  |> Phoenix.LiveView.push_event("save_email_otp_state", %{email: email})
 
                 # Tick down the resend cooldown so the UI can render a live timer.
                 Process.send_after(self(), :email_otp_cooldown_tick, 1000)
@@ -340,6 +341,7 @@ defmodule BlocksterV2Web.WalletAuthEvents do
                   |> assign(:email_otp_stage, :enter_code)
                   |> assign(:email_otp_resend_cooldown, seconds)
                   |> assign(:email_otp_error, "Please wait #{seconds}s before requesting another code.")
+                  |> Phoenix.LiveView.push_event("save_email_otp_state", %{email: email})
 
                 Process.send_after(self(), :email_otp_cooldown_tick, 1000)
                 {:noreply, socket}
@@ -381,6 +383,7 @@ defmodule BlocksterV2Web.WalletAuthEvents do
                   |> assign(:email_otp_error, nil)
                   |> assign(:connecting, true)
                   |> assign(:connecting_provider, "email")
+                  |> push_event("clear_email_otp_state", %{})
                   |> push_event("start_web3auth_jwt_login", %{
                     provider: "email",
                     id_token: id_token,
@@ -412,6 +415,34 @@ defmodule BlocksterV2Web.WalletAuthEvents do
                  |> assign(:email_otp_error, "Too many attempts. Try again in a few minutes.")}
             end
         end
+      end
+
+      # JS-driven mobile resume: when EmailOtpResume hook reads a pending
+      # {email, savedAt} from localStorage on page mount, it pushes this
+      # event to re-open the modal in enter-code stage so users coming
+      # back from their email app land where they left off. Server-side
+      # the OTP record is still in Mnesia (10-min ttl), so the next
+      # verify_email_otp tick succeeds without re-sending.
+      def handle_event("restore_email_otp_state", %{"email" => email}, socket)
+          when is_binary(email) do
+        if BlocksterV2Web.WalletAuthEvents.valid_email?(email) and
+             socket.assigns[:email_otp_stage] in [nil, :enter_email] do
+          {:noreply,
+           socket
+           |> assign(:show_wallet_selector, true)
+           |> assign(:email_prefill, email)
+           |> assign(:email_otp_stage, :enter_code)
+           |> assign(:email_otp_error, nil)
+           |> assign(:email_otp_resend_cooldown, 0)}
+        else
+          # Either user is mid-other-flow (don't disrupt) or email is
+          # malformed (let the user re-enter normally).
+          {:noreply, socket |> push_event("clear_email_otp_state", %{})}
+        end
+      end
+
+      def handle_event("restore_email_otp_state", _params, socket) do
+        {:noreply, socket}
       end
 
       # Go back to the email entry stage (e.g. typo'd email). Keeps the

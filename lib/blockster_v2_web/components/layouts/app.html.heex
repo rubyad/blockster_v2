@@ -22,6 +22,9 @@
     announcement_banner={assigns[:announcement_banner]}
   />
 
+  <%!-- Hidden anchor for EmailOtpResume hook (mobile email-OTP resume). --%>
+  <div id="email-otp-resume" phx-hook="EmailOtpResume" style="display:none"></div>
+
   <BlocksterV2Web.WalletComponents.wallet_selector_modal
     detected_wallets={assigns[:detected_wallets] || []}
     show={assigns[:show_wallet_selector] || false}
