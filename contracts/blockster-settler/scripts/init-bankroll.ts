@@ -264,7 +264,7 @@ async function registerCoinFlipGame(
   const name = Buffer.alloc(32);
   Buffer.from("Coin Flip").copy(name);
   const minBet = BigInt(1000); // 0.000001 SOL minimum
-  const maxBetBps = 500; // 5% of vault (program enforces MAX_BET_BPS = 500 cap)
+  const maxBetBps = 100; // 1% of vault per bet at 1.98x (caps max payout at ~2% of vault); program cap is 500
   const feeBps = 200; // 2% house edge
 
   // Multipliers stored as bps/100 (100 = 1x minimum). Each slot maps to a Coin Flip
