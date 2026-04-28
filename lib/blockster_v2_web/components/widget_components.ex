@@ -83,6 +83,7 @@ defmodule BlocksterV2Web.WidgetComponents do
           chart_data={@chart_data}
           tracker_errors={@tracker_errors}
           cf_games={@cf_games}
+          id_suffix="-m"
         />
       </div>
     <% end %>
@@ -110,6 +111,7 @@ defmodule BlocksterV2Web.WidgetComponents do
   attr :tracker_errors, :map, default: %{}
   attr :cf_games, :list, default: []
   attr :class, :string, default: nil
+  attr :id_suffix, :string, default: ""
   attr :rest, :global
 
   def widget_or_ad(%{banner: %{widget_type: nil}} = assigns) do
@@ -146,6 +148,7 @@ defmodule BlocksterV2Web.WidgetComponents do
       selection={Map.get(@selections, @banner.id)}
       chart_data={@chart_data}
       tracker_error?={TrackerStatus.widget_error?("rt_chart_landscape", @tracker_errors)}
+      id_suffix={@id_suffix}
     />
     """
   end
@@ -158,6 +161,7 @@ defmodule BlocksterV2Web.WidgetComponents do
       selection={Map.get(@selections, @banner.id)}
       chart_data={@chart_data}
       tracker_error?={TrackerStatus.widget_error?("rt_chart_portrait", @tracker_errors)}
+      id_suffix={@id_suffix}
     />
     """
   end
@@ -300,13 +304,13 @@ defmodule BlocksterV2Web.WidgetComponents do
 
   def widget_or_ad(%{banner: %{widget_type: "cf_inline_landscape_demo"}} = assigns) do
     ~H"""
-    <.cf_inline_landscape_demo banner={@banner} />
+    <.cf_inline_landscape_demo banner={@banner} id_suffix={@id_suffix} />
     """
   end
 
   def widget_or_ad(%{banner: %{widget_type: "cf_portrait_demo"}} = assigns) do
     ~H"""
-    <.cf_portrait_demo banner={@banner} />
+    <.cf_portrait_demo banner={@banner} id_suffix={@id_suffix} />
     """
   end
 

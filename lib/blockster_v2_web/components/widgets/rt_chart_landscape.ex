@@ -32,6 +32,7 @@ defmodule BlocksterV2Web.Widgets.RtChartLandscape do
   attr :selection, :any, default: nil
   attr :chart_data, :map, default: %{}
   attr :tracker_error?, :boolean, default: false
+  attr :id_suffix, :string, default: ""
 
   def rt_chart_landscape(assigns) do
     tf = RtChartHelpers.resolve_tf(assigns.selection)
@@ -50,7 +51,7 @@ defmodule BlocksterV2Web.Widgets.RtChartLandscape do
 
     ~H"""
     <div
-      id={"widget-#{@banner.id}"}
+      id={"widget-#{@banner.id}#{@id_suffix}"}
       class="not-prose bw-widget bw-shell relative w-full flex flex-col overflow-hidden cursor-pointer text-[#E8E4DD] bw-shell-bg-grid"
       style="min-height:360px;"
       phx-hook="RtChartWidget"
@@ -153,7 +154,7 @@ defmodule BlocksterV2Web.Widgets.RtChartLandscape do
 
           <%!-- Chart canvas — phx-update="ignore" so morphdom leaves it alone --%>
           <div
-            id={"widget-#{@banner.id}-canvas-wrapper"}
+            id={"widget-#{@banner.id}#{@id_suffix}-canvas-wrapper"}
             phx-update="ignore"
             class="relative w-full flex-1"
             style="min-height:220px;"

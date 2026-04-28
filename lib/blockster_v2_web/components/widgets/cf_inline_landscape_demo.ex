@@ -24,6 +24,7 @@ defmodule BlocksterV2Web.Widgets.CfInlineLandscapeDemo do
   end
 
   attr :banner, :map, required: true
+  attr :id_suffix, :string, default: ""
 
   def cf_inline_landscape_demo(assigns) do
     sol_price = CfHelpers.get_sol_price()
@@ -57,7 +58,7 @@ defmodule BlocksterV2Web.Widgets.CfInlineLandscapeDemo do
     ~H"""
     <a
       href="/play"
-      id={"widget-#{@banner.id}"}
+      id={"widget-#{@banner.id}#{@id_suffix}"}
       class="not-prose bw-widget cfd block no-underline cursor-pointer"
       phx-hook="CfDemoCycle"
       phx-update="ignore"

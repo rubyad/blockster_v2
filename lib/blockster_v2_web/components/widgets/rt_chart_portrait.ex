@@ -21,6 +21,7 @@ defmodule BlocksterV2Web.Widgets.RtChartPortrait do
   attr :selection, :any, default: nil
   attr :chart_data, :map, default: %{}
   attr :tracker_error?, :boolean, default: false
+  attr :id_suffix, :string, default: ""
 
   def rt_chart_portrait(assigns) do
     tf = RtChartHelpers.resolve_tf(assigns.selection)
@@ -39,7 +40,7 @@ defmodule BlocksterV2Web.Widgets.RtChartPortrait do
 
     ~H"""
     <div
-      id={"widget-#{@banner.id}"}
+      id={"widget-#{@banner.id}#{@id_suffix}"}
       class="not-prose bw-widget bw-shell relative w-full max-w-[440px] mx-auto flex flex-col overflow-hidden cursor-pointer text-[#E8E4DD] bw-shell-bg-grid"
       style="min-height:640px;"
       phx-hook="RtChartWidget"
@@ -140,7 +141,7 @@ defmodule BlocksterV2Web.Widgets.RtChartPortrait do
 
           <%!-- Chart fills remaining --%>
           <div
-            id={"widget-#{@banner.id}-canvas-wrapper"}
+            id={"widget-#{@banner.id}#{@id_suffix}-canvas-wrapper"}
             phx-update="ignore"
             class="relative w-full flex-1 min-h-0"
             style="min-height:320px;"
