@@ -55,17 +55,18 @@ test -f contracts/blockster-settler/fly.toml && echo "ok"
 
 1. [Overview](#overview)
 2. [Cost Summary](#cost-summary)
-3. [Step 1: Prepare Wallets](#step-1-prepare-wallets)
-4. [Step 2: Create BUX Token on Mainnet](#step-2-create-bux-token-on-mainnet)
-5. [Step 3: Deploy Programs to Mainnet](#step-3-deploy-programs-to-mainnet)
-6. [Step 4: Initialize Programs](#step-4-initialize-programs)
-7. [Step 5: Deploy Settler Service](#step-5-deploy-settler-service)
-8. [Step 6: Configure Main App Secrets](#step-6-configure-main-app-secrets)
-9. [Step 7: Deploy Main App](#step-7-deploy-main-app)
-10. [Step 8: Post-Deploy Verification](#step-8-post-deploy-verification)
-11. [Step 9: Shut Down Legacy Services](#step-9-shut-down-legacy-services)
-12. [Ongoing Operations](#ongoing-operations)
-13. [Rollback Plan](#rollback-plan)
+3. [Back Up Keypair Files (Pre-Deploy)](#back-up-keypair-files-pre-deploy)
+4. [Step 1: Prepare Wallets](#step-1-prepare-wallets)
+5. [Step 2: Create BUX Token on Mainnet](#step-2-create-bux-token-on-mainnet)
+6. [Step 3: Deploy Programs to Mainnet](#step-3-deploy-programs-to-mainnet)
+7. [Step 4: Initialize Programs](#step-4-initialize-programs)
+8. [Step 5: Deploy Settler Service](#step-5-deploy-settler-service)
+9. [Step 6: Configure Main App Secrets](#step-6-configure-main-app-secrets)
+10. [Step 7: Deploy Main App](#step-7-deploy-main-app)
+11. [Step 8: Post-Deploy Verification](#step-8-post-deploy-verification)
+12. [Step 9: Shut Down Legacy Services](#step-9-shut-down-legacy-services)
+13. [Ongoing Operations](#ongoing-operations)
+14. [Rollback Plan](#rollback-plan)
 
 ---
 
@@ -145,6 +146,105 @@ Solana Mainnet
 | Service | Machine | Est. Cost |
 |---------|---------|-----------|
 | blockster-settler | shared-cpu-1x, 256MB | ~$0-3/month (free tier eligible) |
+
+---
+
+## Back Up Keypair Files (Pre-Deploy)
+
+Before any program is deployed or any secret is set, back up every keypair that controls Blockster's mainnet infrastructure to a password manager. None of the Tier 1–3 keypairs can be regenerated — losing them means losing control of the program, the mint, or the deploy budget. Tier 4 happens immediately after Deploy #1; Tier 5 is optional capture of regenerable values.
+
+> **All `cat` commands here are intentionally manual.** Solana keypair files contain raw private keys; Claude is prohibited from reading them per CLAUDE.md. Run each command yourself, copy the output (a JSON byte array like `[12,45,...]`, 64 bytes for ed25519 keypairs) into a separate password-manager entry. The pubkey in the entry's title makes future cross-referencing easy.
+
+### 🔴 Tier 1 — Catastrophic if lost
+
+#### Mint Authority keypair (`6b4nMSTWJ1yxZZVmqokf6QrVoF9euvBSdB11fC3qfuv1`)
+
+The single most important key. Controls:
+- BUX mint authority (no BUX can be minted without it)
+- Settler signs every `place_bet` / `settle_bet` / `reclaim_expired` / shop sweep / airdrop tx with it
+- **Upgrade authority** for both Bankroll + Airdrop programs — without this key, neither program can ever be upgraded again
+
+```bash
+cat contracts/blockster-settler/keypairs/mint-authority.json
+```
+
+**Save as**: `Blockster Mainnet Mint Authority Keypair (6b4n...)`
+
+### 🟠 Tier 2 — Painful but operationally recoverable
+
+#### CLI Deploy Wallet (`49aNHDAduVnEcEEqCyEXMS1rT62UnW5TajA2fVtNpC1d`)
+
+Holds remaining mainnet SOL deploy float (~6.58 SOL post-funding). Used for `solana program deploy` and future buffer recovery. If lost, the SOL on it is gone, but already-deployed programs keep working (upgrade authority = mint authority, not this wallet).
+
+```bash
+cat ~/.config/solana/id.json
+```
+
+**Save as**: `Solana CLI Deploy Wallet (49aN...)`
+
+#### Bankroll Program keypair (defines program ID `49up2uzZANpjTC3sgggbZazdHBii2vY9mVK3vk5dT2tm`)
+
+Defines the program's deployed address. After Step 3 deploy, the address is fixed — operations and upgrades don't need this keypair (upgrades use the upgrade-authority). But if the program were ever closed and you wanted to redeploy at the same Program ID, this keypair would be required.
+
+```bash
+cat contracts/blockster-bankroll/target/deploy/blockster_bankroll-keypair.json
+```
+
+**Save as**: `Bankroll Program Keypair (49up2uz...)`
+
+#### Airdrop Program keypair (defines program ID `wxiuLBuqxem5ETmGDndiW8MMkxKXp5jVsNCqdZgmjaG`)
+
+Same logic as the Bankroll keypair.
+
+```bash
+cat contracts/blockster-airdrop/target/deploy/blockster_airdrop-keypair.json
+```
+
+**Save as**: `Airdrop Program Keypair (wxiuLBu...)`
+
+### 🟡 Tier 3 — Smart hygiene
+
+#### BUX Mint keypair (defines mint address `7CuRyw2YkqQhUUFbw6CCnoedHWT8tK2c9UzZQYDGmxVX`)
+
+Used **only** at initial token creation in [Step 2](#step-2-create-bux-token-on-mainnet). After the BUX SPL token exists on mainnet, this keypair has zero control — the mint authority controls minting from then on. Backup is hygiene-only.
+
+```bash
+cat contracts/blockster-settler/keypairs/bux-mint.json
+```
+
+**Save as**: `BUX Mint Keypair (7CuRyw...) — used only at token creation`
+
+### 🔵 Tier 4 — Generated during Deploy #1 (back up immediately after Step 7)
+
+#### Web3Auth JWT signing key (auto-generated by main app on first boot)
+
+The main app's `BlocksterV2.Auth.Web3AuthSigning` Agent generates a fresh 2048-bit RSA keypair on first boot at `/data/web3auth/signing_key.json` (Fly volume). It signs JWTs for the `blockster-email` + `blockster-telegram` Custom JWT verifiers. If lost AND the Fly volume is destroyed, the next boot generates a new `kid`, in-flight Web3Auth JWTs invalidate, users re-sign in (annoying, not catastrophic).
+
+The full backup procedure is covered in [Step 6 → Provision the Web3Auth JWT signing key](#step-6-configure-main-app-secrets), which already includes the recommended backup command. After Deploy #1 lands, run:
+
+```bash
+flyctl ssh console --app blockster-v2 -C "cat /data/web3auth/signing_key.json"
+```
+
+Output is `{"pem": "-----BEGIN RSA PRIVATE KEY-----...", "kid": "abc..."}`. **Save as**: `Web3Auth JWT Signing Key (kid=...)`
+
+### 🟢 Tier 5 — Externally-supplied + Fly-generated secrets
+
+These don't live in keypair files and are either supplied externally or generated inline during deploy:
+
+- **Telegram Bot Token** (`BLOCKSTER_V2_BOT_TOKEN`) — from BotFather, used to HMAC-verify Telegram Login Widget payloads. Save the current token to your password manager. If you suspect the token was exposed (e.g., pasted into chat or non-secure logs), rotate via `/revoke` + `/token` in BotFather BEFORE Deploy #1. **Save as**: `Telegram BlocksterV2Bot Token`.
+- **`BLOCKSTER_SETTLER_SECRET` / `SETTLER_API_SECRET`** — generated inline in [Step 5c](#step-5-deploy-settler-service) via `openssl rand -hex 32`, never displayed. Regenerable: rotation = overwrite both Fly secrets with a fresh value, no data loss. Capture is optional — if you want a copy, modify Step 5c to also write the value to a temp file you immediately copy out and `shred -u`.
+- **`PAYMENT_INTENT_SEED`** — same generation pattern (Step 5d). Rotation **invalidates every unswept shop payment intent** (CLAUDE.md), so only rotate after confirming all are `swept`. Capture optional.
+
+### Pre-deploy checklist
+
+- [ ] Mint Authority keypair backed up (Tier 1) ⚠️ catastrophic if skipped
+- [ ] CLI Deploy Wallet backed up (Tier 2)
+- [ ] Bankroll Program keypair backed up (Tier 2)
+- [ ] Airdrop Program keypair backed up (Tier 2)
+- [ ] BUX Mint keypair backed up (Tier 3, optional but recommended)
+- [ ] Telegram Bot Token saved to password manager (rotate first if exposed)
+- [ ] Reminder set: capture Web3Auth JWT signing key after Step 7 (Tier 4)
 
 ---
 
@@ -346,23 +446,27 @@ flyctl launch --name blockster-settler --region iad --no-deploy
 
 If prompted, use the existing `Dockerfile`.
 
-### Generate a Strong API Secret
+### Stage the shared API secret on both apps (in one shell session)
+
+The settler authenticates main-app requests against `SETTLER_API_SECRET`; the main app sends `BLOCKSTER_SETTLER_SECRET`. The two values MUST be byte-identical. Generate once into a shell variable and stage on both apps before exiting the shell — this keeps the value out of chat, clipboards, files, and command history:
 
 ```bash
-openssl rand -hex 32
+SHARED=$(openssl rand -hex 32)
+flyctl secrets set SETTLER_API_SECRET="$SHARED" --stage --app blockster-settler
+flyctl secrets set BLOCKSTER_SETTLER_SECRET="$SHARED" --stage --app blockster-v2
+unset SHARED
 ```
 
-Save this — you'll use it for both the settler and the main app.
+If `BLOCKSTER_SETTLER_SECRET` is already staged on `blockster-v2` from a prior session, this overwrite is safe — the staged value has never been read by a running process (production main app still talks to legacy `bux-minter.fly.dev`, not settler), so rotation has zero blast radius. Verify with `flyctl secrets list --app blockster-v2 | grep SETTLER` (status should show `Staged`).
 
-### Set Settler Secrets
+### Set the rest of the settler secrets
 
-**IMPORTANT**: Always use `--stage` to avoid immediate restart.
+**IMPORTANT**: Always use `--stage` to avoid immediate restart. The shared secret is already staged from the block above; this command sets everything else.
 
 ```bash
 flyctl secrets set \
   SOLANA_RPC_URL="https://YOUR_QUICKNODE_MAINNET_URL" \
   SOLANA_NETWORK="mainnet-beta" \
-  SETTLER_API_SECRET="YOUR_GENERATED_SECRET" \
   BUX_MINT_ADDRESS="MAINNET_BUX_MINT_ADDRESS" \
   BANKROLL_PROGRAM_ID="49up2uzZANpjTC3sgggbZazdHBii2vY9mVK3vk5dT2tm" \
   AIRDROP_PROGRAM_ID="wxiuLBuqxem5ETmGDndiW8MMkxKXp5jVsNCqdZgmjaG" \
@@ -423,7 +527,6 @@ Expected:
 ```bash
 flyctl secrets set \
   BLOCKSTER_SETTLER_URL="https://blockster-settler.fly.dev" \
-  BLOCKSTER_SETTLER_SECRET="YOUR_GENERATED_SECRET" \
   SOLANA_RPC_URL="https://YOUR_QUICKNODE_MAINNET_URL" \
   SOLANA_AUTHORITY_ADDRESS="6b4nMSTWJ1yxZZVmqokf6QrVoF9euvBSdB11fC3qfuv1" \
   HOURLY_PROMO_ENABLED="false" \
@@ -431,7 +534,7 @@ flyctl secrets set \
   --stage --app blockster-v2
 ```
 
-The `BLOCKSTER_SETTLER_SECRET` must match the `SETTLER_API_SECRET` set on the settler.
+`BLOCKSTER_SETTLER_SECRET` was already staged on `blockster-v2` in Step 5, alongside the settler's `SETTLER_API_SECRET` — both values came from the same `$SHARED` variable, so they're guaranteed byte-identical. Do **not** restage it separately here (would generate a fresh value and break the match).
 
 `HOURLY_PROMO_ENABLED=false` is the intended default — the `HourlyPromoScheduler` GenServer is gated behind this flag and will NOT start when it's unset or false. Keeping the Telegram promo bot silent on mainnet is the current product decision (see [docs/social_login_plan.md](social_login_plan.md) Appendix A). To re-enable later: `flyctl secrets set HOURLY_PROMO_ENABLED=true --stage --app blockster-v2`, deploy, then toggle the `hourly_promo_enabled` SystemConfig key true via `/admin/promo`.
 

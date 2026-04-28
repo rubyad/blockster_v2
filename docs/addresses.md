@@ -11,8 +11,9 @@ Single source of truth for all on-chain addresses used by Blockster V2.
 | Deployer (Legacy EVM) | `0x4BDC5602f2A3E04c6e3a9321A7AC5000e0A623e0` | Rogue, Arbitrum | Deploys EVM contracts, initial owner |
 | Vault Admin (Legacy EVM) | `0xBd16aB578D55374061A78Bb6Cca8CB4ddFaBd4C9` | Rogue, Arbitrum | AirdropVault + AirdropPrizePool owner, depositFor/sendPrize txs |
 | Referral Admin (Legacy EVM) | `0xbD6feD8fEeec6f405657d0cA4A004f89F81B04ad` | Rogue | Referral system admin |
-| Authority / Mint Authority (Solana) | `6b4nMSTWJ1yxZZVmqokf6QrVoF9euvBSdB11fC3qfuv1` | Solana Devnet | Program authority, BUX mint authority, settler keypair |
-| CLI Deploy Wallet (Solana) | `49aNHDAduVnEcEEqCyEXMS1rT62UnW5TajA2fVtNpC1d` | Solana Devnet | Fee payer for program deploys |
+| Authority / Mint Authority (Solana) | `6b4nMSTWJ1yxZZVmqokf6QrVoF9euvBSdB11fC3qfuv1` | Solana Devnet + Mainnet | Program authority, BUX mint authority, settler keypair, sweep-tx fee payer for shop intents |
+| CLI Deploy Wallet (Solana) | `49aNHDAduVnEcEEqCyEXMS1rT62UnW5TajA2fVtNpC1d` | Solana Devnet + Mainnet | Fee payer for program deploys |
+| Shop SOL Treasury (Solana) | `B464W5HESYEgDKma9uYUeVWdWM5wpgdVFGQFztkxvTv4` | Solana Mainnet | Receives swept SOL revenue from shop checkout payment intents (`SOL_TREASURY_ADDRESS` on settler). Receive-only — no outbound spends, no funding required. |
 
 ### Secrets
 | Secret | App | Purpose |
