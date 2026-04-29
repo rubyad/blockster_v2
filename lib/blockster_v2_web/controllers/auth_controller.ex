@@ -561,6 +561,83 @@ defmodule BlocksterV2Web.AuthController do
     |> json(%{success: false, error: "Missing Telegram payload"})
 
   @doc """
+  GET /api/auth/telegram/callback
+
+  Receives the Telegram Login Widget redirect from `oauth.telegram.org` —
+  used on mobile where popup-based `Telegram.Login.auth()` hangs because
+  the popup is blocked or postMessage doesn't reach the parent. Telegram
+  appends id, first_name, username, photo_url, auth_date, hash as query
+  params. Same HMAC verification as `telegram_verify/2`, then stashes the
+  resulting id_token in the session and redirects back to `/`. The
+  Web3Auth JS hook picks up the stashed token on mount and completes the
+  login (mirrors the email-OTP custom-JWT path).
+  """
+  def telegram_callback(conn, %{"id" => id, "hash" => hash, "auth_date" => auth_date} = params) do
+    bot_token =
+      System.get_env("BLOCKSTER_V2_BOT_TOKEN") ||
+        System.get_env("TELEGRAM_V2_BOT_TOKEN") ||
+        Application.get_env(:blockster_v2, :telegram_v2_bot_token)
+
+    cond do
+      is_nil(bot_token) or bot_token == "" ->
+        telegram_callback_redirect_with_error(conn, "telegram_not_configured")
+
+      not valid_telegram_hash?(params, hash, bot_token) ->
+        telegram_callback_redirect_with_error(conn, "invalid_telegram_signature")
+
+      telegram_payload_too_old?(auth_date) ->
+        telegram_callback_redirect_with_error(conn, "telegram_auth_expired")
+
+      true ->
+        claims =
+          %{
+            "sub" => to_string(id),
+            "telegram_user_id" => to_string(id),
+            "telegram_username" => Map.get(params, "username"),
+            "telegram_first_name" => Map.get(params, "first_name"),
+            "telegram_photo_url" => Map.get(params, "photo_url")
+          }
+          |> Enum.reject(fn {_, v} -> is_nil(v) end)
+          |> Map.new()
+
+        id_token = BlocksterV2.Auth.Web3AuthSigning.sign_id_token(claims)
+
+        conn
+        |> put_session(:pending_telegram_jwt, id_token)
+        |> redirect(to: "/?telegram_login=1")
+    end
+  end
+
+  def telegram_callback(conn, _params) do
+    telegram_callback_redirect_with_error(conn, "missing_telegram_payload")
+  end
+
+  defp telegram_callback_redirect_with_error(conn, error_code) do
+    redirect(conn, to: "/?telegram_login_error=" <> URI.encode(error_code))
+  end
+
+  @doc """
+  GET /api/auth/telegram/pending_jwt
+
+  Returns the JWT stashed by `telegram_callback/2` (and clears the session
+  entry so it can't be replayed). Called by the Web3Auth JS hook on mount
+  when the redirect-return flag (`?telegram_login=1`) is present in the URL.
+  """
+  def telegram_pending_jwt(conn, _params) do
+    case get_session(conn, :pending_telegram_jwt) do
+      jwt when is_binary(jwt) and jwt != "" ->
+        conn
+        |> delete_session(:pending_telegram_jwt)
+        |> json(%{success: true, id_token: jwt})
+
+      _ ->
+        conn
+        |> put_status(:not_found)
+        |> json(%{success: false, error: "No pending Telegram login"})
+    end
+  end
+
+  @doc """
   GET /.well-known/jwks.json
   Returns the public JWK set Web3Auth uses to verify our signed JWTs.
   """

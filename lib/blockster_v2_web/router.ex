@@ -229,6 +229,14 @@ defmodule BlocksterV2Web.Router do
     # that Web3Auth's Custom verifier consumes. See Auth.Web3AuthSigning.
     post "/auth/telegram/verify", AuthController, :telegram_verify
 
+    # Mobile redirect-mode flow. `oauth.telegram.org` redirects here with
+    # the widget payload as query params (popup-mode hangs on iOS Safari +
+    # in-app browsers because postMessage doesn't reach the parent).
+    # callback verifies + stashes the JWT in session, redirects to /?telegram_login=1.
+    # The JS hook detects that flag on mount and pulls the JWT via /pending_jwt.
+    get "/auth/telegram/callback", AuthController, :telegram_callback
+    get "/auth/telegram/pending_jwt", AuthController, :telegram_pending_jwt
+
     # Web3Auth social login — verifies a Web3Auth-issued ID token and
     # creates/looks up the matching user row. See Auth.Web3Auth.
     post "/auth/web3auth/session", AuthController, :verify_web3auth

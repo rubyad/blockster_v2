@@ -100,6 +100,29 @@ export const Web3Auth = {
     this.handleEvent("start_telegram_widget", () => this._startTelegramLogin())
     this.handleEvent("request_disconnect", () => this._logout())
 
+    // Telegram redirect-mode return: if the URL has ?telegram_login=1, we
+    // just landed back from oauth.telegram.org via the mobile redirect flow.
+    // Pull the JWT the server stashed in session and complete the Web3Auth
+    // login. See `auth_controller.ex:telegram_callback/2` and the mobile
+    // branch in `_startTelegramLogin` below.
+    const telegramLoginReturn = (() => {
+      try {
+        const params = new URLSearchParams(window.location.search)
+        return params.has("telegram_login") || params.has("telegram_login_error")
+      } catch (_) {
+        return false
+      }
+    })()
+
+    if (telegramLoginReturn) {
+      this._completeTelegramRedirectReturn().catch((e) => {
+        console.warn("[Web3Auth] Telegram redirect return failed:", e?.message || e)
+        this.pushEvent("web3auth_error", {
+          error: friendlyWeb3AuthError(e) || "Telegram login failed",
+        })
+      })
+    }
+
     // Redirect-mode return: if we stashed a provider in sessionStorage
     // before navigating to the OAuth window, we're landing back here after
     // Web3Auth finished the login and navigated back. Complete the flow.
@@ -318,6 +341,61 @@ export const Web3Auth = {
     }
   },
 
+  // Telegram redirect-mode return — runs from `mounted()` when the URL has
+  // `?telegram_login=1`. The server stashed a Custom JWT in session during
+  // /api/auth/telegram/callback. Pull it via /api/auth/telegram/pending_jwt
+  // (one-shot — server clears the session entry on read), then hand it to
+  // _startJwtLogin to complete the Web3Auth Custom connector flow.
+  // ?telegram_login_error=<code> takes the same path but surfaces the code
+  // as an error to the LV instead.
+  async _completeTelegramRedirectReturn() {
+    // Strip the URL flag so a refresh doesn't re-enter this branch.
+    try {
+      const url = new URL(window.location.href)
+      url.searchParams.delete("telegram_login")
+      url.searchParams.delete("telegram_login_error")
+      window.history.replaceState({}, "", url.toString())
+    } catch (_) {}
+
+    const errorParam = (() => {
+      try {
+        return new URLSearchParams(window.location.search).get(
+          "telegram_login_error",
+        )
+      } catch (_) {
+        return null
+      }
+    })()
+
+    if (errorParam) {
+      this.pushEvent("web3auth_error", {
+        error: `Telegram login failed: ${errorParam}`,
+      })
+      return
+    }
+
+    const res = await fetch("/api/auth/telegram/pending_jwt", {
+      method: "GET",
+      credentials: "same-origin",
+    })
+
+    const json = await res.json().catch(() => ({}))
+
+    if (!res.ok || !json?.success || !json?.id_token) {
+      this.pushEvent("web3auth_error", {
+        error: json?.error || "Telegram login state was not found in session",
+      })
+      return
+    }
+
+    await this._startJwtLogin({
+      provider: "telegram",
+      id_token: json.id_token,
+      verifier_id: this._telegramVerifierId,
+      verifier_id_field: "sub",
+    })
+  },
+
   async _loginParamsFor(provider, emailHint, AUTH_CONNECTION) {
     switch (provider) {
       case "email":
@@ -419,18 +497,61 @@ export const Web3Auth = {
         return
       }
 
+      // Mobile path: redirect-based flow. iOS Safari + many Android in-app
+      // browsers block popups OR open them as a separate tab where
+      // postMessage can't reach the parent — so the popup-based
+      // Telegram.Login.auth() callback never fires and the user can't
+      // dismiss the stuck Telegram window. The redirect flow navigates
+      // the whole page to oauth.telegram.org, the user approves in their
+      // installed Telegram app, then Telegram redirects back to our
+      // /api/auth/telegram/callback which stashes the JWT in session and
+      // bounces to /?telegram_login=1. Mounted() above detects the
+      // return-flag and calls _completeTelegramRedirectReturn to finish
+      // the login.
+      if (isMobileUA()) {
+        const origin = window.location.origin
+        const returnTo = `${origin}/api/auth/telegram/callback`
+        const url =
+          `https://oauth.telegram.org/auth?bot_id=${encodeURIComponent(this._telegramBotId)}` +
+          `&origin=${encodeURIComponent(origin)}` +
+          `&request_access=write` +
+          `&return_to=${encodeURIComponent(returnTo)}`
+        window.location.href = url
+        return
+      }
+
       await this._ensureTelegramScript()
 
       // Telegram.Login.auth opens a popup window pointed at oauth.telegram.org.
       // It returns a payload (id, first_name, username, photo_url, auth_date,
       // hash) on success or `false` if the user cancels / the popup is blocked.
+      //
+      // Mobile gotcha: iOS Safari + many Android in-app browsers block the
+      // popup (or open it in a separate tab where parent.postMessage never
+      // reaches us). Without a timeout, the Promise below hangs forever and
+      // the user has no way to dismiss the stuck Telegram window — page
+      // refresh is the only recovery. 60s timeout below at least frees the
+      // LV state so the user can retry or pick a different method. Proper
+      // fix needs Telegram's redirect-mode flow (data-auth-url widget +
+      // server callback endpoint) — see TODO in this hook + memory file
+      // `project_telegram_mobile_redirect.md` (when filed).
+      const TELEGRAM_AUTH_TIMEOUT_MS = 60_000
       const data = await new Promise((resolve) => {
+        const timeoutId = setTimeout(() => {
+          console.warn("[Web3Auth] Telegram.Login.auth timed out (mobile popup blocked?)")
+          resolve(null)
+        }, TELEGRAM_AUTH_TIMEOUT_MS)
+
         try {
           window.Telegram.Login.auth(
             { bot_id: this._telegramBotId, request_access: "write" },
-            (payload) => resolve(payload || null),
+            (payload) => {
+              clearTimeout(timeoutId)
+              resolve(payload || null)
+            },
           )
         } catch (e) {
+          clearTimeout(timeoutId)
           console.error("[Web3Auth] Telegram.Login.auth threw:", e)
           resolve(null)
         }
