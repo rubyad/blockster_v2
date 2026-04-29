@@ -7,7 +7,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 .claude/hooks/verify_fly_deploy.py"
+            "command": "python3 \"$(git rev-parse --show-toplevel 2>/dev/null || echo .)/.claude/hooks/verify_fly_deploy.py\""
           }
         ]
       }
