@@ -7,6 +7,7 @@ For active reference material, see the main [CLAUDE.md](../CLAUDE.md).
 ---
 
 ## Table of Contents
+- [PubSub broadcasts are fan-out bombs — keep them rare](#pubsub-broadcasts-are-fan-out-bombs--keep-them-rare-2026-04-29)
 - [Don't speculate — verify, then respond](#dont-speculate--verify-then-respond-2026-04-29)
 - [`MnesiaInitializer.safe_add_table_copy/2` misreads `:already_exists`](#mnesiainitializersafe_add_table_copy2-misreads-already_exists-2026-04-29)
 - [`longPollFallbackMs: 2500` — keep it](#longpollfallbackms-2500--keep-it-2026-04-29)
@@ -75,6 +76,45 @@ For active reference material, see the main [CLAUDE.md](../CLAUDE.md).
 - [AirdropVault V2 Upgrade](#airdropvault-v2-upgrade--client-side-deposits-feb-28-2026)
 - [NFTRewarder V6 & RPC Batching](#nftrewarder-v6--rpc-batching-mar-2026)
 - [Engagement Tracker Silent Failure — `#post-content` Selector Miss After Redesign](#engagement-tracker-silent-failure--post-content-selector-miss-after-redesign-apr-2026)
+
+---
+
+## PubSub broadcasts are fan-out bombs — keep them rare (2026-04-29)
+
+The widget tracker rewrite shipped with three pollers each broadcasting on `Phoenix.PubSub` whenever upstream data changed. Individually each looked harmless: a 3-second tick on FateSwap, a 60-second sweep on RogueTrader chart, a 10-second tick on RogueTrader bots. In aggregate on prod they were the dominant load on the cluster, manifesting as: socket-join falling back to longpoll inside 2.5s, mobile bottom-nav clicks taking seconds to register, the auth modal hanging, the page going white when the LV crashed.
+
+**The mechanism**:
+
+```
+1 broadcast(BlocksterV2.PubSub, "widgets:fateswap:feed", {:fs_trades, _})
+  → fans out to every connected LV subscribed to that topic
+  → each LV runs its handle_info clause (assign + push_event)
+  → each LV diffs and re-renders
+  → each connected client receives a JS event over its socket
+```
+
+With ~1000 connected LV processes and 5–10 active FateSwap banners, the FateSwap tracker alone was producing ~200,000 LV re-renders per minute (1 feed broadcast/3s + 5–10 selection_changed broadcasts/3s × 1000 fan-out). The "broadcasts/min" number on the tracker side under-sells the cost by 3–4 orders of magnitude — the real cost is **broadcasts × subscribers × handle_info work × push_event JS frame**.
+
+**What was done (2026-04-29)**:
+
+| Tracker | Before | After |
+|---------|--------|-------|
+| `BlocksterV2.Widgets.FateSwapFeedTracker` | 3s poll, 1 + N broadcasts/poll | **Removed from supervisor** (`application.ex`). Mnesia readers degrade to `[]`/`nil` |
+| `BlocksterV2.Widgets.RogueTraderChartTracker` | 60s sweep, 150 series broadcasts/min | `@default_interval :timer.minutes(10)` → 15/min |
+| `BlocksterV2.Widgets.RogueTraderBotsTracker` | 10s poll → 6 broadcasts/min | `@default_interval :timer.seconds(30)` → 2/min |
+
+Net: ~270–370 broadcasts/min cluster-wide → ~17/min. ~16–22× reduction in raw count, ~270× reduction in actual server work.
+
+**Rules going forward — apply to every PubSub broadcast added to the codebase**:
+
+1. **Default to NOT broadcasting.** A new poller that fills a Mnesia cache should be enough — connected LVs can read it on their own ticks or on user actions. Only broadcast when the data is genuinely time-sensitive AND the user-visible UX depends on push freshness (e.g. a coin-flip settlement that's literally the user's bet result, not a ticker price 5s old).
+2. **Compute the fan-out before merging.** broadcasts/min × `length(subscribers)` × `cost(handle_info)`. If the topic is subscribed by every page (`mount_widgets/2` blanket-subscribes), then *every* connected LV is in the fan-out. Don't add a 3s poll to a topic in that bucket.
+3. **Dedupe at the source.** If you're broadcasting because data *might* have changed, hash the payload and compare to the last hash before broadcasting. The FateSwap tracker did this for the trade list (`changed?` check on line 219) but still re-ran the per-banner selector on every poll, and broadcast a `:selection_changed` per banner whose subject moved — which on a busy trade feed was every banner every poll.
+4. **Configure interval at module level, not literal.** Use `@default_interval :timer.minutes(N)` with `widgets_config/2` override so ops can dial it without redeploy. Avoid sub-minute intervals unless there's a written justification in the moduledoc for why this specific data needs it.
+5. **Subscribe narrowly.** `mount_widgets/2` subscribes to the global `widgets:fateswap:feed` and `widgets:roguetrader:bots` topics for *every* connected LV, regardless of whether the page renders any FS/RT widgets. Subscribe per-banner or per-component instead — `widgets:selection:<banner_id>` is the right pattern, the global topic is the trap.
+6. **Trace the chain on review.** When you see `Phoenix.PubSub.broadcast(...)` in a diff, follow it: who subscribes to that topic? what does their handle_info do? does it re-render expensive components? does it push a JS event? If the answer to any of those is "we don't know," block the merge.
+
+**Why**: PubSub is the cluster's broadcast medium and the LV runtime's main fan-out point. Misuse manifests as everything else feeling broken — auth modals don't open, clicks don't register, sockets fall back to longpoll — because the LV process queues are full of widget re-render messages and can't service user events. The symptom is "the app is a dog"; the cause is broadcast volume.
 
 ---
 

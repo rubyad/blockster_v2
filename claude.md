@@ -49,6 +49,7 @@ Phoenix LiveView web3 content platform — shop, hubs, events, token-based engag
 **Deploy**:
 - NEVER deploy without explicit user instructions. ALL tests must pass (`mix test`, zero failures) before deploy.
 - Elixir hot-reloads — do not restart nodes after code fixes. Only restart for supervision tree / config changes.
+- **HARD RULE — verify `fly.toml` app name before EVERY `flyctl deploy`.** State the target app out loud, `cat <dir>/fly.toml | head -3`, confirm `app = '<expected>'` matches, `cd` into that dir, then deploy. The `--app` flag does not determine which Dockerfile is used — the current directory does. App→dir map: `blockster-v2` → repo root; `blockster-settler` → `contracts/blockster-settler/`; `high-rollers-elixir` → `high-rollers-elixir/`. Past incident: 2026-03-12 deployed blockster-v2's Dockerfile to high-rollers-elixir because the rule was followed implicitly, not explicitly.
 
 **CSS debugging**:
 - When the user reports a visual/spacing/sizing issue, open DevTools and inspect COMPUTED styles FIRST — before mutating HEEx or adding fixed heights.
@@ -147,6 +148,13 @@ Detailed patterns (modal backdrop click-outside, sticky banners on animated head
 - `BlocksterV2.GlobalSingleton` for cluster-wide singletons — handles rolling-deploy conflicts.
 - **Global**: `MnesiaInitializer`, `PriceTracker`, `BuxBoosterBetSettler`, `TimeTracker`, `BotCoordinator`, `LpPriceTracker`, `CoinFlipBetSettler`.
 - **Local**: `HubLogoCache` (local ETS).
+
+### PubSub broadcasts
+- **Default to NOT broadcasting.** A poller filling a Mnesia cache is enough — connected LVs can read it on their own ticks. Only broadcast when the data is genuinely time-sensitive AND the user-visible UX depends on push freshness (a coin-flip settlement, not a ticker price 5s old).
+- **Compute the fan-out before adding any new broadcast.** `broadcasts/min × subscribers × handle_info cost` — a 3s tick on a globally-subscribed topic with 1000 connected LVs = 200K re-renders/min. Cost is in subscribers × work, NOT broadcasts/min.
+- **Subscribe narrowly.** Per-banner / per-component topics, not blanket page-wide. The `widgets:fateswap:feed` blanket subscribe in `mount_widgets/2` (every page subscribed) was the trap on the Apr 2026 widget rewrite — see [docs/session_learnings.md](docs/session_learnings.md) "PubSub broadcasts are fan-out bombs".
+- **Default poll interval = minutes, not seconds.** `@default_interval :timer.minutes(N)` with `widgets_config/2` override. Sub-minute intervals require a written justification in the moduledoc for why this specific data needs it.
+- **Code review rule**: when reviewing a diff with `Phoenix.PubSub.broadcast(...)`, follow the chain — who subscribes, what does handle_info do, does it re-render expensive components, does it push a JS event? Block the merge if any answer is "we don't know."
 
 ### Smart Contract Upgrades (UUPS, legacy EVM)
 - NEVER change order or remove state variables — only append at END.
