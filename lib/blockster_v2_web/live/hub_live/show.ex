@@ -71,6 +71,9 @@ defmodule BlocksterV2Web.HubLive.Show do
          |> assign(:mosaic_posts, mosaic_posts)
          |> assign(:mosaic_components, build_post_components(mosaic_posts, hub.name))
          |> assign(:news_components, build_post_components(all_posts, hub.name))
+         |> assign(:latest_post, List.first(all_posts))
+         |> assign(:posts_this_month, count_posts_this_month(all_posts))
+         |> assign(:total_bux_paid, total_bux_paid(all_posts))
          |> assign(:videos_posts, videos_posts)
          |> assign(:hub_products, hub_products)
          |> assign(:sol_usd_rate, sol_usd_rate)
@@ -236,6 +239,29 @@ defmodule BlocksterV2Web.HubLive.Show do
   defp tab_count("videos", assigns), do: length(assigns.videos_posts)
   defp tab_count("shop", assigns), do: length(assigns.hub_products)
   defp tab_count("events", _assigns), do: 0
+
+  # Stats for the Latest Activity panel — computed once at mount from the
+  # already-loaded `all_posts` list (no extra queries).
+  defp count_posts_this_month(posts) do
+    today = Date.utc_today()
+    start_of_month = %{today | day: 1}
+
+    Enum.count(posts, fn p ->
+      case p.published_at do
+        nil -> false
+        %DateTime{} = dt -> Date.compare(DateTime.to_date(dt), start_of_month) != :lt
+        %NaiveDateTime{} = ndt -> Date.compare(NaiveDateTime.to_date(ndt), start_of_month) != :lt
+        _ -> false
+      end
+    end)
+  end
+
+  defp total_bux_paid(posts) do
+    posts
+    |> Enum.map(fn p -> Map.get(p, :bux_balance, 0) || 0 end)
+    |> Enum.sum()
+    |> trunc()
+  end
 
   # Chunk posts into the same Three(5) → Four(3) → Five(6) → Six(5) cycle
   # used on the homepage. For >19 posts, recurse so every post lands in a
