@@ -230,12 +230,25 @@ defmodule BlocksterV2.Accounts do
   def get_or_create_user_by_web3auth(%{} = claims) do
     pubkey = claims[:solana_pubkey] || claims["solana_pubkey"]
     email = claims[:email] || claims["email"]
+    telegram_user_id = claims[:telegram_user_id] || claims["telegram_user_id"]
 
     existing_by_wallet = if is_binary(pubkey) and pubkey != "", do: get_user_by_wallet_address(pubkey)
 
     existing_by_email =
       if is_nil(existing_by_wallet) and is_binary(email) and email != "" do
         get_active_user_by_email(email)
+      end
+
+    # Telegram-only sign-in: our custom JWT carries telegram_user_id but NO
+    # email (Telegram doesn't share email with the Login Widget). Without
+    # this lookup, a legacy admin who connected Telegram pre-Solana would
+    # fall to create_user_from_web3auth and crash on the unique index for
+    # telegram_user_id. Treat a telegram_user_id match as the same kind of
+    # ownership signal as an email match — trigger reclaim.
+    existing_by_telegram =
+      if is_nil(existing_by_wallet) and is_nil(existing_by_email) and
+           is_binary(telegram_user_id) and telegram_user_id != "" do
+        get_active_user_by_telegram_user_id(telegram_user_id)
       end
 
     cond do
@@ -246,6 +259,10 @@ defmodule BlocksterV2.Accounts do
         # Matched the Web3Auth-derived pubkey directly — normal returning
         # social-login user.
         login_existing(existing_by_wallet, claims)
+
+      not is_nil(existing_by_telegram) ->
+        # Telegram ownership = account ownership, same as email.
+        reclaim_legacy_via_web3auth(pubkey, claims, existing_by_telegram)
 
       not is_nil(existing_by_email) ->
         # Email collision — any account that owns this email (legacy EVM,
@@ -381,6 +398,20 @@ defmodule BlocksterV2.Accounts do
     )
   end
 
+  # Same shape as get_active_user_by_email but keyed on telegram_user_id —
+  # used by the Telegram-only Web3Auth sign-in path where the JWT has no
+  # email claim. Returns the legacy user that owns this Telegram ID so the
+  # caller can hand it to reclaim_legacy_via_web3auth.
+  defp get_active_user_by_telegram_user_id(telegram_user_id) do
+    Repo.one(
+      from u in User,
+        where: u.telegram_user_id == ^telegram_user_id,
+        where: is_nil(u.merged_into_user_id),
+        where: u.is_active == true,
+        limit: 1
+    )
+  end
+
   # Build a user row from Web3Auth claims.
   defp create_user_from_web3auth(pubkey, claims) do
     auth_method = auth_method_for(claims)
@@ -434,12 +465,19 @@ defmodule BlocksterV2.Accounts do
     new_verifier = claims[:verifier] || claims["verifier"]
     new_auth_method = auth_method_for(claims)
 
+    # NEVER auto-promote claims.email onto an existing user's email field.
+    # Email ownership migration is the LegacyMerge's job — when a Web3Auth
+    # claim arrives with email=X, if X is already on a legacy user, the
+    # reclaim path runs (deactivating the legacy row, then writing email
+    # via finalize_new_user_email). Doing it here too produces a unique
+    # constraint violation when the legacy row still owns email=X but the
+    # current user (an orphaned half-completed merge) has email=nil.
+    # See incident 2026-04-29: user 14 vs user 2237.
     patch =
       %{}
       |> maybe_put(:web3auth_verifier, new_verifier, user.web3auth_verifier)
       |> maybe_put(:social_avatar_url, claims[:profile_image] || claims["profile_image"], user.social_avatar_url)
       |> maybe_put(:x_user_id, claims[:x_user_id] || claims["x_user_id"], user.x_user_id)
-      |> maybe_put(:email, claims[:email] || claims["email"], user.email)
       |> maybe_put(:auth_method, new_auth_method, user.auth_method)
 
     if map_size(patch) == 0 do

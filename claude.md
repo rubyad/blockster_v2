@@ -49,7 +49,7 @@ Phoenix LiveView web3 content platform — shop, hubs, events, token-based engag
 **Deploy**:
 - NEVER deploy without explicit user instructions. ALL tests must pass (`mix test`, zero failures) before deploy.
 - Elixir hot-reloads — do not restart nodes after code fixes. Only restart for supervision tree / config changes.
-- **HARD RULE — verify `fly.toml` app name before EVERY `flyctl deploy`.** State the target app out loud, `cat <dir>/fly.toml | head -3`, confirm `app = '<expected>'` matches, `cd` into that dir, then deploy. The `--app` flag does not determine which Dockerfile is used — the current directory does. App→dir map: `blockster-v2` → repo root; `blockster-settler` → `contracts/blockster-settler/`; `high-rollers-elixir` → `high-rollers-elixir/`. Past incident: 2026-03-12 deployed blockster-v2's Dockerfile to high-rollers-elixir because the rule was followed implicitly, not explicitly.
+- **HARD RULE — verify `fly.toml` app name before EVERY `flyctl deploy`.** State the target app out loud, `cat <dir>/fly.toml | head -3`, confirm `app = '<expected>'` matches, `cd` into that dir, then deploy. The `--app` flag does not determine which Dockerfile is used — the current directory does. App→dir map: `blockster-v2` → repo root; `blockster-settler` → `contracts/blockster-settler/`; `high-rollers-elixir` → `high-rollers-elixir/`. Past incident: 2026-03-12 deployed blockster-v2's Dockerfile to high-rollers-elixir because the rule was followed implicitly, not explicitly. **Hook-enforced** since 2026-04-29 via `.claude/settings.json` PreToolUse: every `flyctl deploy` is intercepted, blocked when `fly.toml` is missing from cwd OR when the command is chained (`cd … && flyctl deploy` — split into two Bash calls so the persistent shell cwd IS the deploy target). When allowed, the hook emits `DEPLOY VERIFIED: app=<name> dir=<pwd>` for the transcript.
 
 **CSS debugging**:
 - When the user reports a visual/spacing/sizing issue, open DevTools and inspect COMPUTED styles FIRST — before mutating HEEx or adding fixed heights.
@@ -242,7 +242,7 @@ All 10 phases complete — see [docs/social_login_plan.md](docs/social_login_pla
 
 ## Bot Reader System
 
-1000 bot accounts simulate reading with real on-chain BUX minting. Feature flag: `BOT_SYSTEM_ENABLED=true`. Auto-rotates legacy EVM wallets to Solana keypairs on boot (idempotent). Bot mints use `wallet_address`. Full docs: [docs/bot_reader_system.md](docs/bot_reader_system.md).
+1000 bot accounts simulate reading with real on-chain BUX minting. Feature flag: `BOT_SYSTEM_ENABLED=true`. Auto-rotates legacy EVM wallets to Solana keypairs on boot AND auto-seeds `unified_multipliers_v2` records for any bot missing one or with `overall_multiplier ≤ 0.0` (both idempotent — every multiplier range must have a non-zero floor since `overall = x × phone × sol × email` and any zero collapses the product, silently zeroing the bot's mint amount). Bot mints use `wallet_address`. Full docs: [docs/bot_reader_system.md](docs/bot_reader_system.md).
 
 ## Security
 

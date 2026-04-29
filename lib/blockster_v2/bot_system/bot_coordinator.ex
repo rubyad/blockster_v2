@@ -134,6 +134,16 @@ defmodule BlocksterV2.BotSystem.BotCoordinator do
             Logger.info("[BotCoordinator] Rotated #{count} bot wallets from EVM → Solana")
         end
 
+        # Idempotent backfill: bots created before seed_multiplier/3 was wired
+        # into create_all_bots/1, or seeded under the old `sol_range: {0.0, _}`
+        # formula that produced overall=0.0, get a healthy multiplier here.
+        # Without this, BotCoordinator silently mints 0 BUX for affected bots
+        # because `calculate_bux_earned * 0 = 0` short-circuits before mint.
+        case BotSetup.ensure_multipliers_for_all_bots() do
+          {:ok, 0} -> :ok
+          {:ok, _} = result -> result
+        end
+
         active_count = get_config(:active_bot_count, 300)
         active_ids = bot_ids |> Enum.shuffle() |> Enum.take(active_count) |> MapSet.new()
 

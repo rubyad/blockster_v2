@@ -892,8 +892,40 @@ defmodule BlocksterV2Web.PostLive.Show do
 
   @impl true
   def handle_info({:mint_completed, tx_hash}, socket) do
-    {:noreply, assign(socket, :read_tx_id, tx_hash)}
+    socket = assign(socket, :read_tx_id, tx_hash)
+
+    case socket.assigns[:current_user] do
+      %{id: user_id, wallet_address: wallet} when is_binary(wallet) and wallet != "" ->
+        BuxMinter.sync_user_balances_async(user_id, wallet, force: true)
+
+        {:noreply,
+         start_async(socket, :sync_post_mint, fn ->
+           BuxMinter.sync_user_balances(user_id, wallet)
+           sol = EngagementTracker.get_user_sol_balance(user_id)
+           bux = EngagementTracker.get_user_solana_bux_balance(user_id)
+           %{"SOL" => sol, "BUX" => bux}
+         end)}
+
+      _ ->
+        {:noreply, socket}
+    end
   end
+
+  @impl true
+  def handle_async(:sync_post_mint, {:ok, balances}, socket) do
+    if user = socket.assigns[:current_user] do
+      BlocksterV2Web.BuxBalanceHook.broadcast_token_balances_update(user.id, balances)
+    end
+
+    merged = Map.merge(socket.assigns[:token_balances] || %{}, balances)
+
+    {:noreply,
+     socket
+     |> assign(:token_balances, merged)
+     |> assign(:bux_balance, Map.get(balances, "BUX", socket.assigns[:bux_balance] || 0))}
+  end
+
+  def handle_async(:sync_post_mint, _, socket), do: {:noreply, socket}
 
   @impl true
   def handle_info({:bux_update, post_id, _pool_balance, _total_distributed}, socket) do
@@ -1180,12 +1212,28 @@ defmodule BlocksterV2Web.PostLive.Show do
     new_tx = %{tx_hash: tx_hash, bux_amount: bux_amount, timestamp: now}
     updated_tx_ids = (socket.assigns[:video_tx_ids] || []) ++ [new_tx]
 
-    {:noreply,
-     socket
-     |> assign(:video_tx_ids, updated_tx_ids)
-     |> assign(:pool_balance, display_pool_balance(pool_balance_internal))
-     |> assign(:pool_available, pool_available_for_new_actions?(pool_balance_internal))
-     |> put_flash(:success, "Earned #{bux_amount} BUX! TX: #{String.slice(tx_hash, 0, 10)}...")}
+    socket =
+      socket
+      |> assign(:video_tx_ids, updated_tx_ids)
+      |> assign(:pool_balance, display_pool_balance(pool_balance_internal))
+      |> assign(:pool_available, pool_available_for_new_actions?(pool_balance_internal))
+      |> put_flash(:success, "Earned #{bux_amount} BUX! TX: #{String.slice(tx_hash, 0, 10)}...")
+
+    case socket.assigns[:current_user] do
+      %{id: user_id, wallet_address: wallet} when is_binary(wallet) and wallet != "" ->
+        BuxMinter.sync_user_balances_async(user_id, wallet, force: true)
+
+        {:noreply,
+         start_async(socket, :sync_post_mint, fn ->
+           BuxMinter.sync_user_balances(user_id, wallet)
+           sol = EngagementTracker.get_user_sol_balance(user_id)
+           bux = EngagementTracker.get_user_solana_bux_balance(user_id)
+           %{"SOL" => sol, "BUX" => bux}
+         end)}
+
+      _ ->
+        {:noreply, socket}
+    end
   end
 
   @impl true

@@ -22,8 +22,11 @@ defmodule BlocksterV2.BotSystem.BotSetup do
   @suffixes ~w(hunter whale shark ninja wizard sage oracle miner staker farmer builder coder hacker trader flipper runner scout ranger keeper guard pilot rider surfer diver walker thinker reader writer dreamer seeker finder voyager nomad ghost shadow spark flame storm wave pulse echo)
 
   # Multiplier tiers: {label, percentage, phone_verified, geo_tier, x_score_range, sol_mult_range, email_mult_range}
+  # NOTE: every range is bounded above zero — `overall = x * phone * sol * email`
+  # so any zero anywhere zeros the whole product, which silently bricks bot
+  # rewards (calculate_bux_earned * 0 = 0 → silent skip in BotCoordinator).
   @multiplier_tiers [
-    {:casual,  0.40, false, "unverified", {0, 5},    {0.0, 1.0}, {0.5, 0.5}},
+    {:casual,  0.40, false, "unverified", {0, 5},    {0.5, 1.0}, {0.5, 1.0}},
     {:engaged, 0.35, true,  "basic",      {10, 40},  {1.0, 2.5}, {0.5, 2.0}},
     {:power,   0.20, true,  "standard",   {40, 75},  {2.5, 4.0}, {2.0, 2.0}},
     {:whale,   0.05, true,  "premium",    {75, 100}, {4.0, 5.0}, {2.0, 2.0}}
@@ -135,6 +138,41 @@ defmodule BlocksterV2.BotSystem.BotSetup do
   """
   def get_all_bot_ids do
     Repo.all(from u in User, where: u.is_bot == true, select: u.id, order_by: u.id)
+  end
+
+  @doc """
+  Ensures every bot has a `unified_multipliers_v2` record with `overall > 0`.
+  Idempotent — bots with a healthy record are skipped, bots with a missing or
+  zero record get seeded according to their tier (deterministic by bot index).
+
+  Run on every BotCoordinator boot so:
+    * bots created before `seed_multiplier/3` was wired into `create_all_bots/1`
+      get backfilled,
+    * bots whose record was zeroed by the legacy `sol_range: {0.0, 1.0}` formula
+      get repaired.
+  """
+  def ensure_multipliers_for_all_bots(total \\ @total_bots) do
+    bot_ids = get_all_bot_ids() |> Enum.with_index(1)
+
+    repaired =
+      Enum.reduce(bot_ids, 0, fn {id, idx}, acc ->
+        if needs_seed?(id), do: (seed_multiplier(id, idx, total); acc + 1), else: acc
+      end)
+
+    if repaired > 0 do
+      Logger.info("[BotSetup] Seeded multipliers for #{repaired} bots (missing or zero overall)")
+    end
+
+    {:ok, repaired}
+  end
+
+  defp needs_seed?(user_id) do
+    case :mnesia.dirty_read({:unified_multipliers_v2, user_id}) do
+      [] -> true
+      [record] -> (elem(record, 7) || 0.0) <= 0.0
+    end
+  rescue
+    _ -> true
   end
 
   @doc """

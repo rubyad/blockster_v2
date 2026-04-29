@@ -1,11 +1,10 @@
 import { PublicKey, TransactionInstruction } from "@solana/web3.js";
 import {
-  getOrCreateAssociatedTokenAccount,
-  mintTo,
   getAccount,
   createTransferInstruction,
+  createAssociatedTokenAccountIdempotentInstruction,
+  createMintToInstruction,
   TOKEN_PROGRAM_ID,
-  ASSOCIATED_TOKEN_PROGRAM_ID,
   getAssociatedTokenAddress,
 } from "@solana/spl-token";
 import {
@@ -14,10 +13,20 @@ import {
   BUX_MINT_ADDRESS,
   BUX_DECIMALS,
 } from "../config";
+import { sendSettlerTx } from "./rpc-client";
 
 /**
  * Mint BUX tokens to a wallet.
- * Returns { signature, ataCreated } — ataCreated is true if a new ATA was created.
+ *
+ * Combines ATA-create (idempotent) + MintTo into a SINGLE atomic transaction.
+ * This eliminates the cross-tx race that produced `InvalidAccountData` errors
+ * under concurrent mints: previously the @solana/spl-token helpers submitted
+ * the ATA-create as one tx and waited for confirmation, then submitted MintTo
+ * as a second tx — but RPC replicas don't always have the new ATA visible to
+ * the MintTo preflight simulation. Atomic = no race.
+ *
+ * Returns { signature, ataCreated } — ataCreated is true if the ATA didn't
+ * exist before this call.
  */
 export async function mintBux(
   walletAddress: string,
@@ -26,35 +35,35 @@ export async function mintBux(
   const recipient = new PublicKey(walletAddress);
   const rawAmount = BigInt(Math.floor(amount * 10 ** BUX_DECIMALS));
 
-  // Check if ATA already exists before getOrCreate
-  const expectedAta = await getAssociatedTokenAddress(BUX_MINT_ADDRESS, recipient);
+  const ata = await getAssociatedTokenAddress(BUX_MINT_ADDRESS, recipient);
+
   let ataExistedBefore = false;
   try {
-    await getAccount(connection, expectedAta);
+    await getAccount(connection, ata);
     ataExistedBefore = true;
   } catch {
-    // ATA does not exist yet — will be created
+    // ATA does not exist — will be created in the same tx as the mint
   }
 
-  // Get or create ATA
-  const ata = await getOrCreateAssociatedTokenAccount(
-    connection,
-    MINT_AUTHORITY,
-    BUX_MINT_ADDRESS,
-    recipient
+  const signature = await sendSettlerTx(
+    () => [
+      createAssociatedTokenAccountIdempotentInstruction(
+        MINT_AUTHORITY.publicKey, // payer
+        ata,
+        recipient,
+        BUX_MINT_ADDRESS
+      ),
+      createMintToInstruction(
+        BUX_MINT_ADDRESS,
+        ata,
+        MINT_AUTHORITY.publicKey, // mint authority
+        rawAmount
+      ),
+    ],
+    MINT_AUTHORITY
   );
 
-  // Mint
-  const sig = await mintTo(
-    connection,
-    MINT_AUTHORITY,
-    BUX_MINT_ADDRESS,
-    ata.address,
-    MINT_AUTHORITY,
-    rawAmount
-  );
-
-  return { signature: sig, ataCreated: !ataExistedBefore };
+  return { signature, ataCreated: !ataExistedBefore };
 }
 
 /**

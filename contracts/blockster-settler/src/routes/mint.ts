@@ -36,8 +36,15 @@ router.post("/mint", async (req: Request, res: Response) => {
       wallet,
     });
   } catch (err: any) {
-    console.error("Mint error:", err.message);
-    res.status(500).json({ error: err.message });
+    // err.message can be empty for some web3.js error subclasses (e.g. when the
+    // info is in .logs / .transactionMessage). Dump everything so it's actionable.
+    const detail =
+      err?.message ||
+      err?.transactionMessage ||
+      (err?.logs && Array.isArray(err.logs) ? err.logs.join(" | ") : "") ||
+      String(err);
+    console.error(`Mint error [${err?.constructor?.name || typeof err}]: ${detail}`);
+    res.status(500).json({ error: detail });
   }
 });
 

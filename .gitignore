@@ -61,6 +61,14 @@ contracts/blockster-bankroll/
 /*.jpeg
 /*.jpg
 
-# Claude Code local settings and design-review artifacts
-.claude/
+# Claude Code local settings and design-review artifacts.
+# `.claude/*` (not `.claude/`) ignores the contents but lets git traverse
+# the dir, which is required for the negations below to take effect.
+.claude/*
+# project-level hook config + scripts (deploy verification etc.) — checked
+# in so they protect every developer's session. Personal overrides go in
+# .claude/settings.local.json which stays ignored by the wildcard above.
+!.claude/settings.json
+!.claude/hooks/
+!.claude/hooks/**
 mobile-review/

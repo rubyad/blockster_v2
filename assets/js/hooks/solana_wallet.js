@@ -469,9 +469,14 @@ export const SolanaWallet = {
   _clearSession() {
     const csrf = document.querySelector("meta[name='csrf-token']")?.content
     if (!csrf) return
+    // keepalive: true so the request completes even if the LV redirects to "/"
+    // milliseconds later. Without it, mobile Safari cancels the in-flight fetch
+    // on navigation and the server session cookie never clears — user appears
+    // signed-out (dropdown closes) but is still authenticated on next page load.
     fetch("/api/auth/session", {
       method: "DELETE",
       headers: { "x-csrf-token": csrf },
+      keepalive: true,
     }).catch(() => {})
   },
 }
