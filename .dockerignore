@@ -17,6 +17,12 @@ npm-debug.log
 # we ignore priv/static except for images directory
 /priv/static/*
 !/priv/static/images/
+# Token metadata JSONs served at /<token>-metadata.json so Solana indexers
+# (Solscan etc.) can resolve token name + logo. Listed in static_paths in
+# lib/blockster_v2_web.ex — without un-ignoring here they'd 404 on prod.
+!/priv/static/bux-metadata.json
+!/priv/static/sol-lp-metadata.json
+!/priv/static/bux-lp-metadata.json
 
 # Environment files
 .env
