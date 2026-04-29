@@ -7,6 +7,12 @@ For active reference material, see the main [CLAUDE.md](../CLAUDE.md).
 ---
 
 ## Table of Contents
+- [Don't speculate — verify, then respond](#dont-speculate--verify-then-respond-2026-04-29)
+- [`MnesiaInitializer.safe_add_table_copy/2` misreads `:already_exists`](#mnesiainitializersafe_add_table_copy2-misreads-already_exists-2026-04-29)
+- [`longPollFallbackMs: 2500` — keep it](#longpollfallbackms-2500--keep-it-2026-04-29)
+- [Logout overlay — instant client-side feedback before server redirect](#logout-overlay--instant-client-side-feedback-before-server-redirect-2026-04-28)
+- [`.dockerignore` must exclude `/high-rollers-elixir`](#dockerignore-must-exclude-high-rollers-elixir-2026-04-28)
+- [Cloudflare proxied CNAME to Fly — fresh subdomains need a `_fly-ownership` TXT to issue certs](#cloudflare-proxied-cname-to-fly--fresh-subdomains-need-a-_fly-ownership-txt-to-issue-certs-2026-04-28)
 - [Web3Auth OAuth reauth — pill, not modal, and only OAuth users need it](#web3auth-oauth-reauth--pill-not-modal-and-only-oauth-users-need-it-2026-04-27)
 - [BEAM caches NXDOMAIN — JWKS fetch fails for ~10 min after a network blip at boot](#beam-caches-nxdomain--jwks-fetch-fails-for-10-min-after-a-network-blip-at-boot-2026-04-27)
 - [Hardcoded fallback values mask broken integrations — the `$160` SOL price + the `14.2%` APY](#hardcoded-fallback-values-mask-broken-integrations--the-160-sol-price--the-142-apy-2026-04-27)
@@ -69,6 +75,122 @@ For active reference material, see the main [CLAUDE.md](../CLAUDE.md).
 - [AirdropVault V2 Upgrade](#airdropvault-v2-upgrade--client-side-deposits-feb-28-2026)
 - [NFTRewarder V6 & RPC Batching](#nftrewarder-v6--rpc-batching-mar-2026)
 - [Engagement Tracker Silent Failure — `#post-content` Selector Miss After Redesign](#engagement-tracker-silent-failure--post-content-selector-miss-after-redesign-apr-2026)
+
+---
+
+## Don't speculate — verify, then respond (2026-04-29)
+
+Pattern observed during mainnet-rollout debugging. Multiple confident-sounding claims turned out wrong because they were extrapolations from one data point that was never cross-checked:
+
+1. **"WS handshake is failing because today's deploy churn changed the machine IP."** Wrong — `flyctl machine status` event log shows the same `Private IP` since the machine was created. Fly machine IPv6 addresses are stable; restarts don't reassign.
+2. **"Mnesia self-healed after the deploy."** Wrong — `:mnesia.system_info(:tables)` lists tables the cluster *knows about*, not tables this node has a *local copy of*. The actual probe is `:mnesia.table_info(t, :where_to_read)` and `:mnesia.table_info(t, :disc_copies)`. Knowing about a table is not having it.
+3. **"You've only had one machine for months — the bug just got triggered yesterday by adding a second."** Wrong — the stale schema entry `195:3603:63e:2` is direct evidence of a previous second machine. `flyctl machines list` only shows current machines, not destroyed ones.
+4. **"`feature-access` 403 from Web3Auth is breaking login."** Wrong — that endpoint probes the Wallet Services tier (`is_wallet_service=true&enable_gating=true`), which is a separate paid product. Login uses different endpoints; it works on Growth plan even with this 403.
+5. **"`where_to_read` resolves to a node, therefore tables are healthy on this node."** Wrong — when this node has no local copy, `where_to_read` returns a *remote* node and every read crosses the network. Reads succeed but replication is broken.
+
+**Rule**: name the evidence before naming the cause. If you can't, say "I don't know" or "I'm guessing." When a follow-up check disproves an earlier claim, state the retraction explicitly — don't slide past it.
+
+**How to apply**: before proposing a diagnosis or fix, ask: "what would I have to observe to be wrong here?" Then go look at that. For Mnesia specifically — `:where_to_read`, `:disc_copies`, and `:ram_copies` are the three answers to "is this table actually here." For Fly — `flyctl machine status <id>` shows the event log; `flyctl releases` shows actual release history. For network — `ping`/`traceroute` to the actual destination IP, not the brand name.
+
+Why: confident-wrong infra claims drag the wrong fix. Each wrong diagnosis costs a real chunk of someone else's time and erodes trust in everything that comes after, including the eventual correct answer.
+
+---
+
+## `MnesiaInitializer.safe_add_table_copy/2` misreads `:already_exists` (2026-04-29)
+
+**File**: `lib/blockster_v2/mnesia_initializer.ex` around line 1598.
+
+**Code**:
+```elixir
+defp safe_add_table_copy(table_name, _table_def) do
+  case :mnesia.add_table_copy(table_name, node(), :disc_copies) do
+    {:atomic, :ok} -> ...
+    {:aborted, {:already_exists, _, _}} ->
+      Logger.info("[MnesiaInitializer] Table #{table_name} already has disc_copies on this node")
+```
+
+**Bug**: `{:aborted, {:already_exists, table, _, _}}` from `:mnesia.add_table_copy/3` does NOT mean "the local node already has this table." The shape is `{:already_exists, Table, Node}` and Mnesia returns it whenever the operation can't proceed because of an existing entry, including "the schema already records *some other* node as having this table." On a node with no local schema disc copy, attempting to add a `:disc_copies` copy of a table that already exists in the cluster lands here. The code logs "already has disc_copies on this node" and moves on, but no local copy was created.
+
+**Observed manifest (2026-04-29)**: machine `865d14f7225508` (node `…195:c889:9afe:2`) joined the cluster but ended up with:
+
+- `:mnesia.table_info(:schema, :disc_copies)` → `[…e770:82b0:7db3:2]` only (the *other* machine), not this one.
+- `:mnesia.table_info(:user_bux_points, :disc_copies)` → same.
+- `:mnesia.table_info(:user_bux_points, :where_to_read)` → the other node.
+- All 30+ disc-copy tables read from the remote node over the network.
+- MnesiaInitializer logged "Table X already has disc_copies on this node" for each, then logged a single warning at the end on `:web3auth_email_otps` with the actual error: `{:combine_error, :web3auth_email_otps, ~c"has no disc", node()}`.
+
+The `combine_error` is the real shape Mnesia returns when the schema isn't on disc on the target node — and it surfaced once, on the one table that didn't already exist cluster-wide at the moment add_table_copy ran. For all other tables, the cluster-existence check shadowed the schema-disc check, and the code's catch-all `:already_exists` clause swallowed it as benign.
+
+**Symptom before recovery**: GenServer crash loop on the broken node — `TopicEngine`, `FeedPoller`, `BuxBoosterBetSettler` all crashing every minute on `:no_exists` because `where_to_read` was `:nowhere` for tables the stale schema-node `…195:3603:63e:2` "owned." `cleanup_stale_nodes()` later removed the stale entry; `where_to_read` then resolved to the alive other node and reads worked via network. Crashes stopped. But the underlying lack of local copies persisted.
+
+**Fix path (not yet applied)**: on `{:aborted, {:already_exists, _, _}}`, before logging benign, read `:mnesia.table_info(table, :disc_copies)` and check whether `node()` is in the list. If not:
+
+1. Ensure schema is disc on this node — `:mnesia.change_table_copy_type(:schema, node(), :disc_copies)`. Handle `{:aborted, {:already_exists, :schema, _, :disc_copies}}` as success.
+2. Retry `:mnesia.add_table_copy(table, node(), :disc_copies)`.
+
+Trigger conditions: a node joining a cluster where the schema already exists on other nodes' disc, when this node has no local schema disc copy. The success path of `MnesiaInitializer.safe_join_preserving_local_data/1` (line 1234) calls `ensure_schema_disc_copies()` before `copy_tables_from_cluster()`, but if the schema-disc add returns an error other than `:atomic | :already_exists, :schema, _, :disc_copies` it logs a warning and proceeds without retrying, and `safe_add_table_copy` then misreads its own `:already_exists` errors as benign.
+
+**Operational state at time of writing**: machine `865d14f7225508` is in the degraded "no local copies, reads via remote" state. Functional but every Mnesia op crosses the network and there's a single point of failure on `17817e62f16438`.
+
+---
+
+## `longPollFallbackMs: 2500` — keep it (2026-04-29)
+
+**File**: `assets/js/app.js` LiveSocket constructor.
+
+**Option**: Phoenix LiveView's `longPollFallbackMs` tells the client "if the WebSocket handshake doesn't complete within N ms, fall back to `Phoenix.LongPoll` for the rest of the session." Once on LongPoll, the tab stays on it.
+
+**Trade-off**:
+- *With* the option: a slow WS handshake (network blip, JS thread blocked by Web3Auth init, etc.) sends that one tab to LongPoll, where every message is a held HTTP request (~5–10× slower than a WS frame). Future page loads on the same browser/tab can still re-attempt WS.
+- *Without* the option: LiveView keeps retrying WebSocket. Clean networks get fast WS after one slow handshake. Degraded networks (real ISP packet loss, e.g. 75% loss to the edge IP serving the host) never complete the handshake, so the page stays stuck "Connecting" with no fallback.
+
+**2026-04-29 episode**: the option was briefly removed (commit `c29e376`) on the theory that the LongPoll fallback was the cause of slow per-click latency on prod. It was; for users with degraded network paths to Fly's edge it was firing because their WS handshake wasn't completing within 2.5s. Removal was reverted (commit `b56817c`) once it was clear the same users would just see "Connecting" forever instead of slow-but-functional LongPoll. Net change to deployed `app.js`: zero.
+
+**Rule**: don't remove this option without also providing an alternative fallback path for users on lossy networks. The fallback is the safety net for the bottom 1–5% of users with network problems; removing it makes their experience strictly worse, not better.
+
+---
+
+## Logout overlay — instant client-side feedback before server redirect (2026-04-28)
+
+**Problem**: clicking Sign out ran `disconnect_wallet`, which ends with `redirect(socket, to: "/")`. The redirect is a hard reload, and `PostLive.Index` mount does heavy synchronous work (hero post, four cycling post components, hub showcase, banners, hero stats, real-stats counts). On slow page renders the user saw a 1–3 second blank screen between click and the new logged-out homepage. Read as "logout did nothing."
+
+**Fix**: a hidden full-screen overlay element in `root.html.heex` with `Signing out…` text and a spinner. Both disconnect buttons (`design_system.ex` user dropdown + `layouts.ex` legacy dropdown) chain `phx-click={JS.show(to: "#logout-overlay") |> JS.push("disconnect_wallet")}`. `JS.show` fires client-side instantly with no server roundtrip; `JS.push` is the same server event as before. Server behaviour is unchanged — assigns clear, redirect to `/`. The next page render replaces the overlay with the fresh anonymous DOM.
+
+**Rule**: when a user click triggers a slow server-side redirect or render, give instant client-side visual confirmation via `JS.show` / `JS.add_class` / similar. The slow path runs anyway; you're masking the perceived gap, not changing the server flow.
+
+---
+
+## `.dockerignore` must exclude `/high-rollers-elixir` (2026-04-28)
+
+**Problem**: the main app Dockerfile only `COPY`s `mix.exs`, `mix.lock`, `config/`, `assets/`, `priv/`, `lib/`, `rel/`. But `flyctl deploy` ships the entire repo as Docker build context unless excluded. `/high-rollers-elixir` (a sister Phoenix project that lives in the same repo for convenience but has its own deploy + Dockerfile) is 174MB. It was uploading on every deploy, contributing to 232MB+ context uploads that timed out on slow connections.
+
+**Fix**: added `/high-rollers-elixir` to `.dockerignore` in commit `3cbf1d1`. Context dropped to ~14–47MB.
+
+**Watch for**: any other unrelated subprojects added to this repo over time. The `.dockerignore` exclusion list is the only thing protecting deploy-upload time.
+
+---
+
+## Cloudflare proxied CNAME to Fly — fresh subdomains need a `_fly-ownership` TXT to issue certs (2026-04-28)
+
+**Setup**: cutover Cloudflare DNS for `blockster.com` from direct `A`/`AAAA` records to a proxied CNAME (`blockster.com → blockster-v2.fly.dev`, orange cloud). Apex flipped cleanly because Fly already had a Let's Encrypt cert for `blockster.com` issued *before* the proxy went on. Then tried the same thing for `www.blockster.com` and Fly never verified.
+
+**Why the apex worked but `www` didn't**: Fly's cert verifier reaches the origin to fingerprint the IP. With Cloudflare proxy on, every DNS query for `www.blockster.com` returns CF anycast IPs; Fly can't see the real Fly machine IP, so HTTP-01 / IP-validation fails. The apex skirted this because the cert was already issued from a pre-proxy A-record DNS state — the proxy swap doesn't invalidate live certs, only blocks new ones.
+
+**The fix Fly hands you, that you have to actually read**: `flyctl certs setup www.blockster.com --app blockster-v2` outputs a "CNAME + TXT" pair under "Additional DNS records":
+
+```
+Ownership TXT Record
+   TXT _fly-ownership.www.blockster.com → app-wdgyyj8
+   Required if your app doesn't have an IPv6 address, or if traffic is routed through a CDN or proxy.
+```
+
+That last clause is the load-bearing sentence. The TXT record gives Fly out-of-band proof of ownership, replacing the IP fingerprint that CF hides. Once the TXT record is added (DNS-only, not proxied — TXT records aren't proxied anyway), `flyctl certs check www.blockster.com --app blockster-v2` retries verification and the cert moves to Issued.
+
+**Generalize**: any subdomain you're adding *after* the proxy is on needs the `_fly-ownership.<subdomain>` TXT. Verbatim from `flyctl certs setup <hostname>` output. Don't skip it because the apex didn't need it — the apex only didn't need it because the proxy went on after the cert was issued, which is the inverse situation.
+
+**Other prerequisite that bit on the apex flip**: Cloudflare SSL/TLS must be **Full (strict)** before the orange cloud goes on. Fly has `force_https = true`; CF on "Flexible" sends HTTP to origin → Fly 301s to HTTPS → CF passes the redirect back → infinite loop. Fly always has a real LE cert, so strict is correct, not paranoid.
+
+**Outstanding follow-up after the cutover**: with CF proxy on, `conn.remote_ip` reads as a Cloudflare edge IP everywhere — rate limits, fingerprint anti-sybil source-IP capture, abuse logs all need a `RemoteIp` plug configured to read `CF-Connecting-IP` (or trust CF's IP ranges in `X-Forwarded-For`). Not blocking the swap, but anything keying off `remote_ip` is silently ineffective until that plug is wired up.
 
 ---
 

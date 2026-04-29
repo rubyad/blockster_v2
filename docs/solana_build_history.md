@@ -92,6 +92,80 @@ Both volumes (`vol_493dxol8yx95p054` + `vol_r779xw2ww3n2031r`) stay attached. Ve
 
 `.dockerignore` excludes `/contracts` (saves ~2.3 GB upload). Don't undo it — settler ships from its own image, not from the main app's. Even with the exclusion, context upload still runs ~770 KB/s to Fly's builder (5–10 min/deploy). Verified user's connection is fine (35 Mbps to Cloudflare); the upstream limit is on Fly's side.
 
+### DNS migrated from Fly A/AAAA records → Cloudflare proxied CNAME
+
+Cloudflare DNS for `blockster.com` switched from direct `A`/`AAAA` records pointing at Fly IPs (`66.241.125.44` / `2a09:8280:1::ab:75bd:0`) to a proxied CNAME `blockster.com → blockster-v2.fly.dev` (orange cloud). Cloudflare's apex CNAME flattening handles the root-domain DNS standards issue automatically.
+
+**Why**: gain Cloudflare's DDoS absorption + the option to layer WAF / rate-limit / Bot Fight rules on top. Free-plan baseline only; the *real* hardening (WAF managed rules, rate-limit on `/api/auth/*`, Bot Fight Mode) is configured in the Cloudflare dashboard, not by the DNS swap itself.
+
+**Prerequisite**: Cloudflare SSL/TLS mode MUST be **Full (strict)** before flipping the orange cloud on. Fly has `force_https = true` in `fly.toml`; if Cloudflare is on "Flexible" (HTTP to origin), the cutover infinite-loops between Fly's HTTPS redirect and CF's HTTP origin pull. Fly already has a valid Let's Encrypt cert for `blockster.com` (`flyctl certs list` shows Issued), so strict validates correctly.
+
+**No code changes needed**: `Host: blockster.com` still hits Fly with the same hostname (CF preserves Host when proxying), so `BlocksterV2Web.Plugs.V2RedirectPlug` (which targets `v2.blockster.com` / `blockster-v2.fly.dev` / `www.blockster.com`) doesn't trigger for the apex.
+
+**`www.blockster.com` swap is NOT symmetric**: when adding `www` as a proxied CNAME, Fly cannot fingerprint the origin IP through CF, so a TXT ownership record is required to issue the cert. Output of `flyctl certs setup www.blockster.com --app blockster-v2`:
+
+```
+CNAME www.blockster.com → blockster-v2.fly.dev   (proxied)
+TXT   _fly-ownership.www.blockster.com → app-wdgyyj8   (DNS-only)
+```
+
+The TXT record is the gotcha — CF's apex CNAME worked without it because the cert was issued before the proxy went on; for a fresh proxied subdomain, the TXT is mandatory. Then `flyctl certs check www.blockster.com --app blockster-v2` to retry verification.
+
+**Outstanding follow-up — `remote_ip` is now wrong everywhere**: with CF proxy on, `conn.remote_ip` reads as a Cloudflare edge IP for every request. Anything keying off `remote_ip` (rate limits, fingerprint anti-sybil source IP, abuse logs, admin IP allowlists) needs a `RemoteIp` plug configured to read `CF-Connecting-IP` (or `X-Forwarded-For` with CF's IP ranges trusted). Not blocking the cutover, but rate-limit / anti-sybil logic is silently ineffective until this is wired up.
+
+### Logout overlay for instant client-side feedback (commit `1afae5c`)
+
+`disconnect_wallet` ends with `redirect(socket, to: "/")` — a hard reload back to the homepage. PostLive.Index does heavy synchronous mount work, so the navigation gap was visible as 1–3 seconds of blank screen. Added a hidden `#logout-overlay` element in `root.html.heex` (full-screen white, spinner, "Signing out…"), and changed both disconnect buttons (`design_system.ex` user dropdown, `layouts.ex` legacy dropdown) to `phx-click={JS.show(to: "#logout-overlay") |> JS.push("disconnect_wallet")}`. `JS.show` fires client-side instantly with no roundtrip; `JS.push` is the same server event as before. Server behaviour unchanged.
+
+### `.dockerignore /high-rollers-elixir` (commit `3cbf1d1`)
+
+Added `/high-rollers-elixir` to `.dockerignore`. Without it the 174MB sister project was uploading on every deploy as part of the Docker build context. Reduced uploads from 232MB+ (which timed out on slow connections) to ~14–47MB.
+
+### `longPollFallbackMs: 2500` removed then reverted (commits `c29e376` + `b56817c`)
+
+Briefly removed the LiveSocket `longPollFallbackMs: 2500` option in `assets/js/app.js`, then reverted within the same session. Net change to deployed `app.js`: zero. Reasoning recorded in `docs/session_learnings.md` — the option is the safety net for users whose WS handshake can't complete within 2.5s; removing it leaves those tabs stuck "Connecting" forever instead of degrading to LongPoll.
+
+### `fly.toml [deploy] strategy = 'immediate'` reverted (uncommitted at time of writing)
+
+Removed `strategy = 'immediate'` from `fly.toml [deploy]`, restoring the default rolling strategy. The `'immediate'` strategy was added in commit `5bc2922` to bypass the volume-claim panic, but `'immediate'` is more disruptive for stateful Mnesia clusters because it stops/starts machines in place during deploy. Default rolling stays subject to the volume-claim panic; the per-machine `flyctl machines update --image` workaround documented in `docs/solana_mainnet_deployment.md` Step 7 is the recovery path.
+
+### MnesiaInitializer bug surfaced — machine `865d14f7225508` in degraded state
+
+During post-deploy debugging on 2026-04-29, machine `865d14f7225508` (node `…195:c889:9afe:2`) was found to have no local disc copies of 30+ tables. `:mnesia.table_info(:user_bux_points, :where_to_read)` resolves to the *other* node (`…e770:82b0:7db3:2`); reads cross the network. Schema disc_copies for this node is `[]`. Stale schema entry `…195:3603:63e:2` was cleaned up by `MnesiaInitializer.cleanup_stale_nodes/0` during the most recent restart (machine restarted via `flyctl machine restart 865d14f7225508` to invoke MnesiaInitializer). After cleanup, `where_to_read` resolved to a valid node and the GenServer crash loop on this node (TopicEngine, FeedPoller, BuxBoosterBetSettler — all hitting `:no_exists` on table reads every minute) stopped. But local replication was never restored.
+
+Root cause: `MnesiaInitializer.safe_add_table_copy/2` swallowed `{:aborted, {:already_exists, _, _}}` as benign; the actual schema-disc failure was logged once at the end on `:web3auth_email_otps` as `{:combine_error, ~c"has no disc", node()}` but for every preceding table the cluster-existence check shadowed the schema-disc check. Fix-path detail in `docs/session_learnings.md` under "MnesiaInitializer.safe_add_table_copy/2 misreads :already_exists".
+
+Operational state: machine `865d14f7225508` works (reads via remote) but has a single-point-of-failure on `17817e62f16438` and pays network round-trip on every Mnesia op. Repair (manual schema disc conversion + `add_table_copy/3` per table, or a code patch + redeploy) deferred.
+
+### HMAC settler smoke test verified on prod
+
+After the deploy that landed the HMAC fix, two settler-dependent paths were exercised from prod IEx and both returned `{:ok, ...}`:
+
+- `BlocksterV2.BuxMinter.get_balance("DaqXmvYFAgv1teJm3Y4YzfJBfqUhGv1bAzjUhKUWZndF")` → `{:ok, %{sol: 0, bux: 0}}`
+- `BlocksterV2.BuxMinter.get_pool_stats() |> elem(0)` → `:ok`
+
+Confirms the Bearer→HMAC migration on the main-app side is wired correctly against the deployed settler (which has the raw-body capture in place).
+
+### Legacy BUX mint for `adam+admin1@blockster.com`
+
+The merge of legacy user 17 → new user 2220 had already landed on 2026-04-28T23:29:00Z (legacy `is_active: false`, `merged_into_user_id: 2220`). The mint step inside `LegacyMerge.maybe_claim_legacy_bux/2` no-op'd because there was no `LegacyBuxMigration` row matching `adam+admin1@blockster.com` — that table is empty for any `adam*` email on prod, so the email-keyed lookup returned `nil` and `mint_legacy_bux/3` was never called.
+
+The 474,298.4 BUX figure lives in `:user_bux_points` Mnesia for legacy user 17 (smart_wallet `0xb6b4cb36ce26d62fe02402ef43cb489183b2a137`), with the multi-token aggregate (475,956.9 across BUX/MoonBUX/NeoBUX/etc.) in `:user_bux_balances`. None of this is reachable through the standard merge flow.
+
+Manually invoked `BlocksterV2.BuxMinter.mint_bux/5` with the BUX-only amount and `reward_type: :legacy_migration`. Returned:
+
+```
+{:ok, %{
+  "amount" => 474298.4,
+  "ataCreated" => true,
+  "signature" => "3hmf6MY2HE8joC7y4iWxLuuM43d8hEyvDtucm8NHaWyTx6v9Cc6wSXHF8fW1RWbqBqfsz7rBy2LcV3e27JqRwvQf",
+  "success" => true,
+  "wallet" => "DaqXmvYFAgv1teJm3Y4YzfJBfqUhGv1bAzjUhKUWZndF"
+}}
+```
+
+Tx: https://solscan.io/tx/3hmf6MY2HE8joC7y4iWxLuuM43d8hEyvDtucm8NHaWyTx6v9Cc6wSXHF8fW1RWbqBqfsz7rBy2LcV3e27JqRwvQf. The Mnesia row for legacy user 17 was not modified — it's "stranded" (legacy user is deactivated, no read path uses it), which means there's no automated audit trail tying this manual mint to that row. Any future legacy-claim flow that scans `:user_bux_points` directly should treat user 17's row as already settled.
+
 ---
 
 ## Pool + /play UI Polish + Web3Auth Reauth-Pill Pattern (2026-04-27) ✅
