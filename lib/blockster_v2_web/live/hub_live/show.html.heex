@@ -130,6 +130,11 @@
             <.eyebrow class="mb-1">Latest stories</.eyebrow>
             <h2 class="font-bold text-[28px] md:text-[34px] tracking-[-0.018em] text-[#141414]">From {@hub.name}</h2>
           </div>
+          <%= if length(@all_posts) > length(@mosaic_posts) + 1 do %>
+            <button phx-click="switch_tab" phx-value-tab="news" class="text-[13px] text-neutral-600 hover:text-neutral-900 transition-colors group cursor-pointer">
+              View all <%= length(@all_posts) %> stories <span class="inline-block group-hover:translate-x-0.5 transition-transform">&rarr;</span>
+            </button>
+          <% end %>
         </div>
 
         <%!-- Uses the same posts_three / four / five / six live components
@@ -147,6 +152,15 @@
             show_read_more={true}
             hide_title={true}
           />
+        <% end %>
+
+        <%= if length(@all_posts) > length(@mosaic_posts) + 1 do %>
+          <div class="flex justify-center mt-8">
+            <button phx-click="switch_tab" phx-value-tab="news" class="inline-flex items-center gap-2 bg-[#0a0a0a] text-white px-5 py-3 rounded-full text-[13px] font-bold hover:opacity-90 transition-opacity cursor-pointer">
+              View all <%= length(@all_posts) %> stories
+              <svg class="w-3.5 h-3.5" viewBox="0 0 20 20" fill="none"><path d="M3 10h12m0 0l-4-4m4 4l-4 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+          </div>
         <% end %>
       </section>
     <% end %>

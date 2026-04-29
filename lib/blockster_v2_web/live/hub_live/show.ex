@@ -238,13 +238,21 @@ defmodule BlocksterV2Web.HubLive.Show do
   defp tab_count("events", _assigns), do: 0
 
   # Chunk posts into the same Three(5) → Four(3) → Five(6) → Six(5) cycle
-  # used on the homepage so hub pages render identical layout components.
-  # Components with no posts are dropped — works for partial cycles when
-  # the hub has fewer than 19 posts. PostsThreeComponent itself handles
+  # used on the homepage. For >19 posts, recurse so every post lands in a
+  # component (otherwise hubs like MoonPay with 42 posts would silently
+  # drop everything past the first cycle). Empty components are dropped,
+  # so partial cycles render fine — and PostsThreeComponent itself handles
   # 1-4 posts via its built-in "simple grid" branch.
-  defp build_post_components([], _hub_name), do: []
-
   defp build_post_components(posts, hub_name) do
+    posts
+    |> Enum.chunk_every(19)
+    |> Enum.with_index()
+    |> Enum.flat_map(fn {cycle_posts, cycle_idx} ->
+      build_one_cycle(cycle_posts, hub_name, cycle_idx)
+    end)
+  end
+
+  defp build_one_cycle(posts, hub_name, cycle_idx) do
     {three_posts, rest} = Enum.split(posts, 5)
     {four_posts, rest} = Enum.split(rest, 3)
     {five_posts, rest} = Enum.split(rest, 6)
@@ -254,22 +262,22 @@ defmodule BlocksterV2Web.HubLive.Show do
 
     [
       %{
-        id: "hub-three-#{uid}",
+        id: "hub-three-c#{cycle_idx}-#{uid}",
         module: BlocksterV2Web.PostLive.PostsThreeComponent,
         posts: three_posts
       },
       %{
-        id: "hub-four-#{uid}",
+        id: "hub-four-c#{cycle_idx}-#{uid}",
         module: BlocksterV2Web.PostLive.PostsFourComponent,
         posts: four_posts
       },
       %{
-        id: "hub-five-#{uid}",
+        id: "hub-five-c#{cycle_idx}-#{uid}",
         module: BlocksterV2Web.PostLive.PostsFiveComponent,
         posts: five_posts
       },
       %{
-        id: "hub-six-#{uid}",
+        id: "hub-six-c#{cycle_idx}-#{uid}",
         module: BlocksterV2Web.PostLive.PostsSixComponent,
         posts: six_posts
       }
