@@ -9,6 +9,123 @@ Chronological record of all Solana migration changes and post-migration updates 
 
 ---
 
+## Post-Launch Firefight (2026-04-29) ✅ — perf, auth, data fixes, ~14 commits
+
+Day after mainnet rollout. User reported the app was "running like a dog" — auth modals hanging on Telegram + email login, page going white, mobile bottom-nav clicks taking seconds to register, mysterious "problem with blockster.com" errors. Spent the session triaging, fixing, deploying twice, and discovering that several of the suspected causes weren't the actual culprits. Net: 14 commits across two deploys, 5 users restored their on-chain BUX (299K total), root-cause framing in `session_learnings.md` corrected mid-session as evidence accumulated.
+
+### Performance: widget pollers tuned defensively (commit `44274de` + `d9c290b`)
+
+The `feat/solana-migration` branch shipped 3 widget trackers polling sister apps and broadcasting on `Phoenix.PubSub`: FateSwap (3s), RogueTrader chart (60s), RogueTrader bots (10s). On a 1000-LV cluster that fan-out math is brutal — every broadcast hits every subscribed LV's `handle_info` + re-render + JS event push. Cut all three:
+
+- `BlocksterV2.Widgets.FateSwapFeedTracker` removed from supervisor in `application.ex` — feed widgets retired entirely. Mnesia readers (`get_trades/0`, `get_order/1`) degrade to `[]`/`nil` so cached pages keep rendering.
+- `RogueTraderChartTracker` `@default_interval` 60s → 10min (also bumped in `runtime.exs` since runtime config wins over the module default).
+- `RogueTraderBotsTracker` `@default_interval` 10s → 30s (same runtime.exs bump).
+- Dead `widgets:fateswap:feed` PubSub subscribe + `handle_info({:fs_trades, _}, ...)` clause stripped from `WidgetEvents`.
+- `fs_*` widget_type options removed from `banners_admin_live.ex` dropdown so admins can't create new FateSwap widget banners (would render forever as empty skeletons since the tracker is gone).
+- `runtime.exs` — dropped `fateswap_*` config keys (no callers).
+
+**Verification correction**: code re-read confirmed `WIDGETS_ENABLED` was unset in prod fly secrets, so the trackers literally never started — the cuts above were defensive (would have hit hard the moment the flag flipped) but did NOT fix the live prod symptom. See the verification note in `session_learnings.md` "PubSub broadcasts are fan-out bombs". Real perf cause was elsewhere (see "homepage + article async" below + Mnesia/HMAC fixes).
+
+### Performance: homepage + article-page mount async (commit `b6a2ff4`)
+
+`PostLive.Index.mount/3` and `PostLive.Show.handle_params/3` were doing heavy synchronous work in the connected-mount path — full Mnesia table scans (`EngagementTracker.get_total_bux_distributed/0` does `:mnesia.dirty_all_keys(:post_bux_points)` then dirty-reads each key, O(P)), N+1 banner queries, social data lookups. Socket-join was racing the client's `longPollFallbackMs: 2500` window and losing.
+
+Wrapped in `start_async`:
+- Homepage: `:load_hero_stats` (Mnesia full scan + post count), `:load_announcement_banner`, `:load_user_extras` (followed hubs + reward map for logged-in users)
+- Article: `:load_article_extras` (4 social reads + suggested posts + airdrop round + announcement banner), `:load_article_banners` (8 placement queries + picks + `mount_widgets/2` re-arm)
+
+Banner queries + hub_showcase stayed sync on homepage because they're consumed inside the `<%= for {dom_id, comp} <- @streams.components %>` loop body — LiveView streams don't reactively re-evaluate per-item conditionals against parent assigns, so async-wrapping those would make the gradient cards never render. Article page had no such constraint (no streams).
+
+Heex now reads `@total_hubs_count` instead of recomputing `length(BlocksterV2.Blog.list_hubs())` 3× per render.
+
+### Auth: 4 fixes that compounded into "page goes white" + auth hangs (commit `64aa1e5`)
+
+- `assets/css/app.css` — narrow the `.phx-disconnected, .phx-error { display: none !important }` rule (landed Jan 26 to hide LV reconnect flash on mobile) to `#client-error, #server-error` only. LV applies `phx-error` directly to the LV container element via `view.js setContainerClasses`, so the global selector hid the entire page on every transient socket error and made every LV crash look like a frozen white screen instead of a visible "lost connection" banner.
+- `assets/js/hooks/web3auth_hook.js` — wrap `_silentReconnect()` in a 3s `Promise.race` timeout. Without it, a stalled `_waitForConnectorSettle` could hang the hook on every LV reconnect; combined with an unstable LV socket (the perf issues above), overlapping reconnect promises stacked up and wedged the auth modal.
+- Logout overlay removed (`root.html.heex` + the two `JS.show(to: "#logout-overlay")` triggers in `design_system.ex` + `layouts.ex`).
+- Wallet link in user dropdown is now ALWAYS rendered for authenticated users. Was gated behind `BlocksterV2.WalletSelfCustody.Auth.feature_enabled?()` which defaults to false in prod, so the link kept "disappearing" across deploys. Regression test in `header_test.exs` so it can't get re-gated by accident.
+
+### Auth: Telegram mobile redirect flow (commit `8572fde`)
+
+User reported Telegram login worked on desktop but on mobile the popup hung and only refresh dismissed it. `window.Telegram.Login.auth()` opens a popup and waits for a callback via `window.opener.postMessage`. iOS Safari + many Android in-app browsers either block the popup or open it in a separate tab where postMessage can't reach the parent.
+
+Two-layer fix:
+1. **60s defensive timeout** on the popup callback Promise so LV state recovers even when the callback never fires.
+2. **Redirect-mode flow on mobile** (`isMobileUA()` check) — full-page navigation to `oauth.telegram.org/auth?bot_id=…&return_to=https://blockster.com/api/auth/telegram/callback`. New `GET /api/auth/telegram/callback` does the same HMAC-SHA256-of-data_check_string validation as the existing POST verify path, stashes Custom JWT in `:pending_telegram_jwt` session, redirects to `/?telegram_login=1`. JS hook on `mounted()` detects the flag, fetches the JWT via one-shot `GET /api/auth/telegram/pending_jwt`, runs `_startJwtLogin` to complete the Web3Auth Custom connector login.
+
+Pattern generalizes to any future provider that opens its own popup. X / Google / Apple already use redirect mode via Web3Auth's SDK (`uxMode: "redirect"`); Telegram was the gap because we own its hook code.
+
+### LegacyMerge: admin/author preservation + Mnesia-sourced BUX claim (commit `fb53ccb`)
+
+Two prod gaps surfaced when 5 reclaimed users had missing legacy BUX (collectively 299K) and lidia + adam+admin1 lost admin/author privileges after their email reclaim:
+
+1. `is_admin` / `is_author` weren't transferred. Fix: new `maybe_transfer_role_flags/2` step (step 11 in `do_merge`) OR-promotes both flags from the legacy row.
+2. Legacy BUX claim was reading from `LegacyBuxMigration` (snapshot table by email). Snapshot was never populated in prod — table had 0 rows. Every reclaim silently claimed 0.0 BUX. `maybe_claim_legacy_bux/2` now reads the legacy user's actual `:user_bux_balances` Mnesia row first (canonical record kept in sync by EngagementTracker), falls back to `LegacyBuxMigration` only if Mnesia is empty. Audit trail: `record_migration/3` updates or inserts the LegacyBuxMigration row stamped with the mint tx signature.
+
+Idempotency stays via the existing `legacy.is_active == false → :legacy_already_deactivated` early-return — a successful mint can't be replayed on the same legacy row.
+
+### Mnesia: `safe_add_table_copy/2` + `:unknown` schema recovery (commit `8444ef7`)
+
+Two bugs in MnesiaInitializer that turned a benign deploy restart into a Mnesia split-brain. After the deploy: Erlang cluster reconnected fine, but `:mnesia.system_info(:running_db_nodes)` showed only `self` on each side; machine `865d14f7225508` ended up with ~30 critical tables in remote-only state (`where_to_read: :nowhere`) so reads landing on it returned `:no_exists`.
+
+- `safe_add_table_copy/2` now correctly verifies `node()` is in the table's `:disc_copies` list before treating `:already_exists` as benign. If not, calls `ensure_schema_disc_copies/0` then retries `add_table_copy/3` once.
+- `ensure_schema_disc_copies/0` now handles the `:unknown` schema state — first `add_table_copy(:schema, node(), :ram_copies)` to materialize a local schema copy, then promote to disc.
+
+**Open follow-up (not shipped)**: MnesiaInitializer doesn't actively call `:mnesia.change_config(:extra_db_nodes, ...)` on boot — relies on Mnesia auto-discovery which doesn't fire when a node has a stale on-disk schema. The fixes above run AFTER the cluster join, so they don't help the broken machine that's still single-node from Mnesia's POV. Manual recovery still required after every deploy (~30 sec) until the auto-rejoin fix lands. See `session_learnings.md` "Mnesia split-brain after deploy restart — open follow-up" + `memory/project_mnesia_split_brain_open.md`.
+
+### Hub colors: deterministic helper + brand backfill + sticky z-fix (commit `8349f73`)
+
+Production hubs were rendering with the same purple gradient because every hub had `color_primary: nil` / `color_secondary: nil` in the DB. Local dev had colors via `seeds_hubs.exs` but the seed never ran on prod.
+
+- `BlocksterV2.Blog.HubColor.gradient/1` — runtime helper that uses DB colors when set, otherwise derives a stable HSL pair from the slug hash. Same input always produces the same colors.
+- `BlocksterV2.Migration.HubColorBackfill` — one-shot migration that copies brand colors from `seeds_hubs.exs` into the DB ONLY for hubs with both color fields nil. Idempotent. Ran on prod: 56 hubs updated, 1 skipped (already had colors), 7 known-from-seed not in prod DB (covered by runtime fallback).
+- All hub_card and hub_feature_card sites in heex (homepage, /hubs index, /hub/:slug show) now call `HubColor.gradient/1` and pass `primary`/`secondary`.
+- Homepage hub_card now also receives `logo_url={hub.logo_url}` — that prop existed on the component but the homepage wasn't passing it, so all logos fell through to the ticker/initial branch.
+- Sticky search bar overlap fix: `hub_live/index.html.heex` search section was `z-10`, hub_card inner content also `z-10`, later in document order = cards win the tie and render their logo + "Visit hub" pill on top of the search input as you scroll past. Bumped search to `z-20`.
+
+### Homepage: welcome_hero no longer hijacks the top post (commit `b45fff3`)
+
+User reported lidia just published a post but it didn't appear at top of homepage when logged in, and appeared as an unclickable card in welcome_hero for anonymous users.
+
+The anonymous-only `welcome_hero` was rendering a preview card of the latest post; mount excluded the hero post id from the cycling feed via `displayed_post_ids = [hero.id]` to avoid duplication. For logged-in users, welcome_hero doesn't render at all — the most recent post was fetched, filtered out of the feed, and never displayed anywhere. For anon users, the preview card had no link wrapper.
+
+Fix: stop passing `preview_*` attrs to welcome_hero. Top post stays in the cycling feed at the top for everyone. Welcome_hero still renders for anon users (welcome copy + stats row) but no preview card. New rule documented in `session_learnings.md`: featured/hero/welcome surfaces must NEVER hijack a post that's also expected in the main feed.
+
+### Manual data ops on prod (audit trail)
+
+- **5 BUX mints** for users whose legacy reclaim landed before the LegacyMerge Mnesia-source fix:
+  - andrzej1399@gmail.com (id 2223): 258868.89 BUX → wallet `JNu8hxP1nFag6fCYhDdtKggTSHo7m2WBFvwsg3y436d`
+  - shumaila060606@gmail.com (id 2226): 14798.42 → `wrRLdJXAo7huGfuqMemc11GhgxXysegfUiub2dSMqk8`
+  - mariofal58@gmail.com (id 2235): 11196.54 → `DX8ScSDFUrhiy8fhQbpCFF7SPmLNenMeqT4xLXNeS1tu`
+  - lidia@blockster.com (id 2236): 8817.27 → `7fw4kZBmX8X1dfozTnS2MVUeLrZjfkprqMpsTk7CU3V6` (1.0 test mint + 8816.27 production mint)
+  - mbell12pass@gmail.com (id 2222): 5723.74 → `Bs7AjLkdsKLhu8hRr6zhNxwD2Uk8MGkJRN4drBv2yvSf`
+  - Total restored: **299,404.86 BUX**. All 5 verified on-chain via `BuxMinter.get_balance/1` post-mint.
+- **Admin grants**: lidia (id 2236) + adam+admin1 (id 2220) → `is_admin: true, is_author: true` (manually granted via `Repo.update_all`). LegacyMerge role-flag fix only affects FUTURE merges, so these two needed the manual fix.
+- **Mnesia recovery on machine 865d14f7225508**: ran the manual ghost-drop + drop-conflicting-tables + change_config sequence twice today — once mid-session (after first deploy) and once at end of session (after second deploy). Both times restored to healthy state in ~30 sec.
+
+### Settler: dist rebuild required pre-deploy (gotcha to remember)
+
+The 2026-04-28 commit `4da0d6d` updated `contracts/blockster-settler/src/middleware/hmac-auth.ts` to capture the raw request body for HMAC verification — necessary because Elixir's `Jason.encode!(1.0)` produces `"1.0"` while JS's `JSON.stringify(1.0)` produces `"1"`, breaking HMAC for any payload with whole-number floats. But the fix sat unbuilt: the Dockerfile does `COPY dist/ ./dist/` and `dist/` is gitignored, so deploys were shipping the pre-fix version of the JS until I ran `npm run build` locally and re-deployed today. First batch of 5 mints failed with empty error from the settler before the rebuild; succeeded immediately after.
+
+Open: settler Dockerfile should run `npm run build` during the docker build instead of relying on a local pre-built `dist/`. Filed mentally; not yet ticketed.
+
+### Doc + memory updates this session
+
+- `session_learnings.md` — 5 new entries: PubSub broadcasts (with verification correction note), Don't speculate, MnesiaInitializer.safe_add_table_copy/2 misreads :already_exists, Mnesia split-brain after deploy restart (open follow-up), Welcome hero hijacked the top post, Telegram login popup hangs on mobile.
+- `claude.md` — PubSub broadcasts section, hard fly.toml deploy check, Telegram social login two-path note.
+- `solana_mainnet_deployment.md` Step 8 (post-deploy widget enablement) — strip FateSwap references, update RT load math, document Mnesia recovery requirement.
+- `memory/MEMORY.md` — Open production issues section added at top with link to project_mnesia_split_brain_open.md.
+- 4 new memory entries: PubSub fan-out rule, finish-before-pivot rule, Mnesia split-brain (open issue), strengthened deploy_directory_check (HARD RULE).
+
+### Operational state at end of session
+
+- Cluster: 2 machines (`17817e62f16438` + `865d14f7225508`), both healthy after manual Mnesia recovery on the second.
+- Settler: `blockster-settler` deployed with rebuilt dist, HMAC fix live.
+- Widgets: still NOT enabled on prod (`WIDGETS_ENABLED` unset). Documented enablement procedure in runbook Step 8 — will need: banner seed run, secret stage, redeploy, RT cadence verify, manual Mnesia recovery on broken machine.
+- Web3Auth users restored: 5 BUX mints + 2 admin grants. New reclaims (after this session's commits land) will auto-mint legacy BUX from Mnesia + auto-promote role flags.
+
+---
+
 ## Mainnet Rollout (2026-04-28) ⚠️ in-flight — first day live
 
 First production traffic running against Solana mainnet. Two deploys (`Deploy #1` initial mainnet cutover, `Deploy #2` social login enabled) landed cleanly modulo the volume-claim Fly bug below. Settler is in `ord` on `performance-2x` with `max_machines_running=1` (single instance — settler is the on-chain authority for mints/settlements and cannot run multi-master). Programs `49up2uzZ…` (bankroll) + `wxiuLBu…` (airdrop) are initialized; BUX SPL token is live at `7CuRyw2YkqQhUUFbw6CCnoedHWT8tK2c9UzZQYDGmxVX`. Web3Auth verifiers (`blockster-email`, `blockster-telegram`) saved in dashboard. Web3Auth signing key (`kid 41be30c48dd049aa`) synced cluster-wide.
