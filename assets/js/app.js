@@ -710,13 +710,7 @@ let InfiniteScroll = {
 };
 
 const liveSocket = new LiveSocket("/live", Socket, {
-  // Removed `longPollFallbackMs: 2500` (was: fall back to LongPoll if WS
-  // handshake takes >2.5s). LongPoll is permanent for the session once
-  // triggered and ~5–10× slower than WS on every message — a single slow
-  // handshake (Web3Auth init blocking the JS thread, transient network
-  // hiccup) was punishing the rest of the session. Phoenix LV's default
-  // is to keep retrying WS forever, which is the right call: pay the
-  // (rare) slow handshake once instead of slowing every subsequent click.
+  longPollFallbackMs: 2500,
   params: (liveViewName) => {
     // Get pending claims from localStorage to pass to LiveView
     const pendingClaims = AnonymousClaimManager.getPendingClaims();
