@@ -168,38 +168,20 @@ defmodule BlocksterV2Web.PostLive.Show do
         {1, EngagementTracker.calculate_bux_earned(1, base_bux_reward, user_multiplier, geo_multiplier)}
       end
 
-    # Load X connection and share campaign for logged-in users
-    {x_connection, share_campaign, share_reward, x_share_reward} =
-      case socket.assigns[:current_user] do
-        nil ->
-          {nil, nil, nil, nil}
-
-        current_user ->
-          x_conn = Social.get_x_connection_for_user(current_user.id)
-          campaign = Social.get_campaign_for_post(post.id)
-          # Only consider successful (verified/rewarded) shares - failed shares can be retried
-          reward =
-            if campaign do
-              Social.get_successful_share_reward(current_user.id, campaign.post_id)
-            end
-
-          # X share reward = raw X score (0-100) as BUX
-          # V2 system: Share rewards use X score directly, NOT multiplied by base reward
-          x_score = UnifiedMultiplier.get_x_score(current_user.id)
-          calculated_reward = x_score
-
-          {x_conn, campaign, reward, calculated_reward}
-      end
+    # Social data + suggested posts + airdrop round + announcement banner are
+    # all deferred to start_async below — they're consumed by sidebar widgets,
+    # the share modal, and the discover sidebar, none of which need to render
+    # inside the first socket-join response. Initial values are placeholders;
+    # handle_async clauses fill them in once the bundled task returns.
+    x_connection = nil
+    share_campaign = nil
+    share_reward = nil
+    x_share_reward = nil
+    suggested_posts = []
+    airdrop_round = nil
 
     # Load offer data if this post was published from the content automation queue
     offer_data = load_offer_data(post.id)
-
-    # Load suggested posts (highest BUX balance, excluding posts user has read)
-    suggested_user_id = if socket.assigns[:current_user], do: socket.assigns.current_user.id, else: nil
-    suggested_posts = Blog.get_suggested_posts(post.id, suggested_user_id, 4)
-
-    # Load current airdrop round for discover sidebar
-    airdrop_round = Airdrop.get_current_round()
 
     # Split article content into chunks for inline ad placement.
     # Positions: 1/3 (inline_1), 1/2 (hub follow bar), 2/3 (inline_2).
@@ -210,47 +192,18 @@ defmodule BlocksterV2Web.PostLive.Show do
     split_positions = if has_hub, do: [0.33, 0.5, 0.66], else: [0.33, 0.66]
     content_chunks = TipTapRenderer.render_content_split(post.content, split_positions)
 
-    # Load sidebar ad banners
-    left_sidebar_banners =
-      if connected?(socket),
-        do: BlocksterV2.Ads.list_active_banners_by_placement("sidebar_left"),
-        else: []
-
-    right_sidebar_banners =
-      if connected?(socket),
-        do: BlocksterV2.Ads.list_active_banners_by_placement("sidebar_right"),
-        else: []
-
-    article_bottom_banners =
-      if connected?(socket),
-        do: BlocksterV2.Ads.list_active_banners_by_placement("article_bottom"),
-        else: []
-
-    video_player_top_banners =
-      if connected?(socket),
-        do: BlocksterV2.Ads.list_active_banners_by_placement("video_player_top"),
-        else: []
-
-    article_top_banners =
-      if connected?(socket),
-        do: BlocksterV2.Ads.list_active_banners_by_placement("article_top"),
-        else: []
-
-    # Inline article ad placements (template-based)
-    article_inline_1 =
-      if connected?(socket),
-        do: BlocksterV2.Ads.list_active_banners_by_placement("article_inline_1"),
-        else: []
-
-    article_inline_2 =
-      if connected?(socket),
-        do: BlocksterV2.Ads.list_active_banners_by_placement("article_inline_2"),
-        else: []
-
-    article_inline_3 =
-      if connected?(socket),
-        do: BlocksterV2.Ads.list_active_banners_by_placement("article_inline_3"),
-        else: []
+    # All ad banner placements deferred to start_async — none of them sit
+    # inside a `@streams` for-loop body on this page (verified against
+    # show.html.heex), so post-mount assigns reactively re-render and the
+    # ad slots fade in once the banner queries return.
+    left_sidebar_banners = []
+    right_sidebar_banners = []
+    article_bottom_banners = []
+    video_player_top_banners = []
+    article_top_banners = []
+    article_inline_1 = []
+    article_inline_2 = []
+    article_inline_3 = []
 
     # Anonymous user tracking assigns
     is_anonymous = socket.assigns[:current_user] == nil
@@ -273,86 +226,212 @@ defmodule BlocksterV2Web.PostLive.Show do
         _ -> nil
       end
 
+    current_user = socket.assigns[:current_user]
+
+    socket =
+      socket
+      |> assign(:page_title, post.title)
+      |> assign(:author_persona, author_persona)
+      |> assign(:show_categories, true)
+      |> assign(:post_category_slug, if(updated_post.category, do: updated_post.category.slug, else: nil))
+      |> assign(:post, updated_post)
+      |> assign(:time_spent, time_spent)
+      |> assign(:word_count, word_count)
+      |> assign(:engagement, engagement)
+      |> assign(:user_multiplier, user_multiplier)
+      |> assign(:user_eligible_to_earn, user_eligible_to_earn)
+      |> assign(:geo_multiplier, geo_multiplier)
+      |> assign(:base_bux_reward, base_bux_reward)
+      |> assign(:rewards, rewards)
+      |> assign(:bux_earned, bux_earned)
+      |> assign(:already_rewarded, already_rewarded)
+      |> assign(:article_completed, already_rewarded)
+      |> assign(:current_score, current_score)
+      |> assign(:current_bux, current_bux)
+      |> assign(:read_tx_id, read_tx_id)
+      # Async-loaded placeholders. Sidebar widgets (X share, suggested posts,
+      # airdrop round) and ad slots fade in once the bundled tasks return.
+      |> assign(:x_connection, x_connection)
+      |> assign(:share_campaign, share_campaign)
+      |> assign(:share_reward, share_reward)
+      |> assign(:x_share_reward, x_share_reward)
+      |> assign(:show_share_modal, false)
+      |> assign(:share_status, nil)
+      |> assign(:needs_x_reconnect, false)
+      |> assign(:hub_token, "BUX")
+      |> assign(:hub_logo, hub_logo)
+      |> assign(:suggested_posts, suggested_posts)
+      |> assign(:airdrop_round, airdrop_round)
+      |> assign(:pool_available, pool_available)
+      |> assign(:pool_balance, pool_balance)
+      |> assign(:offer_data, offer_data)
+      |> assign(:left_sidebar_banners, left_sidebar_banners)
+      |> assign(:right_sidebar_banners, right_sidebar_banners)
+      |> assign(:article_bottom_banners, article_bottom_banners)
+      |> assign(:video_player_top_banners, video_player_top_banners)
+      |> assign(:article_inline_1, article_inline_1)
+      |> assign(:article_inline_2, article_inline_2)
+      |> assign(:article_inline_3, article_inline_3)
+      |> assign(:article_inline_1_pick, nil)
+      |> assign(:article_inline_2_pick, nil)
+      |> assign(:article_inline_3_pick, nil)
+      |> assign(:article_top_banners, article_top_banners)
+      |> assign(:article_top_pick, nil)
+      |> assign(:article_bottom_pick, nil)
+      |> assign(:video_player_top_pick, nil)
+      |> assign(:content_chunks, content_chunks)
+      |> assign(:has_hub, has_hub)
+      |> assign(:video_modal_open, false)
+      |> assign(:is_anonymous, is_anonymous)
+      |> assign(:show_signup_prompt, false)
+      |> assign(:show_video_signup_prompt, false)
+      |> assign(:announcement_banner, nil)
+      |> assign(:earning_bar_dismissed, false)
+      |> assign(:anonymous_earned, 0)
+      |> assign(:anonymous_video_earned, 0)
+      |> assign(:engagement_score, nil)
+      |> load_video_engagement()
+      # Subscribe to global widget topics + seed empty widget caches. Per-banner
+      # impressions/topic subscriptions land later in handle_async once the
+      # banner queries return.
+      |> mount_widgets([])
+
+    socket =
+      if connected?(socket) do
+        socket
+        |> start_async(:load_article_extras, fn -> fetch_article_extras(post.id, current_user) end)
+        |> start_async(:load_article_banners, fn -> fetch_article_banners() end)
+      else
+        socket
+      end
+
+    {:noreply, socket}
+  end
+
+  # 4 social reads (audit-flagged) + suggested posts + airdrop round +
+  # announcement banner — none consumed before the page is interactive, so
+  # they're bundled off the mount path and into a single off-process task.
+  defp fetch_article_extras(post_id, current_user) do
+    {x_connection, share_campaign, share_reward, x_share_reward} =
+      case current_user do
+        nil ->
+          {nil, nil, nil, nil}
+
+        user ->
+          x_conn = Social.get_x_connection_for_user(user.id)
+          campaign = Social.get_campaign_for_post(post_id)
+          reward =
+            if campaign do
+              Social.get_successful_share_reward(user.id, campaign.post_id)
+            end
+
+          x_score = UnifiedMultiplier.get_x_score(user.id)
+
+          {x_conn, campaign, reward, x_score}
+      end
+
+    suggested_user_id = if current_user, do: current_user.id, else: nil
+
+    %{
+      x_connection: x_connection,
+      share_campaign: share_campaign,
+      share_reward: share_reward,
+      x_share_reward: x_share_reward,
+      suggested_posts: Blog.get_suggested_posts(post_id, suggested_user_id, 4),
+      airdrop_round: Airdrop.get_current_round(),
+      announcement_banner: BlocksterV2Web.AnnouncementBanner.pick(current_user)
+    }
+  end
+
+  # 8 banner placement queries collapsed into one async hop. Each query is
+  # ~10–30ms; serially on the mount path that's 100–250ms blocking the
+  # socket-join. Picks (article_top, article_bottom, video_player_top, and
+  # the 3 deduped inline picks) are computed in the task so handle_async
+  # can splice them in atomically.
+  defp fetch_article_banners do
+    article_top_banners = BlocksterV2.Ads.list_active_banners_by_placement("article_top")
+    left_sidebar_banners = BlocksterV2.Ads.list_active_banners_by_placement("sidebar_left")
+    right_sidebar_banners = BlocksterV2.Ads.list_active_banners_by_placement("sidebar_right")
+    article_bottom_banners = BlocksterV2.Ads.list_active_banners_by_placement("article_bottom")
+    video_player_top_banners = BlocksterV2.Ads.list_active_banners_by_placement("video_player_top")
+    article_inline_1 = BlocksterV2.Ads.list_active_banners_by_placement("article_inline_1")
+    article_inline_2 = BlocksterV2.Ads.list_active_banners_by_placement("article_inline_2")
+    article_inline_3 = BlocksterV2.Ads.list_active_banners_by_placement("article_inline_3")
+
+    {p1, p2, p3} = pick_distinct_inline(article_inline_1, article_inline_2, article_inline_3)
+
+    %{
+      article_top_banners: article_top_banners,
+      left_sidebar_banners: left_sidebar_banners,
+      right_sidebar_banners: right_sidebar_banners,
+      article_bottom_banners: article_bottom_banners,
+      video_player_top_banners: video_player_top_banners,
+      article_inline_1: article_inline_1,
+      article_inline_2: article_inline_2,
+      article_inline_3: article_inline_3,
+      article_top_pick: random_or_nil(article_top_banners),
+      article_bottom_pick: random_or_nil(article_bottom_banners),
+      video_player_top_pick: random_or_nil(video_player_top_banners),
+      article_inline_1_pick: p1,
+      article_inline_2_pick: p2,
+      article_inline_3_pick: p3,
+      all_banners:
+        article_top_banners ++
+          left_sidebar_banners ++
+          right_sidebar_banners ++
+          article_inline_1 ++
+          article_inline_2 ++
+          article_inline_3 ++
+          video_player_top_banners
+    }
+  end
+
+  @impl true
+  def handle_async(:load_article_extras, {:ok, extras}, socket) do
     {:noreply,
      socket
-     |> assign(:page_title, post.title)
-     |> assign(:author_persona, author_persona)
-     |> assign(:show_categories, true)
-     |> assign(:post_category_slug, if(updated_post.category, do: updated_post.category.slug, else: nil))
-     |> assign(:post, updated_post)
-     |> assign(:time_spent, time_spent)
-     |> assign(:word_count, word_count)
-     |> assign(:engagement, engagement)
-     |> assign(:user_multiplier, user_multiplier)
-     |> assign(:user_eligible_to_earn, user_eligible_to_earn)
-     |> assign(:geo_multiplier, geo_multiplier)
-     |> assign(:base_bux_reward, base_bux_reward)
-     |> assign(:rewards, rewards)
-     |> assign(:bux_earned, bux_earned)
-     |> assign(:already_rewarded, already_rewarded)
-     |> assign(:article_completed, already_rewarded)
-     |> assign(:current_score, current_score)
-     |> assign(:current_bux, current_bux)
-     |> assign(:read_tx_id, read_tx_id)
-     |> assign(:x_connection, x_connection)
-     |> assign(:share_campaign, share_campaign)
-     |> assign(:share_reward, share_reward)
-     |> assign(:x_share_reward, x_share_reward)
-     |> assign(:show_share_modal, false)
-     |> assign(:share_status, nil)
-     |> assign(:needs_x_reconnect, false)
-     |> assign(:hub_token, "BUX")  # Always BUX (hub tokens removed)
-     |> assign(:hub_logo, hub_logo)
-     |> assign(:suggested_posts, suggested_posts)
-     |> assign(:airdrop_round, airdrop_round)
-     |> assign(:pool_available, pool_available)
-     |> assign(:pool_balance, pool_balance)
-     |> assign(:offer_data, offer_data)
-     |> assign(:left_sidebar_banners, left_sidebar_banners)
-     |> assign(:right_sidebar_banners, right_sidebar_banners)
-     |> assign(:article_bottom_banners, article_bottom_banners)
-     |> assign(:video_player_top_banners, video_player_top_banners)
-     |> assign(:article_inline_1, article_inline_1)
-     |> assign(:article_inline_2, article_inline_2)
-     |> assign(:article_inline_3, article_inline_3)
-     # Frozen picks — one banner per rotating slot, chosen once on mount so
-     # re-renders (PubSub ticks from widget trackers, etc.) don't churn the
-     # random pick and swap the ad mid-view. Reads pre-computed lists above.
-     # Inline picks dedupe across slots so the same banner can't repeat.
-     |> then(fn s ->
-       {p1, p2, p3} =
-         pick_distinct_inline(article_inline_1, article_inline_2, article_inline_3)
+     |> assign(:x_connection, extras.x_connection)
+     |> assign(:share_campaign, extras.share_campaign)
+     |> assign(:share_reward, extras.share_reward)
+     |> assign(:x_share_reward, extras.x_share_reward)
+     |> assign(:suggested_posts, extras.suggested_posts)
+     |> assign(:airdrop_round, extras.airdrop_round)
+     |> assign(:announcement_banner, extras.announcement_banner)}
+  end
 
-       s
-       |> assign(:article_inline_1_pick, p1)
-       |> assign(:article_inline_2_pick, p2)
-       |> assign(:article_inline_3_pick, p3)
-     end)
-     |> assign(:article_top_banners, article_top_banners)
-     |> assign(:article_top_pick, random_or_nil(article_top_banners))
-     |> assign(:article_bottom_pick, random_or_nil(article_bottom_banners))
-     |> assign(:video_player_top_pick, random_or_nil(video_player_top_banners))
-     |> assign(:content_chunks, content_chunks)
-     |> assign(:has_hub, has_hub)
-     |> assign(:video_modal_open, false)
-     |> assign(:is_anonymous, is_anonymous)
-     |> assign(:show_signup_prompt, false)
-     |> assign(:show_video_signup_prompt, false)
-     |> assign(:announcement_banner, if(connected?(socket), do: BlocksterV2Web.AnnouncementBanner.pick(socket.assigns[:current_user])))
-     |> assign(:earning_bar_dismissed, false)
-     |> assign(:anonymous_earned, 0)
-     |> assign(:anonymous_video_earned, 0)
-     |> assign(:engagement_score, nil)
-     |> load_video_engagement()
-     |> mount_widgets(
-       article_top_banners ++
-         left_sidebar_banners ++
-         right_sidebar_banners ++
-         article_inline_1 ++
-         article_inline_2 ++
-         article_inline_3 ++
-         video_player_top_banners
-     )}
+  def handle_async(:load_article_extras, {:exit, reason}, socket) do
+    require Logger
+    Logger.warning("[PostLive.Show] load_article_extras crashed: #{inspect(reason)}")
+    {:noreply, socket}
+  end
+
+  def handle_async(:load_article_banners, {:ok, b}, socket) do
+    socket =
+      socket
+      |> assign(:article_top_banners, b.article_top_banners)
+      |> assign(:left_sidebar_banners, b.left_sidebar_banners)
+      |> assign(:right_sidebar_banners, b.right_sidebar_banners)
+      |> assign(:article_bottom_banners, b.article_bottom_banners)
+      |> assign(:video_player_top_banners, b.video_player_top_banners)
+      |> assign(:article_inline_1, b.article_inline_1)
+      |> assign(:article_inline_2, b.article_inline_2)
+      |> assign(:article_inline_3, b.article_inline_3)
+      |> assign(:article_top_pick, b.article_top_pick)
+      |> assign(:article_bottom_pick, b.article_bottom_pick)
+      |> assign(:video_player_top_pick, b.video_player_top_pick)
+      |> assign(:article_inline_1_pick, b.article_inline_1_pick)
+      |> assign(:article_inline_2_pick, b.article_inline_2_pick)
+      |> assign(:article_inline_3_pick, b.article_inline_3_pick)
+      # Re-arm widget wiring with the real banner list.
+      |> mount_widgets(b.all_banners)
+
+    {:noreply, socket}
+  end
+
+  def handle_async(:load_article_banners, {:exit, reason}, socket) do
+    require Logger
+    Logger.warning("[PostLive.Show] load_article_banners crashed: #{inspect(reason)}")
+    {:noreply, socket}
   end
 
   @impl true

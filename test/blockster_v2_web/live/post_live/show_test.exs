@@ -174,7 +174,10 @@ defmodule BlocksterV2Web.PostLive.ShowTest do
       _post2 = insert_post(%{hub_id: hub.id, title: "Suggested Two"})
       main_post = insert_post(%{hub_id: hub.id, title: "Main Article"})
 
-      {:ok, _view, html} = live(conn, ~p"/#{main_post.slug}")
+      # Suggested posts load via start_async — wait for the load_article_extras
+      # task before asserting against the rendered HTML.
+      {:ok, view, _html} = live(conn, ~p"/#{main_post.slug}")
+      html = render_async(view)
 
       assert html =~ "Suggested For You"
     end
@@ -232,7 +235,9 @@ defmodule BlocksterV2Web.PostLive.ShowTest do
           widget_config: %{}
         })
 
-      {:ok, _view, html} = live(conn, ~p"/#{post.slug}")
+      # Banners load via start_async — wait for load_article_banners.
+      {:ok, view, _html} = live(conn, ~p"/#{post.slug}")
+      html = render_async(view)
 
       assert html =~ ~s(phx-hook="RtSkyscraperWidget")
       assert html =~ "TOP ROGUEBOTS"
@@ -252,7 +257,8 @@ defmodule BlocksterV2Web.PostLive.ShowTest do
           widget_config: %{}
         })
 
-      {:ok, _view, html} = live(conn, ~p"/#{post.slug}")
+      {:ok, view, _html} = live(conn, ~p"/#{post.slug}")
+      html = render_async(view)
 
       assert html =~ ~s(phx-hook="FsSkyscraperWidget")
       assert html =~ "Gamble for a better price than market"
@@ -290,7 +296,8 @@ defmodule BlocksterV2Web.PostLive.ShowTest do
 
       :mnesia.dirty_write({:widget_rt_bots_cache, :singleton, bots, System.system_time(:second)})
 
-      {:ok, _view, html} = live(conn, ~p"/#{post.slug}")
+      {:ok, view, _html} = live(conn, ~p"/#{post.slug}")
+      html = render_async(view)
 
       assert html =~ "KRONOS"
       assert html =~ "CRYPTO"
@@ -329,7 +336,8 @@ defmodule BlocksterV2Web.PostLive.ShowTest do
 
       :mnesia.dirty_write({:widget_fs_feed_cache, :singleton, trades, System.system_time(:second)})
 
-      {:ok, _view, html} = live(conn, ~p"/#{post.slug}")
+      {:ok, view, _html} = live(conn, ~p"/#{post.slug}")
+      html = render_async(view)
 
       assert html =~ ~s(data-trade-id="order-live-1")
       assert html =~ "BUY JUP"
@@ -383,7 +391,8 @@ defmodule BlocksterV2Web.PostLive.ShowTest do
          System.system_time(:second)}
       )
 
-      {:ok, _view, html} = live(conn, ~p"/#{post.slug}")
+      {:ok, view, _html} = live(conn, ~p"/#{post.slug}")
+      html = render_async(view)
 
       assert html =~ ~s(phx-hook="RtChartWidget")
       assert html =~ ~s(data-widget-type="rt_chart_landscape")
@@ -405,7 +414,8 @@ defmodule BlocksterV2Web.PostLive.ShowTest do
           widget_config: %{"selection" => "biggest_gainer"}
         })
 
-      {:ok, _view, html} = live(conn, ~p"/#{post.slug}")
+      {:ok, view, _html} = live(conn, ~p"/#{post.slug}")
+      html = render_async(view)
 
       assert html =~ ~s(phx-hook="RtChartWidget")
       assert html =~ "LIVE"
@@ -461,7 +471,8 @@ defmodule BlocksterV2Web.PostLive.ShowTest do
          System.system_time(:second)}
       )
 
-      {:ok, _view, html} = live(conn, ~p"/#{post.slug}")
+      {:ok, view, _html} = live(conn, ~p"/#{post.slug}")
+      html = render_async(view)
 
       assert html =~ ~s(data-widget-type="fs_hero_portrait")
       assert html =~ ~s(phx-hook="FsHeroWidget")

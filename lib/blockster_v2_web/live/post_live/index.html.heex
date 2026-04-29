@@ -103,7 +103,7 @@
             hub_count={length(@hub_showcase)}
           />
 
-          <BlocksterV2Web.DesignSystem.what_you_unlock_grid hub_count={length(BlocksterV2.Blog.list_hubs())} />
+          <BlocksterV2Web.DesignSystem.what_you_unlock_grid hub_count={@total_hubs_count} />
         </div>
       <% end %>
 
@@ -141,24 +141,26 @@
           <section class="py-10 border-t border-neutral-200/70">
             <BlocksterV2Web.DesignSystem.section_header
               eyebrow="Browse"
-              title={"Explore #{length(BlocksterV2.Blog.list_hubs())} hubs"}
+              title={"Explore #{@total_hubs_count} hubs"}
             >
               <:see_all href={~p"/hubs"}>View all hubs</:see_all>
             </BlocksterV2Web.DesignSystem.section_header>
 
             <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
               <%= for hub <- @hub_showcase do %>
+                <% {primary, secondary} = BlocksterV2.Blog.HubColor.gradient(hub) %>
                 <BlocksterV2Web.DesignSystem.hub_card
                   href={~p"/hub/#{hub.slug}"}
                   name={hub.name}
+                  logo_url={hub.logo_url}
                   ticker={hub.token || String.first(hub.name)}
-                  primary={hub.color_primary || "#7D00FF"}
-                  secondary={hub.color_secondary || "#4A00B8"}
+                  primary={primary}
+                  secondary={secondary}
                   description={hub.description}
                   post_count={Integer.to_string(Map.get(hub, :post_count, 0))}
                 />
               <% end %>
-              <% remaining = max(length(BlocksterV2.Blog.list_hubs()) - length(@hub_showcase), 0) %>
+              <% remaining = max(@total_hubs_count - length(@hub_showcase), 0) %>
               <%= if remaining > 0 do %>
                 <BlocksterV2Web.DesignSystem.hub_card_more more_count={remaining} />
               <% end %>

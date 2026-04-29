@@ -42,55 +42,40 @@ defmodule BlocksterV2Web.PostLive.Index do
       EngagementTracker.subscribe_to_all_bux_updates()
     end
 
-    # Fetch the hero post (most recent) — displayed above the feed.
+    # Fetch the hero post (most recent) — displayed above the feed. Kept
+    # synchronous because the Hero is the largest visual element above the
+    # fold; deferring it would flash an empty card.
     hero_post = fetch_hero_post()
     hero_id = if hero_post, do: [hero_post.id], else: []
 
-    # Build initial 4 old-style components (19 posts), offset by hero post
+    # Build initial 4 old-style components (19 posts), offset by hero post.
+    # Also synchronous — the article feed IS the page.
     {cycle_components, displayed_post_ids} = build_components_batch(0, hero_id, 0)
-
-    user = socket.assigns[:current_user]
-
-    # Logged-in only one-shots
-    followed_hub_posts = if user, do: Blog.list_posts_from_followed_hubs(user, limit: 8), else: []
 
     post_to_component = build_post_to_component_map(cycle_components)
     component_module_map = build_component_module_map(cycle_components)
 
-    all_posts = collect_posts(cycle_components, hero_post, followed_hub_posts)
+    user = socket.assigns[:current_user]
+
+    # Bux balances for the cycle posts + hero. Cheap (single Mnesia map
+    # lookup batch) — keep on the synchronous path so the feed renders with
+    # earnings labels immediately.
+    all_posts = collect_posts(cycle_components, hero_post, [])
     bux_balances = build_bux_balances_map(all_posts)
 
-    user_post_rewards =
-      if user do
-        EngagementTracker.get_user_post_rewards_map(user.id)
-      else
-        %{}
-      end
+    # Hub showcase + banner queries stay synchronous because they're consumed
+    # INSIDE the `for {dom_id, comp} <- @streams.components` loop body, and
+    # LiveView streams don't reactively re-evaluate per-item conditionals
+    # against parent assigns — only the truly stream-external work (hero
+    # stats Mnesia scan, announcement banner pick, user-specific data) gets
+    # deferred via start_async below.
+    hubs = Blog.list_hubs()
+    hub_showcase = list_hub_showcase(hubs)
 
-    hub_showcase = list_hub_showcase()
+    homepage_top_desktop_banners = BlocksterV2.Ads.list_active_banners_by_placement("homepage_top_desktop")
+    homepage_top_mobile_banners = BlocksterV2.Ads.list_active_banners_by_placement("homepage_top_mobile")
+    inline_banners = BlocksterV2.Ads.list_active_banners_by_placement("homepage_inline")
 
-    # Real stats for the anonymous welcome hero.
-    hero_stats =
-      if user == nil and connected?(socket) do
-        %{
-          article_count: Number.Delimit.number_to_delimited(Blog.count_published_posts(), precision: 0),
-          bux_paid: format_compact(EngagementTracker.get_total_bux_distributed())
-        }
-      else
-        %{article_count: "—", bux_paid: "—"}
-      end
-
-    homepage_top_desktop_banners = load_homepage_banners(socket, "homepage_top_desktop")
-    homepage_top_mobile_banners = load_homepage_banners(socket, "homepage_top_mobile")
-
-    # Single inline-ads source. Both desktop and mobile rails read from the
-    # same `homepage_inline` placement — admins manage one list of inline ads.
-    inline_banners = load_homepage_banners(socket, "homepage_inline")
-
-    # FateSwap ads are pinned to Slot A (the first inline ad, after the 2nd
-    # component). `cf_*` / `rt_*` widget banners are pinned to Slot B (the
-    # inline ad rendered below the hubs showcase). All other slots rotate
-    # through the remaining banners via `random_class_rotated_pool/2`.
     {fateswap_banners, rest_banners} =
       Enum.split_with(inline_banners, fn b ->
         is_binary(b.template) and String.starts_with?(b.template, "fateswap_")
@@ -103,57 +88,124 @@ defmodule BlocksterV2Web.PostLive.Index do
              String.starts_with?(b.widget_type, "rt_"))
       end)
 
-    {:ok,
-     socket
-     |> assign(:page_title, "Latest Posts")
-     |> assign(:show_categories, false)
-     |> assign(:announcement_banner, if(connected?(socket), do: BlocksterV2Web.AnnouncementBanner.pick(socket.assigns[:current_user])))
-     |> assign(:hero_post, hero_post)
-     |> assign(:hub_showcase, hub_showcase)
-     |> assign(:followed_hub_posts, followed_hub_posts)
-     |> assign(:displayed_post_ids, displayed_post_ids)
-     |> assign(:bux_balances, bux_balances)
-     |> assign(:user_post_rewards, user_post_rewards)
-     |> assign(:component_module_map, component_module_map)
-     |> assign(:post_to_component_map, post_to_component)
-     |> assign(:current_offset, @posts_per_cycle)
-     |> assign(:inline_banner_offset, length(cycle_components))
-     |> assign(:search_query, "")
-     |> assign(:search_results, [])
-     |> assign(:show_search_results, false)
-     |> assign(:show_mobile_search, false)
-     |> assign(:show_bux_deposit_modal, false)
-     |> assign(:deposit_modal_post, nil)
-     |> assign(:hero_article_count, hero_stats.article_count)
-     |> assign(:hero_bux_paid, hero_stats.bux_paid)
-     |> assign(:homepage_top_desktop_banners, homepage_top_desktop_banners)
-     |> assign(:homepage_top_mobile_banners, homepage_top_mobile_banners)
-     # Frozen picks — chosen once on mount so PubSub re-renders don't churn the random pick.
-     |> assign(:homepage_top_desktop_pick, random_or_nil(homepage_top_desktop_banners))
-     |> assign(:homepage_top_mobile_pick, random_or_nil(homepage_top_mobile_banners))
-     # Slot A is pinned to a FateSwap banner (frozen at mount). Empty list if
-     # no FateSwap banners are active — template falls back to the regular pool.
-     |> assign(:homepage_fateswap_pick, random_or_nil(fateswap_banners))
-     # Slot B is pinned to a featured widget (cf_*/rt_* widget_type) banner,
-     # frozen at mount. nil if no widgets at homepage_inline — template falls
-     # back to the regular rotation pool for that slot.
-     |> assign(:homepage_featured_widget_pick, random_or_nil(featured_widget_banners))
-     # Homepage rotator: random banner per slot, class-cycled so no class
-     # repeats within any K-slot window (K = number of distinct classes).
-     # See `Ads.random_class_rotated_pool/2`.
-     |> assign(:inline_desktop_banners, BlocksterV2.Ads.random_class_rotated_pool(other_inline_banners))
-     |> mount_widgets(
-       homepage_top_desktop_banners ++
-         homepage_top_mobile_banners ++
-         inline_banners
-     )
-     |> stream(:components, cycle_components)}
+    socket =
+      socket
+      |> assign(:page_title, "Latest Posts")
+      |> assign(:show_categories, false)
+      |> assign(:hero_post, hero_post)
+      |> assign(:displayed_post_ids, displayed_post_ids)
+      |> assign(:bux_balances, bux_balances)
+      |> assign(:component_module_map, component_module_map)
+      |> assign(:post_to_component_map, post_to_component)
+      |> assign(:current_offset, @posts_per_cycle)
+      |> assign(:inline_banner_offset, length(cycle_components))
+      |> assign(:search_query, "")
+      |> assign(:search_results, [])
+      |> assign(:show_search_results, false)
+      |> assign(:show_mobile_search, false)
+      |> assign(:show_bux_deposit_modal, false)
+      |> assign(:deposit_modal_post, nil)
+      |> assign(:hub_showcase, hub_showcase)
+      |> assign(:total_hubs_count, length(hubs))
+      |> assign(:homepage_top_desktop_banners, homepage_top_desktop_banners)
+      |> assign(:homepage_top_mobile_banners, homepage_top_mobile_banners)
+      |> assign(:homepage_top_desktop_pick, random_or_nil(homepage_top_desktop_banners))
+      |> assign(:homepage_top_mobile_pick, random_or_nil(homepage_top_mobile_banners))
+      |> assign(:homepage_fateswap_pick, random_or_nil(fateswap_banners))
+      |> assign(:homepage_featured_widget_pick, random_or_nil(featured_widget_banners))
+      |> assign(:inline_desktop_banners, BlocksterV2.Ads.random_class_rotated_pool(other_inline_banners))
+      # Async-loaded placeholders. Hero stats display "—" until the bux
+      # totals scan finishes; announcement banner is hidden until pick lands;
+      # followed-hub posts/rewards lists stay empty for logged-in users
+      # until the user_extras task returns.
+      |> assign(:announcement_banner, nil)
+      |> assign(:followed_hub_posts, [])
+      |> assign(:user_post_rewards, %{})
+      |> assign(:hero_article_count, "—")
+      |> assign(:hero_bux_paid, "—")
+      |> mount_widgets(homepage_top_desktop_banners ++ homepage_top_mobile_banners ++ inline_banners)
+      |> stream(:components, cycle_components)
+
+    socket =
+      if connected?(socket) do
+        socket
+        |> start_async(:load_hero_stats, fn -> fetch_hero_stats(user) end)
+        |> start_async(:load_announcement_banner, fn -> BlocksterV2Web.AnnouncementBanner.pick(user) end)
+        |> start_async(:load_user_extras, fn -> fetch_user_extras(user) end)
+      else
+        socket
+      end
+
+    {:ok, socket}
   end
 
-  defp load_homepage_banners(socket, placement) do
-    if connected?(socket),
-      do: BlocksterV2.Ads.list_active_banners_by_placement(placement),
-      else: []
+  # `EngagementTracker.get_total_bux_distributed/0` does a `:mnesia.dirty_all_keys`
+  # then per-key dirty_read of `:post_bux_points` — O(P) where P = total posts.
+  # On prod Mnesia (~10k posts) this blocks the LV mount for hundreds of ms,
+  # forcing the client onto the longpoll fallback. Only fires for anonymous
+  # viewers (the welcome hero stats row is an anon-only block).
+  defp fetch_hero_stats(nil) do
+    %{
+      article_count: Number.Delimit.number_to_delimited(Blog.count_published_posts(), precision: 0),
+      bux_paid: format_compact(EngagementTracker.get_total_bux_distributed())
+    }
+  end
+
+  defp fetch_hero_stats(_user) do
+    %{article_count: "—", bux_paid: "—"}
+  end
+
+  defp fetch_user_extras(nil), do: %{followed_hub_posts: [], user_post_rewards: %{}}
+
+  defp fetch_user_extras(user) do
+    %{
+      followed_hub_posts: Blog.list_posts_from_followed_hubs(user, limit: 8),
+      user_post_rewards: EngagementTracker.get_user_post_rewards_map(user.id)
+    }
+  end
+
+  @impl true
+  def handle_async(:load_hero_stats, {:ok, stats}, socket) do
+    {:noreply,
+     socket
+     |> assign(:hero_article_count, stats.article_count)
+     |> assign(:hero_bux_paid, stats.bux_paid)}
+  end
+
+  def handle_async(:load_hero_stats, {:exit, reason}, socket) do
+    require Logger
+    Logger.warning("[PostLive.Index] load_hero_stats crashed: #{inspect(reason)}")
+    {:noreply, socket}
+  end
+
+  def handle_async(:load_announcement_banner, {:ok, banner}, socket) do
+    {:noreply, assign(socket, :announcement_banner, banner)}
+  end
+
+  def handle_async(:load_announcement_banner, {:exit, reason}, socket) do
+    require Logger
+    Logger.warning("[PostLive.Index] load_announcement_banner crashed: #{inspect(reason)}")
+    {:noreply, socket}
+  end
+
+  def handle_async(:load_user_extras, {:ok, extras}, socket) do
+    followed = extras.followed_hub_posts
+
+    bux_balances =
+      socket.assigns.bux_balances
+      |> Map.merge(build_bux_balances_map(followed))
+
+    {:noreply,
+     socket
+     |> assign(:followed_hub_posts, followed)
+     |> assign(:user_post_rewards, extras.user_post_rewards)
+     |> assign(:bux_balances, bux_balances)}
+  end
+
+  def handle_async(:load_user_extras, {:exit, reason}, socket) do
+    require Logger
+    Logger.warning("[PostLive.Index] load_user_extras crashed: #{inspect(reason)}")
+    {:noreply, socket}
   end
 
   # Picks one banner at random from the list, or nil when empty.
@@ -484,18 +536,15 @@ defmodule BlocksterV2Web.PostLive.Index do
   # Returns the top 8 hubs ordered by published post count (desc) for the
   # one-shot hub showcase section. Each entry is a map with the hub's struct
   # plus a `:post_count` integer.
-  defp list_hub_showcase do
-    hubs = Blog.list_hubs()
+  defp list_hub_showcase(hubs \\ nil) do
+    hubs = hubs || Blog.list_hubs()
 
-    counts =
-      hubs
-      |> Enum.map(fn hub ->
-        count = Blog.count_published_posts_by_hub(hub)
-        Map.put(hub, :post_count, count)
-      end)
-      |> Enum.sort_by(& &1.post_count, :desc)
-      |> Enum.take(8)
-
-    counts
+    hubs
+    |> Enum.map(fn hub ->
+      count = Blog.count_published_posts_by_hub(hub)
+      Map.put(hub, :post_count, count)
+    end)
+    |> Enum.sort_by(& &1.post_count, :desc)
+    |> Enum.take(8)
   end
 end
