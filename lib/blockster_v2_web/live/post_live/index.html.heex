@@ -86,21 +86,18 @@
         user_post_rewards={@user_post_rewards}
       />
 
-      <%!-- Welcome hero: rendered once for anonymous users, after the 1st component --%>
+      <%!-- Welcome hero: rendered once for anonymous users, after the 1st component.
+           Used to render a preview card of the latest post, but that hijacked
+           the top post (anon users would see it as a card here AND find it
+           missing from the feed). Now the preview attrs are dropped — the
+           top post stays in the cycling feed for everyone, and welcome_hero
+           shows just the welcome copy + stats row. --%>
       <%= if comp.inline_banner_index == 0 && is_nil(@current_user) do %>
         <div class="mx-auto px-6 md:px-12 xl:px-48 2xl:px-64 2xl:max-w-[1600px]">
           <BlocksterV2Web.DesignSystem.welcome_hero
-            preview_image={if @hero_post, do: BlocksterV2Web.PostLive.Redesign.Shared.post_image(@hero_post)}
-            preview_title={if @hero_post, do: @hero_post.title}
-            preview_hub_name={if @hero_post, do: BlocksterV2Web.PostLive.Redesign.Shared.hub_name(@hero_post)}
-            preview_hub_color={if @hero_post, do: BlocksterV2Web.PostLive.Redesign.Shared.hub_color(@hero_post)}
-            preview_category={if @hero_post, do: BlocksterV2Web.PostLive.Redesign.Shared.category_name(@hero_post)}
-            preview_author={if @hero_post, do: BlocksterV2Web.PostLive.Redesign.Shared.author_name(@hero_post)}
-            preview_read_minutes={if @hero_post, do: BlocksterV2Web.PostLive.Redesign.Shared.read_minutes(@hero_post)}
-            preview_bux_reward={if @hero_post, do: Map.get(@bux_balances, @hero_post.id, 0)}
             article_count={@hero_article_count}
             bux_paid={@hero_bux_paid}
-            hub_count={length(@hub_showcase)}
+            hub_count={@total_hubs_count}
           />
 
           <BlocksterV2Web.DesignSystem.what_you_unlock_grid hub_count={@total_hubs_count} />

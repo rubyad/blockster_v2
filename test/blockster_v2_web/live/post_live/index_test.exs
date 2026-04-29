@@ -65,12 +65,13 @@ defmodule BlocksterV2Web.PostLive.IndexTest do
       assert html =~ "Hustle hard. All in on crypto."
     end
 
-    test "renders the welcome hero featured card with the most recent post", %{conn: conn} do
-      # Anonymous homepage now surfaces the most recent post inside the
-      # `<.welcome_hero />` preview card (anonymous-only block) rather than
-      # the standalone `<.hero_feature_card />` — see the redesign notes in
-      # `lib/blockster_v2_web/live/post_live/index.html.heex` (preview_*
-      # assigns are wired from `@hero_post`).
+    test "renders the welcome hero (anonymous-only) and keeps the most recent post in the cycling feed",
+         %{conn: conn} do
+      # The welcome_hero preview card was removed because it hijacked the top
+      # post — anonymous users would see it as a card in welcome_hero AND find
+      # it missing from the feed. Now: welcome_hero shows just welcome copy +
+      # stats, and the most recent post sits at the top of the cycling feed
+      # for both logged-in AND anonymous users.
       hub = insert_hub()
 
       _old =
@@ -90,14 +91,17 @@ defmodule BlocksterV2Web.PostLive.IndexTest do
 
       {:ok, _view, html} = live(conn, ~p"/")
 
+      # Anonymous welcome_hero still renders (welcome copy + stats), but no
+      # longer contains the top post's title in its preview card section.
       assert html =~ "ds-welcome-hero"
-      assert html =~ newest.title
-      # The newest post drives the welcome-hero preview card; the older post
-      # must not bleed through.
       [_, hero_section] = String.split(html, "ds-welcome-hero", parts: 2)
       [hero_only | _] = String.split(hero_section, ~s|</section>|, parts: 2)
-      assert hero_only =~ newest.title
+      refute hero_only =~ newest.title
       refute hero_only =~ "Old post"
+
+      # The most recent post appears in the cycling feed below — once,
+      # at the top.
+      assert html =~ newest.title
     end
 
     test "renders the hub showcase with hubs sorted by post count desc", %{conn: conn} do

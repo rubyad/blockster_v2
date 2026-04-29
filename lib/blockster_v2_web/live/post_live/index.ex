@@ -42,20 +42,21 @@ defmodule BlocksterV2Web.PostLive.Index do
       EngagementTracker.subscribe_to_all_bux_updates()
     end
 
-    # Fetch the hero post (most recent) — displayed above the feed. Kept
-    # synchronous because the Hero is the largest visual element above the
-    # fold; deferring it would flash an empty card.
-    hero_post = fetch_hero_post()
-    hero_id = if hero_post, do: [hero_post.id], else: []
+    user = socket.assigns[:current_user]
 
-    # Build initial 4 old-style components (19 posts), offset by hero post.
-    # Also synchronous — the article feed IS the page.
-    {cycle_components, displayed_post_ids} = build_components_batch(0, hero_id, 0)
+    # Fetch the hero post (most recent). Used for the bux_balances seed.
+    # NOT excluded from the cycling feed — the top post must appear at the
+    # top of the feed for both logged-in and anonymous users (welcome_hero's
+    # preview card was removed because it hijacked the top post; see heex).
+    hero_post = fetch_hero_post()
+
+    # Build initial 4 old-style components (19 posts). Pass [] for
+    # displayed_post_ids so the hero post lands at the top of the feed for
+    # everyone instead of being filtered out.
+    {cycle_components, displayed_post_ids} = build_components_batch(0, [], 0)
 
     post_to_component = build_post_to_component_map(cycle_components)
     component_module_map = build_component_module_map(cycle_components)
-
-    user = socket.assigns[:current_user]
 
     # Bux balances for the cycle posts + hero. Cheap (single Mnesia map
     # lookup batch) — keep on the synchronous path so the feed renders with

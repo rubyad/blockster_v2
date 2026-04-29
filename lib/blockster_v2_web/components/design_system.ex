@@ -2038,6 +2038,7 @@ defmodule BlocksterV2Web.DesignSystem do
   attr :preview_author, :string, default: nil
   attr :preview_read_minutes, :integer, default: nil
   attr :preview_bux_reward, :any, default: nil
+  attr :preview_href, :string, default: nil, doc: "if set, the preview card becomes a link to this path"
 
   def welcome_hero(assigns) do
     ~H"""
@@ -2082,7 +2083,50 @@ defmodule BlocksterV2Web.DesignSystem do
         </div>
         <%= if @preview_title do %>
           <div class="col-span-12 md:col-span-5 relative">
-            <div class="bg-white rounded-2xl p-5 shadow-2xl relative ring-1 ring-white/20 rotate-1 hover:rotate-0 transition-transform">
+            <%!-- Wrap the preview card in a link when preview_href is set so
+                 anonymous users can click through to the article. Without
+                 this, the welcome_hero preview card is decorative-only and
+                 the most-recent post is unreachable from the homepage for
+                 logged-out visitors. --%>
+            <.link
+              :if={@preview_href}
+              navigate={@preview_href}
+              class="block bg-white rounded-2xl p-5 shadow-2xl relative ring-1 ring-white/20 rotate-1 hover:rotate-0 transition-transform cursor-pointer"
+            >
+              <%= if @preview_image do %>
+                <div class="aspect-[16/9] rounded-xl bg-neutral-100 overflow-hidden mb-4">
+                  <img src={@preview_image} alt="" class="w-full h-full object-cover" />
+                </div>
+              <% end %>
+              <%= if @preview_hub_name do %>
+                <div class="flex items-center gap-1.5 mb-2">
+                  <div class="w-4 h-4 rounded" style={"background-color: #{@preview_hub_color};"}></div>
+                  <span class="text-[9px] uppercase tracking-[0.12em] text-neutral-500">
+                    {@preview_hub_name}{if @preview_category, do: " · #{@preview_category}", else: ""}
+                  </span>
+                </div>
+              <% end %>
+              <h3 class="font-bold text-[16px] text-[#141414] leading-[1.2] mb-3 tracking-tight">
+                {@preview_title}
+              </h3>
+              <div class="flex items-center justify-between text-[10px]">
+                <span class="text-neutral-500">
+                  <% author = if @preview_author in [nil, "", "Anonymous", "Unknown"], do: nil, else: @preview_author %>
+                  {author}{if author && @preview_read_minutes, do: " · ", else: ""}{if @preview_read_minutes, do: "#{@preview_read_minutes} min", else: ""}
+                </span>
+                <% reward = parse_reward(@preview_bux_reward) %>
+                <%= if reward > 0 do %>
+                  <div class="flex items-center gap-1 bg-[#CAFC00] text-black px-2 py-0.5 rounded-full font-bold">
+                    <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="" class="w-2.5 h-2.5 rounded-full" />
+                    {reward} BUX
+                  </div>
+                <% end %>
+              </div>
+            </.link>
+            <%!-- Fallback for callers that don't provide preview_href: render
+                 the original non-clickable card. New code should always pass
+                 preview_href; this branch is here for backward compat. --%>
+            <div :if={!@preview_href} class="bg-white rounded-2xl p-5 shadow-2xl relative ring-1 ring-white/20 rotate-1 hover:rotate-0 transition-transform">
               <%= if @preview_image do %>
                 <div class="aspect-[16/9] rounded-xl bg-neutral-100 overflow-hidden mb-4">
                   <img src={@preview_image} alt="" class="w-full h-full object-cover" />
