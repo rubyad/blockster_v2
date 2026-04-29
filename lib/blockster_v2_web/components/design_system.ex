@@ -779,7 +779,7 @@ defmodule BlocksterV2Web.DesignSystem do
                 <div class="border-t border-neutral-100 py-1">
                   <button
                     type="button"
-                    phx-click="disconnect_wallet"
+                    phx-click={JS.show(to: "#logout-overlay") |> JS.push("disconnect_wallet")}
                     class="group w-full flex items-center gap-3 px-4 py-2.5 text-[13.5px] text-neutral-500 hover:bg-red-50/60 hover:text-red-600 transition-colors cursor-pointer"
                   >
                     <span class="w-7 h-7 rounded-lg bg-neutral-100 group-hover:bg-white group-hover:ring-1 group-hover:ring-red-200 grid place-items-center transition-all">
