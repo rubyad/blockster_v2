@@ -540,11 +540,21 @@ export const Web3Auth = {
     }
   },
 
-  // Custom JWT login — used by the in-app email OTP flow + future Telegram
-  // flow. The server has already validated the user's identity (OTP or
-  // bot callback) and signed a JWT; we just hand it to Web3Auth's CUSTOM
+  // Custom JWT login — used by the in-app email OTP flow + Telegram redirect
+  // flow. The server has already validated the user's identity (OTP or bot
+  // callback) and signed a JWT; we just hand it to Web3Auth's CUSTOM
   // connector which derives the MPC wallet deterministically from the JWT
   // `sub` + verifier id. No Web3Auth popup ceremony, no captcha.
+  //
+  // Mobile note: when the Web3Auth instance is constructed with
+  // `uxMode: "redirect"` (always on mobile, see `_ensureInit`), `connectTo`
+  // navigates the page to auth.web3auth.io for the MPC handshake even for
+  // CUSTOM JWT flows — it doesn't `await` resolve in-page. We MUST set
+  // `REDIRECT_PROVIDER_KEY` in sessionStorage before that nav so `mounted()`
+  // on return knows to call `_completeRedirectReturn` and resume.
+  // Without this, email-OTP / Telegram users on mobile complete the JWT
+  // step server-side, click submit, the page navigates to web3auth.io,
+  // navigates back, and the modal hangs because no resume handler ran.
   async _startJwtLogin({ provider, id_token, verifier_id, verifier_id_field }) {
     try {
       await this._ensureInit()
@@ -564,18 +574,37 @@ export const Web3Auth = {
         },
       }
 
+      // Stash provider so we can resume after Web3Auth's redirect-back.
+      // Same pattern as `_startLogin` (the OAuth path) at line ~340.
+      if (isMobileUA()) {
+        try { sessionStorage.setItem(REDIRECT_PROVIDER_KEY, provider) } catch (_) {}
+      }
+
       this._provider = await this._connectWithRetry(
         WALLET_CONNECTORS.AUTH,
         loginParams,
       )
       if (!this._provider) {
+        // In redirect mode, connectTo returns null on its way out — the
+        // browser is already navigating. Don't surface that as an error;
+        // the resume happens via _completeRedirectReturn on return.
+        if (isMobileUA()) return
         this.pushEvent("web3auth_error", { error: "connectTo returned null" })
         return
       }
 
+      // connectTo resolved without redirecting (in-page MPC iframe path
+      // — possible on desktop, or some mobile browsers that don't navigate).
+      // Clear the redirect marker so a future page mount doesn't try to
+      // resume a flow that already completed in this tab.
+      try { sessionStorage.removeItem(REDIRECT_PROVIDER_KEY) } catch (_) {}
+
       await this._completeLogin(provider)
     } catch (e) {
       console.error("[Web3Auth] jwt login failed", e)
+      // On error, also clear the marker — the user will retry, no
+      // meaningful resume is pending.
+      try { sessionStorage.removeItem(REDIRECT_PROVIDER_KEY) } catch (_) {}
       this.pushEvent("web3auth_error", { error: friendlyWeb3AuthError(e) })
     }
   },

@@ -113,7 +113,21 @@ defmodule BlocksterV2Web.WalletAuthEvents do
       end
 
       def handle_event("hide_wallet_selector", _, socket) do
-        {:noreply, assign(socket, show_wallet_selector: false, connecting_wallet_name: nil)}
+        # Reset BOTH the selector visibility and the connecting state.
+        # The modal's heex visibility check is `@show || (@connecting &&
+        # (@connecting_wallet_name || @connecting_provider))` — without
+        # also clearing `connecting` + `connecting_provider`, the X button
+        # leaves the second branch true and the modal stays open.
+        # Confirmed bug 2026-04-29: user couldn't dismiss a hung email-OTP
+        # sign-in modal because hide_wallet_selector only reset the wallet
+        # branch, not the provider branch.
+        {:noreply,
+         assign(socket,
+           show_wallet_selector: false,
+           connecting_wallet_name: nil,
+           connecting: false,
+           connecting_provider: nil
+         )}
       end
 
       # Pushed by the Web3Auth JS hook when a returning user's Web3Auth session
