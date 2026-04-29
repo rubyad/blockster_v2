@@ -126,12 +126,11 @@ defmodule BlocksterV2Web.BannersAdminLive do
     {"RogueTrader — Full card (full × ~900) — chart + 8-stat grid", "rt_full_card"},
     {"RogueTrader — Ticker (full × 56) — horizontal marquee", "rt_ticker"},
     {"RogueTrader — Leaderboard inline (full × ~480)", "rt_leaderboard_inline"},
-    {"FateSwap — Skyscraper (200 × 760) — live trade feed", "fs_skyscraper"},
-    {"FateSwap — Square compact (200 × 200) — 1 trade", "fs_square_compact"},
-    {"FateSwap — Sidebar tile (200 × 320) — 1 trade detailed", "fs_sidebar_tile"},
-    {"FateSwap — Hero portrait (440 × ~720)", "fs_hero_portrait"},
-    {"FateSwap — Hero landscape (full × 480)", "fs_hero_landscape"},
-    {"FateSwap — Ticker (full × 56)", "fs_ticker"},
+    # FateSwap widgets disabled — feed tracker retired in 2026-04-29 cleanup
+    # so any new fs_* banner created here would render as an empty skeleton
+    # forever. Component files (lib/blockster_v2_web/components/widgets/fs_*)
+    # remain in place for easy revival; just re-add entries here + restore
+    # FateSwapFeedTracker to the supervisor in lib/blockster_v2/application.ex.
     {"Coin Flip — Sidebar Live (200×340, cycles last 10 games)", "cf_sidebar_tile"},
     {"Coin Flip — Landscape Live (full-width, cycles last 10 games)", "cf_inline_landscape"},
     {"Coin Flip — Portrait Live (400px, cycles last 10 games)", "cf_portrait"},
@@ -141,7 +140,9 @@ defmodule BlocksterV2Web.BannersAdminLive do
   ]
 
   @rt_self_selecting ~w(rt_chart_landscape rt_chart_portrait rt_full_card rt_square_compact rt_sidebar_tile)
-  @fs_self_selecting ~w(fs_hero_portrait fs_hero_landscape fs_square_compact fs_sidebar_tile)
+  # @fs_self_selecting kept as empty list so any code path referencing it
+  # doesn't crash. fs_* widget_types are no longer offered (see @widget_types).
+  @fs_self_selecting []
 
   @rt_selection_modes [
     {"Biggest gainer (default) — max positive change %", "biggest_gainer"},

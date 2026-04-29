@@ -119,13 +119,24 @@ config :blockster_v2,
     video_watch_percentage: 0.35
   ],
   widgets: [
+    # WIDGETS_ENABLED gates the supervisor-start of the RT trackers
+    # (lib/blockster_v2/application.ex:152). With this false the trackers
+    # never start; with it true they begin polling on the intervals below.
     enabled: String.trim(System.get_env("WIDGETS_ENABLED", "false")) == "true",
-    fateswap_base_url: System.get_env("FATESWAP_API_URL", "https://fateswap.fly.dev"),
     roguetrader_base_url: System.get_env("ROGUETRADER_API_URL", "https://roguetrader-v2.fly.dev"),
-    fateswap_poll_interval_ms: 3_000,
-    roguetrader_bots_poll_interval_ms: 10_000,
-    roguetrader_chart_poll_interval_ms: 60_000,
+    # Poll intervals — match the @default_interval values in the tracker
+    # modules. Were 10_000 / 60_000 originally; slowed in 2026-04-29 perf
+    # work to cut PubSub fan-out cost. See docs/session_learnings.md
+    # "PubSub broadcasts are fan-out bombs" for the math.
+    roguetrader_bots_poll_interval_ms: 30_000,
+    roguetrader_chart_poll_interval_ms: 600_000,
     http_timeout_ms: 5_000
+    # FateSwap config keys removed — feed widgets retired; tracker dropped
+    # from the supervisor in 2026-04-29 widget cleanup. The fs_*
+    # component files remain in lib/ but admin can't create new banners
+    # with those widget_types (see banners_admin_live.ex). Static
+    # `fateswap_combined` / `fateswap_kinetic` ad TEMPLATES are unrelated
+    # — they're SVG creatives, not data-driven widgets, and still ship.
   ]
 
 # Mnesia configuration
