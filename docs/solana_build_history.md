@@ -73,6 +73,22 @@ Both `.claude/settings.json` and `.claude/hooks/verify_fly_deploy.py` are checke
 - BotCoordinator: running healthily on machine `865d14f7225508`, all 1000 bots have non-zero multipliers, post 1112 distributed climbing past 1800 BUX with steady mint flow.
 - Self-paced /loop monitor still armed for settler mint errors — fires if failures resume.
 
+### Follow-up (same day, post first deploy): Telegram mobile, X iPad, wallet panel
+
+After the blockster-v2 deploy landed (recovering Mnesia split-brain on `865d14f7225508` per the documented runbook), four user-visible bugs surfaced:
+
+1. **Telegram login on mobile, modal stuck + flash "No pending Telegram login"**: redirect-mode callback was stashing the Custom JWT (~1.5KB) directly in the session via `put_session(:pending_telegram_jwt, jwt)`. The user's existing session keys (wallet_address, user_token, OTP store hints, CSRF, LV session) plus the JWT exceeded Phoenix CookieStore's ~4KB cap, so the new key got silently dropped. The next request's `pending_jwt` endpoint read nil → 404 → JS surfaced "No pending Telegram login" while the modal stayed open. Fix: new `BlocksterV2.Auth.PendingTelegramJwtStore` (`lib/blockster_v2/auth/pending_telegram_jwt_store.ex`), Mnesia table `:web3auth_pending_telegram_jwts` with cluster-replicated storage (mirrors `Auth.EmailOtpStore`'s rationale — ETS-only would have caused random misses across the 2-machine prod cluster). Callback stashes the JWT in Mnesia keyed by a 32-char URL-safe token, puts only the token in the session cookie. 2-minute TTL, one-shot read+delete.
+
+2. **X login modal hangs on mobile / iPad**: `isMobileUA()` regex matched `iphone|ipad|ipod` but iPadOS 13+ Safari sends Mac UA by default ("Request Desktop Site" is the default behavior). User on iPad fell through to `uxMode: "popup"` which iOS Safari blocks → modal hung. Fix: added a touch+platform branch — `navigator.maxTouchPoints > 1 && /Mac/.test(navigator.platform)` covers iPadOS-disguised-as-Mac, since Mac trackpads never report >1 touch point. Telegram + X both benefit (same uxMode plumbing).
+
+3. **"Wallet panel is not yet available" on user-dropdown click**: feature flag `WALLET_SELF_CUSTODY_ENABLED` defaulted off in prod (`lib/blockster_v2/wallet_self_custody/auth.ex`), but the dropdown link is always rendered (per the Apr 2026-04-29 morning fix). Staged `WALLET_SELF_CUSTODY_ENABLED=true` via `flyctl secrets set --stage`; takes effect on next deploy.
+
+4. **adam@blockster.com showing 0 BUX after email-OTP login**: not a bug — `adam@blockster.com` (user 2248) was created today via X login and has no legacy BUX. The actual legacy admin BUX (474,298) is on `adam+admin1@blockster.com` (user 2220) and was already minted to that wallet during the morning's reclaim. Communicated to user; no migration needed unless they want to consolidate emails.
+
+### Hook lessons learned the hard way
+
+The deploy verification hook from earlier in the day fired a false positive on its own `git commit` because the bash regex split on `&&` inside an `echo "cd && flyctl deploy"` argument. Switched the hook from inline-bash + grep regex to a separate Python script (`.claude/hooks/verify_fly_deploy.py`) using `shlex.split` for proper shell tokenization. shlex collapses quoted text into single tokens so `flyctl deploy` mentioned in commit messages or test scaffolding doesn't trigger detection. Tested against 9 cases before re-enabling.
+
 ---
 
 ## Post-Launch Firefight (2026-04-29) ✅ — perf, auth, data fixes, ~14 commits

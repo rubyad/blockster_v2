@@ -602,9 +602,17 @@ defmodule BlocksterV2Web.AuthController do
 
         id_token = BlocksterV2.Auth.Web3AuthSigning.sign_id_token(claims)
 
-        conn
-        |> put_session(:pending_telegram_jwt, id_token)
-        |> redirect(to: "/?telegram_login=1")
+        # Stash the JWT in Mnesia (cluster-replicated) instead of the session
+        # cookie — see Auth.PendingTelegramJwtStore for the overflow story.
+        case BlocksterV2.Auth.PendingTelegramJwtStore.stash(id_token) do
+          {:ok, token} ->
+            conn
+            |> put_session(:pending_telegram_jwt_token, token)
+            |> redirect(to: "/?telegram_login=1")
+
+          {:error, _reason} ->
+            telegram_callback_redirect_with_error(conn, "telegram_stash_failed")
+        end
     end
   end
 
@@ -624,11 +632,22 @@ defmodule BlocksterV2Web.AuthController do
   when the redirect-return flag (`?telegram_login=1`) is present in the URL.
   """
   def telegram_pending_jwt(conn, _params) do
-    case get_session(conn, :pending_telegram_jwt) do
-      jwt when is_binary(jwt) and jwt != "" ->
-        conn
-        |> delete_session(:pending_telegram_jwt)
-        |> json(%{success: true, id_token: jwt})
+    case get_session(conn, :pending_telegram_jwt_token) do
+      token when is_binary(token) and token != "" ->
+        conn = delete_session(conn, :pending_telegram_jwt_token)
+
+        case BlocksterV2.Auth.PendingTelegramJwtStore.take(token) do
+          {:ok, jwt} ->
+            json(conn, %{success: true, id_token: jwt})
+
+          {:error, reason} ->
+            require Logger
+            Logger.warning("[Auth] pending_telegram_jwt take failed: #{inspect(reason)}")
+
+            conn
+            |> put_status(:not_found)
+            |> json(%{success: false, error: "No pending Telegram login"})
+        end
 
       _ ->
         conn

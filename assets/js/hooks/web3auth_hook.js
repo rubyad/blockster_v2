@@ -39,7 +39,23 @@ function isMobileUA() {
     if (navigator.userAgentData?.mobile === true) return true
   } catch (_) {}
   const ua = (navigator.userAgent || "").toLowerCase()
-  return /mobi|android|iphone|ipad|ipod|opera mini|iemobile/.test(ua)
+  if (/mobi|android|iphone|ipad|ipod|opera mini|iemobile/.test(ua)) return true
+  // iPadOS 13+ reports Mac UA in Safari (the "Request Desktop Website"
+  // default). The reliable signal is touch + platform — Mac trackpads
+  // never report maxTouchPoints > 1; iPad does. Without this branch the
+  // popup-mode OAuth flow hangs on iPad because we incorrectly fall to
+  // desktop uxMode. Confirmed on prod 2026-04-29: X login modal hung on
+  // iPad until isMobileUA was strengthened.
+  try {
+    if (
+      typeof navigator.maxTouchPoints === "number" &&
+      navigator.maxTouchPoints > 1 &&
+      /Mac/i.test(navigator.platform || "")
+    ) {
+      return true
+    }
+  } catch (_) {}
+  return false
 }
 
 // Detect the format of `solana_privateKey` — Web3Auth has returned hex, base58,

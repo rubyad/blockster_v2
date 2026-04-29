@@ -771,6 +771,20 @@ defmodule BlocksterV2.MnesiaInitializer do
         :locked_until     # ms timestamp - 0 if not locked
       ],
       index: []
+    },
+    %{
+      # Telegram redirect-mode JWT stash, keyed by short random token. Cookie
+      # carries only the token; the full JWT (~1.5KB) lives here so we don't
+      # blow Phoenix's CookieStore ~4KB cap. See Auth.PendingTelegramJwtStore
+      # moduledoc for the prod-confirmed overflow story.
+      name: :web3auth_pending_telegram_jwts,
+      type: :set,
+      attributes: [
+        :token,           # PRIMARY KEY - random URL-safe base64 (~32 chars)
+        :jwt,             # signed Custom JWT for Web3Auth verifier "blockster-telegram"
+        :expires_at       # ms timestamp - 2 min after stash
+      ],
+      index: []
     }
   ]
 
