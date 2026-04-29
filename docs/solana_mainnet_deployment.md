@@ -723,6 +723,41 @@ git push origin feat/solana-migration
 flyctl deploy --app blockster-v2
 ```
 
+### ⚠️ Volume-claim panic — expected; use the per-machine workaround
+
+`flyctl deploy --app blockster-v2` will reliably fail at the machine-swap step with:
+
+```
+failed to launch VM: failed_precondition: volume already claimed by machine ...
+panic: runtime error: invalid memory address or nil pointer dereference
+```
+
+The image WAS built and pushed though — only the swap failed. Recover by extracting the image tag from the failed deploy output (e.g. `registry.fly.io/blockster-v2:deployment-XXX`) and updating each machine in place:
+
+```bash
+for M in 17817e62f16438 865d14f7225508; do
+  flyctl machines update $M --image "<TAG>" --app blockster-v2 --yes
+done
+flyctl machines list --app blockster-v2  # verify both reach 'started' on the new tag
+```
+
+Setting `[deploy] strategy = 'immediate'` in `fly.toml` did NOT fix it — the new VM still races the existing volume claim. Until Fly resolves this, the per-machine update is the supported deploy path. Re-sync the Web3Auth signing key (next subsection) after the update completes.
+
+### Re-sync the Web3Auth signing key cluster-wide
+
+Each main-app machine generates its own RSA signing key on first boot at `/data/web3auth/signing_key.json`. Mismatched keys break Custom JWT verification across nodes. After every deploy that recreates machines:
+
+```bash
+flyctl ssh console --machine 17817e62f16438 --app blockster-v2 -C "/app/bin/blockster_v2 rpc '
+key_content = File.read!(\"/data/web3auth/signing_key.json\")
+node_b = :\"blockster-v2@fdaa:0:9cc8:a7b:195:c889:9afe:2\"
+:rpc.call(node_b, File, :write, [\"/data/web3auth/signing_key.json\", key_content])
+Process.exit(:rpc.call(node_b, Process, :whereis, [BlocksterV2.Auth.Web3AuthSigning]), :kill)
+'"
+```
+
+The `Process.exit/2` against `Web3AuthSigning` on the remote node forces it to reload the synced key via supervisor restart. Long-term TODO is moving the key into a Fly secret so all machines load the same value at boot.
+
 ### Run Migrations
 
 Migrations run automatically on deploy. If needed manually:
@@ -849,6 +884,16 @@ curl https://blockster.com
 5. **Pool**: Go to `/pool` → deposit SOL → verify LP tokens received
 6. **Airdrop**: Go to `/airdrop` → verify page loads (round must be started first)
 7. **Shop checkout** (Phase 5b): Go to `/shop`, add a low-value item to cart, complete shipping → proceed to payment → verify a unique SOL address + expiry countdown render → click "Pay from connected wallet" → approve → verify order flips to "paid" within 10–20s and the confirmation page shows the funded tx Solscan link. Within the next minute or two `/admin/orders/:id` should show the `swept_tx_sig` populated (watcher ticks every 10s, sweep takes one extra tick after funding).
+8. **HMAC settler auth** (added 2026-04-28 after the Bearer→HMAC bug — see solana_build_history.md): from a prod IEx, exercise a settler-dependent path that previously 401'd silently. Both calls below must return `{:ok, ...}`; if either returns `{:error, "Missing authentication headers"}` the main app shipped with stale `Authorization: Bearer …` headers and every on-chain side effect (BUX mints, settlements, payment intents) is silently broken.
+
+   ```bash
+   flyctl ssh console --app blockster-v2 -C "/app/bin/blockster_v2 rpc '
+   BlocksterV2.BuxMinter.get_balance(\"DaqXmvYFAgv1teJm3Y4YzfJBfqUhGv1bAzjUhKUWZndF\") |> IO.inspect(label: :balance)
+   BlocksterV2.BuxMinter.get_pool_stats() |> IO.inspect(label: :pool_stats)
+   '"
+   ```
+
+   If the settler is restarted on a new image after this point, also re-run with a known wallet that has never been served by the new settler, to flush any stale Mnesia balance cache hiding a 401.
 
 ### Verify Bot Wallet Rotation
 

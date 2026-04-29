@@ -31,8 +31,21 @@ export function hmacAuth(req: Request, res: Response, next: NextFunction) {
     return res.status(401).json({ error: "Timestamp expired" });
   }
 
-  // Compute expected signature
-  const body = typeof req.body === "string" ? req.body : JSON.stringify(req.body);
+  // Hash over the RAW request body the client actually sent. Falls back to
+  // re-stringifying the parsed body for legacy code paths (no body, or
+  // express.json hasn't run). The raw body is captured by the `verify`
+  // callback in `app.use(express.json({verify}))` (see src/index.ts).
+  // GETs / no-body requests must hash over "{}" to match the Elixir client,
+  // which sends HMAC headers signed with body="{}" so the express.json
+  // default-empty-object case lines up.
+  const rawBody = (req as any).rawBody as string | undefined;
+  const body =
+    rawBody ??
+    (typeof req.body === "string"
+      ? req.body
+      : req.body == null
+      ? "{}"
+      : JSON.stringify(req.body));
   const payload = `${timestamp}.${body}`;
   const expected = createHmac("sha256", API_SECRET)
     .update(payload)

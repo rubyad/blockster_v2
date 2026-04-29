@@ -786,10 +786,7 @@ defmodule BlocksterV2.CoinFlipGame do
       "nonce" => nonce
     })
 
-    headers = [
-      {"Content-Type", "application/json"},
-      {"Authorization", "Bearer #{get_api_secret()}"}
-    ]
+    headers = BlocksterV2.SettlerHmac.headers(body, get_api_secret())
 
     url = "#{settler_url()}/submit-commitment"
 
@@ -828,10 +825,7 @@ defmodule BlocksterV2.CoinFlipGame do
       "vaultType" => Atom.to_string(vault_type || :bux)
     })
 
-    headers = [
-      {"Content-Type", "application/json"},
-      {"Authorization", "Bearer #{get_api_secret()}"}
-    ]
+    headers = BlocksterV2.SettlerHmac.headers(body, get_api_secret())
 
     url = "#{settler_url()}/settle-bet"
 

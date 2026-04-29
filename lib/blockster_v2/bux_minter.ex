@@ -57,12 +57,10 @@ defmodule BlocksterV2.BuxMinter do
         rewardType: Atom.to_string(reward_type)
       }
 
-      headers = [
-        {"Content-Type", "application/json"},
-        {"Authorization", "Bearer #{api_secret}"}
-      ]
+      body = Jason.encode!(payload)
+      headers = auth_headers(body, api_secret)
 
-      case http_post("#{settler_url}/mint", Jason.encode!(payload), headers) do
+      case http_post("#{settler_url}/mint", body, headers) do
         {:ok, %{status_code: 200, body: body}} ->
           response = Jason.decode!(body)
           signature = response["signature"]
@@ -111,12 +109,10 @@ defmodule BlocksterV2.BuxMinter do
         userId: user_id
       }
 
-      headers = [
-        {"Content-Type", "application/json"},
-        {"Authorization", "Bearer #{api_secret}"}
-      ]
+      body = Jason.encode!(payload)
+      headers = auth_headers(body, api_secret)
 
-      case http_post("#{settler_url}/burn", Jason.encode!(payload), headers) do
+      case http_post("#{settler_url}/burn", body, headers) do
         {:ok, %{status_code: 200, body: body}} ->
           response = Jason.decode!(body)
 
@@ -163,7 +159,7 @@ defmodule BlocksterV2.BuxMinter do
     if is_nil(api_secret) or api_secret == "" do
       {:error, :not_configured}
     else
-      headers = [{"Authorization", "Bearer #{api_secret}"}]
+      headers = BlocksterV2.SettlerHmac.headers("{}", api_secret)
       url = "#{settler_url}/balance/#{wallet_address}"
 
       case http_get(url, headers) do
@@ -271,7 +267,7 @@ defmodule BlocksterV2.BuxMinter do
     if is_nil(api_secret) or api_secret == "" do
       {:error, :not_configured}
     else
-      headers = [{"Authorization", "Bearer #{api_secret}"}]
+      headers = BlocksterV2.SettlerHmac.headers("{}", api_secret)
 
       case http_get("#{settler_url}/player-state/#{wallet_address}", headers) do
         {:ok, %{status_code: 200, body: body}} ->
@@ -306,7 +302,7 @@ defmodule BlocksterV2.BuxMinter do
     if is_nil(api_secret) or api_secret == "" do
       {:error, :not_configured}
     else
-      headers = [{"Authorization", "Bearer #{api_secret}"}]
+      headers = BlocksterV2.SettlerHmac.headers("{}", api_secret)
       query = URI.encode_query(Map.take(Map.new(opts), [:startNonce, :count]))
 
       sep = if query == "", do: "", else: "?"
@@ -332,7 +328,7 @@ defmodule BlocksterV2.BuxMinter do
     if is_nil(api_secret) or api_secret == "" do
       {:error, :not_configured}
     else
-      headers = [{"Authorization", "Bearer #{api_secret}"}]
+      headers = BlocksterV2.SettlerHmac.headers("{}", api_secret)
 
       case http_get("#{settler_url}/pool-stats", headers) do
         {:ok, %{status_code: 200, body: body}} ->
@@ -376,7 +372,7 @@ defmodule BlocksterV2.BuxMinter do
     if is_nil(api_secret) or api_secret == "" do
       {:error, :not_configured}
     else
-      headers = [{"Authorization", "Bearer #{api_secret}"}]
+      headers = BlocksterV2.SettlerHmac.headers("{}", api_secret)
       url = "#{settler_url}/lp-balance/#{wallet_address}/#{vault_type}"
 
       case http_get(url, headers) do
@@ -422,15 +418,16 @@ defmodule BlocksterV2.BuxMinter do
         feePayerMode: normalize_fee_payer_mode(opts)
       }
 
-      headers = auth_headers(api_secret)
+      body = Jason.encode!(payload)
+      headers = auth_headers(body, api_secret)
 
-      case http_post("#{settler_url}/#{endpoint}", Jason.encode!(payload), headers) do
-        {:ok, %{status_code: 200, body: body}} ->
-          response = Jason.decode!(body)
+      case http_post("#{settler_url}/#{endpoint}", body, headers) do
+        {:ok, %{status_code: 200, body: resp_body}} ->
+          response = Jason.decode!(resp_body)
           {:ok, response["transaction"]}
 
-        {:ok, %{status_code: status, body: body}} ->
-          error = safe_decode(body)
+        {:ok, %{status_code: status, body: resp_body}} ->
+          error = safe_decode(resp_body)
           Logger.error("[BuxMinter] Build deposit tx failed (#{status}): #{inspect(error)}")
           {:error, error["error"] || "Build deposit tx failed"}
 
@@ -482,15 +479,16 @@ defmodule BlocksterV2.BuxMinter do
         vaultType: vault_type,
         feePayerMode: fee_payer_mode
       }
-      headers = auth_headers(api_secret)
+      body = Jason.encode!(payload)
+      headers = auth_headers(body, api_secret)
 
-      case http_post("#{settler_url}/build-place-bet", Jason.encode!(payload), headers) do
-        {:ok, %{status_code: 200, body: body}} ->
-          response = Jason.decode!(body)
+      case http_post("#{settler_url}/build-place-bet", body, headers) do
+        {:ok, %{status_code: 200, body: resp_body}} ->
+          response = Jason.decode!(resp_body)
           {:ok, response["transaction"]}
 
-        {:ok, %{status_code: status, body: body}} ->
-          error = safe_decode(body)
+        {:ok, %{status_code: status, body: resp_body}} ->
+          error = safe_decode(resp_body)
           Logger.error("[BuxMinter] Build place bet tx failed (#{status}): #{inspect(error)}")
           {:error, error["error"] || "Build place bet tx failed"}
 
@@ -524,15 +522,16 @@ defmodule BlocksterV2.BuxMinter do
       {:error, :not_configured}
     else
       payload = %{wallet: wallet_address, nonce: nonce, vaultType: vault_type || "sol"}
-      headers = auth_headers(api_secret)
+      body = Jason.encode!(payload)
+      headers = auth_headers(body, api_secret)
 
-      case http_post("#{settler_url}/build-reclaim-expired", Jason.encode!(payload), headers) do
-        {:ok, %{status_code: 200, body: body}} ->
-          response = Jason.decode!(body)
+      case http_post("#{settler_url}/build-reclaim-expired", body, headers) do
+        {:ok, %{status_code: 200, body: resp_body}} ->
+          response = Jason.decode!(resp_body)
           {:ok, response["transaction"]}
 
-        {:ok, %{status_code: status, body: body}} ->
-          error = safe_decode(body)
+        {:ok, %{status_code: status, body: resp_body}} ->
+          error = safe_decode(resp_body)
           Logger.error("[BuxMinter] Build reclaim tx failed (#{status}): #{inspect(error)}")
           {:error, error["error"] || "Build reclaim tx failed"}
 
@@ -567,15 +566,16 @@ defmodule BlocksterV2.BuxMinter do
         feePayerMode: normalize_fee_payer_mode(opts)
       }
 
-      headers = auth_headers(api_secret)
+      body = Jason.encode!(payload)
+      headers = auth_headers(body, api_secret)
 
-      case http_post("#{settler_url}/#{endpoint}", Jason.encode!(payload), headers) do
-        {:ok, %{status_code: 200, body: body}} ->
-          response = Jason.decode!(body)
+      case http_post("#{settler_url}/#{endpoint}", body, headers) do
+        {:ok, %{status_code: 200, body: resp_body}} ->
+          response = Jason.decode!(resp_body)
           {:ok, response["transaction"]}
 
-        {:ok, %{status_code: status, body: body}} ->
-          error = safe_decode(body)
+        {:ok, %{status_code: status, body: resp_body}} ->
+          error = safe_decode(resp_body)
           Logger.error("[BuxMinter] Build withdraw tx failed (#{status}): #{inspect(error)}")
           {:error, error["error"] || "Build withdraw tx failed"}
 
@@ -601,18 +601,19 @@ defmodule BlocksterV2.BuxMinter do
       {:error, :not_configured}
     else
       payload = %{commitmentHash: commitment_hash, endTime: end_time_unix}
-      headers = auth_headers(api_secret)
+      body = Jason.encode!(payload)
+      headers = auth_headers(body, api_secret)
 
       Logger.info("[BuxMinter] Starting airdrop round: commitment=#{String.slice(commitment_hash, 0, 16)}..., endTime=#{end_time_unix}")
 
-      case http_post("#{settler_url}/airdrop-start-round", Jason.encode!(payload), headers) do
-        {:ok, %{status_code: 200, body: body}} ->
-          response = Jason.decode!(body)
+      case http_post("#{settler_url}/airdrop-start-round", body, headers) do
+        {:ok, %{status_code: 200, body: resp_body}} ->
+          response = Jason.decode!(resp_body)
           Logger.info("[BuxMinter] Airdrop round started: #{inspect(response)}")
           {:ok, response}
 
-        {:ok, %{status_code: status, body: body}} ->
-          error = safe_decode(body)
+        {:ok, %{status_code: status, body: resp_body}} ->
+          error = safe_decode(resp_body)
           Logger.error("[BuxMinter] Start round failed (#{status}): #{inspect(error)}")
           {:error, error["error"] || "Start round failed"}
 
@@ -635,17 +636,18 @@ defmodule BlocksterV2.BuxMinter do
       {:error, :not_configured}
     else
       payload = %{wallet: wallet, roundId: round_id, entryIndex: entry_index, amount: amount}
-      headers = auth_headers(api_secret)
+      body = Jason.encode!(payload)
+      headers = auth_headers(body, api_secret)
 
       Logger.info("[BuxMinter] Building airdrop deposit tx: #{amount} BUX from #{wallet}")
 
-      case http_post("#{settler_url}/airdrop-build-deposit", Jason.encode!(payload), headers) do
-        {:ok, %{status_code: 200, body: body}} ->
-          response = Jason.decode!(body)
+      case http_post("#{settler_url}/airdrop-build-deposit", body, headers) do
+        {:ok, %{status_code: 200, body: resp_body}} ->
+          response = Jason.decode!(resp_body)
           {:ok, response}
 
-        {:ok, %{status_code: status, body: body}} ->
-          error = safe_decode(body)
+        {:ok, %{status_code: status, body: resp_body}} ->
+          error = safe_decode(resp_body)
           Logger.error("[BuxMinter] Build deposit failed (#{status}): #{inspect(error)}")
           {:error, error["error"] || "Build deposit failed"}
 
@@ -668,12 +670,13 @@ defmodule BlocksterV2.BuxMinter do
       {:error, :not_configured}
     else
       payload = %{wallet: wallet, roundId: round_id, winnerIndex: winner_index}
-      headers = auth_headers(api_secret)
+      body = Jason.encode!(payload)
+      headers = auth_headers(body, api_secret)
 
-      case http_post("#{settler_url}/airdrop-build-claim", Jason.encode!(payload), headers) do
-        {:ok, %{status_code: 200, body: body}} -> {:ok, Jason.decode!(body)}
-        {:ok, %{status_code: status, body: body}} ->
-          error = safe_decode(body)
+      case http_post("#{settler_url}/airdrop-build-claim", body, headers) do
+        {:ok, %{status_code: 200, body: resp_body}} -> {:ok, Jason.decode!(resp_body)}
+        {:ok, %{status_code: status, body: resp_body}} ->
+          error = safe_decode(resp_body)
           Logger.error("[BuxMinter] Build claim failed (#{status}): #{inspect(error)}")
           {:error, error["error"] || "Build claim failed"}
         {:error, reason} ->
@@ -693,7 +696,7 @@ defmodule BlocksterV2.BuxMinter do
     if is_nil(api_secret) or api_secret == "" do
       {:error, :not_configured}
     else
-      headers = [{"Authorization", "Bearer #{api_secret}"}]
+      headers = BlocksterV2.SettlerHmac.headers("{}", api_secret)
 
       case http_get("#{settler_url}/airdrop-vault-round-id", headers) do
         {:ok, %{status_code: 200, body: body}} ->
@@ -723,16 +726,17 @@ defmodule BlocksterV2.BuxMinter do
       {:error, :not_configured}
     else
       payload = %{roundId: round_id}
-      headers = auth_headers(api_secret)
+      body = Jason.encode!(payload)
+      headers = auth_headers(body, api_secret)
 
-      case http_post("#{settler_url}/airdrop-close", Jason.encode!(payload), headers) do
-        {:ok, %{status_code: 200, body: body}} ->
-          response = Jason.decode!(body)
+      case http_post("#{settler_url}/airdrop-close", body, headers) do
+        {:ok, %{status_code: 200, body: resp_body}} ->
+          response = Jason.decode!(resp_body)
           Logger.info("[BuxMinter] Airdrop round #{round_id} closed: #{inspect(response)}")
           {:ok, response}
 
-        {:ok, %{status_code: status, body: body}} ->
-          error = safe_decode(body)
+        {:ok, %{status_code: status, body: resp_body}} ->
+          error = safe_decode(resp_body)
           Logger.error("[BuxMinter] Airdrop close failed (#{status}): #{inspect(error)}")
           {:error, error["error"] || "Airdrop close failed"}
 
@@ -754,16 +758,17 @@ defmodule BlocksterV2.BuxMinter do
       {:error, :not_configured}
     else
       payload = %{roundId: round_id, serverSeed: server_seed, winners: winners}
-      headers = auth_headers(api_secret)
+      body = Jason.encode!(payload)
+      headers = auth_headers(body, api_secret)
 
-      case http_post("#{settler_url}/airdrop-draw-winners", Jason.encode!(payload), headers) do
-        {:ok, %{status_code: 200, body: body}} ->
-          response = Jason.decode!(body)
+      case http_post("#{settler_url}/airdrop-draw-winners", body, headers) do
+        {:ok, %{status_code: 200, body: resp_body}} ->
+          response = Jason.decode!(resp_body)
           Logger.info("[BuxMinter] Airdrop draw completed: #{inspect(response)}")
           {:ok, response}
 
-        {:ok, %{status_code: status, body: body}} ->
-          error = safe_decode(body)
+        {:ok, %{status_code: status, body: resp_body}} ->
+          error = safe_decode(resp_body)
           Logger.error("[BuxMinter] Airdrop draw failed (#{status}): #{inspect(error)}")
           {:error, error["error"] || "Airdrop draw failed"}
 
@@ -786,19 +791,20 @@ defmodule BlocksterV2.BuxMinter do
       {:error, :not_configured}
     else
       payload = %{player: player_wallet, referrer: referrer_wallet}
-      headers = auth_headers(api_secret)
+      body = Jason.encode!(payload)
+      headers = auth_headers(body, api_secret)
 
-      case http_post("#{settler_url}/set-player-referrer", Jason.encode!(payload), headers) do
-        {:ok, %{status_code: 200, body: body}} ->
-          {:ok, Jason.decode!(body)}
+      case http_post("#{settler_url}/set-player-referrer", body, headers) do
+        {:ok, %{status_code: 200, body: resp_body}} ->
+          {:ok, Jason.decode!(resp_body)}
 
-        {:ok, %{status_code: 409, body: body}} ->
-          response = Jason.decode!(body)
+        {:ok, %{status_code: 409, body: resp_body}} ->
+          response = Jason.decode!(resp_body)
           Logger.warning("[BuxMinter] Referrer already set: #{inspect(response)}")
           {:error, :already_set}
 
-        {:ok, %{status_code: status, body: body}} ->
-          error = safe_decode(body)
+        {:ok, %{status_code: status, body: resp_body}} ->
+          error = safe_decode(resp_body)
           Logger.error("[BuxMinter] Set referrer failed (#{status}): #{inspect(error)}")
           {:error, error["error"] || "Unknown error"}
 
@@ -876,11 +882,8 @@ defmodule BlocksterV2.BuxMinter do
       System.get_env("BUX_MINTER_SECRET")
   end
 
-  defp auth_headers(api_secret) do
-    [
-      {"Content-Type", "application/json"},
-      {"Authorization", "Bearer #{api_secret}"}
-    ]
+  defp auth_headers(body, api_secret) when is_binary(body) do
+    BlocksterV2.SettlerHmac.headers(body, api_secret)
   end
 
   defp safe_decode(body) do

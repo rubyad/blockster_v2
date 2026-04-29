@@ -15,8 +15,16 @@ import paymentIntentRoutes from "./routes/payment-intents";
 
 const app = express();
 
-// Middleware
-app.use(express.json());
+// Middleware. The `verify` callback captures the raw request bytes onto
+// `req.rawBody` so the HMAC middleware can hash exactly what the client
+// sent — not what `JSON.stringify(JSON.parse(...))` reproduces. The two
+// can diverge on floats (Elixir `1.0` vs JS `1`), Unicode escaping, key
+// order on large maps, etc., causing every authenticated call to 401.
+app.use(express.json({
+  verify: (req, _res, buf) => {
+    (req as any).rawBody = buf.toString("utf8");
+  },
+}));
 
 // Health check (no auth)
 app.get("/health", (_req, res) => {

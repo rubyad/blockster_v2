@@ -24,6 +24,11 @@ Phoenix LiveView web3 content platform — shop, hubs, events, token-based engag
 - Use `getSignatureStatuses` polling for confirmation — NEVER `confirmTransaction` (websocket), NEVER manual rebroadcast loops.
 - NEVER chain dependent txs back-to-back — state propagation is unreliable even on the same RPC. Trigger dependent txs from user actions.
 
+**Settler API auth = HMAC, not Bearer** (see `lib/blockster_v2/settler_hmac.ex` + `contracts/blockster-settler/src/middleware/hmac-auth.ts`):
+- Every main-app → settler call must send `x-timestamp` + `x-signature` headers via `BlocksterV2.SettlerHmac.headers(body, secret)`. The legacy `Authorization: Bearer …` pattern is for the EVM `bux-minter.fly.dev` only — the Solana settler 401s it. Bearer-emitting calls fail SILENTLY (callers swallow 401), so a feature that "looks like it works" might actually be missing every on-chain side effect (BUX never minted, balances stale, settlements never landing).
+- POST: `body = Jason.encode!(payload); headers = SettlerHmac.headers(body, secret); http_post(url, body, headers)`. Compute the body once and reuse — the signature must be over the EXACT bytes you send.
+- GET / no-body: `headers = SettlerHmac.headers("{}", secret)` to match the express.json default-empty-object the settler sees.
+
 **Database / Mnesia**:
 - NEVER run `mix ecto.reset`, `mix ecto.drop`, or any command that drops the database. Only `mix ecto.migrate` and `mix ecto.rollback` are safe.
 - NEVER delete `priv/mnesia/*` directories — unrecoverable user data. No exceptions.

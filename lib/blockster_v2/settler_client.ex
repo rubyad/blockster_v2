@@ -92,8 +92,9 @@ defmodule BlocksterV2.SettlerClient do
 
   defp post(path, body) do
     url = base_url() <> path
+    headers = BlocksterV2.SettlerHmac.headers(body, api_secret())
 
-    case Req.post(url, body: body, headers: headers(), receive_timeout: 30_000, retry: false) do
+    case Req.post(url, body: body, headers: headers, receive_timeout: 30_000, retry: false) do
       {:ok, %Req.Response{status: status, body: response_body}} ->
         {:ok, %{status_code: status, body: stringify(response_body)}}
 
@@ -106,8 +107,11 @@ defmodule BlocksterV2.SettlerClient do
 
   defp get(path) do
     url = base_url() <> path
+    # express.json default: GETs with no body parse to req.body = {} →
+    # JSON.stringify({}) is "{}". HMAC must hash over the same string.
+    headers = BlocksterV2.SettlerHmac.headers("{}", api_secret())
 
-    case Req.get(url, headers: headers(), receive_timeout: 20_000, retry: false) do
+    case Req.get(url, headers: headers, receive_timeout: 20_000, retry: false) do
       {:ok, %Req.Response{status: status, body: response_body}} ->
         {:ok, %{status_code: status, body: stringify(response_body)}}
 
@@ -128,13 +132,6 @@ defmodule BlocksterV2.SettlerClient do
     Application.get_env(:blockster_v2, :settler_secret) ||
       System.get_env("BLOCKSTER_SETTLER_SECRET") ||
       "dev-secret"
-  end
-
-  defp headers do
-    [
-      {"Content-Type", "application/json"},
-      {"Authorization", "Bearer #{api_secret()}"}
-    ]
   end
 
   defp stringify(body) when is_binary(body), do: body

@@ -9,6 +9,91 @@ Chronological record of all Solana migration changes and post-migration updates 
 
 ---
 
+## Mainnet Rollout (2026-04-28) ⚠️ in-flight — first day live
+
+First production traffic running against Solana mainnet. Two deploys (`Deploy #1` initial mainnet cutover, `Deploy #2` social login enabled) landed cleanly modulo the volume-claim Fly bug below. Settler is in `ord` on `performance-2x` with `max_machines_running=1` (single instance — settler is the on-chain authority for mints/settlements and cannot run multi-master). Programs `49up2uzZ…` (bankroll) + `wxiuLBu…` (airdrop) are initialized; BUX SPL token is live at `7CuRyw2YkqQhUUFbw6CCnoedHWT8tK2c9UzZQYDGmxVX`. Web3Auth verifiers (`blockster-email`, `blockster-telegram`) saved in dashboard. Web3Auth signing key (`kid 41be30c48dd049aa`) synced cluster-wide.
+
+### CRITICAL — Settler API auth migrated Bearer → HMAC-SHA256 mid-day
+
+The legacy EVM `bux-minter.fly.dev` accepted a static `Authorization: Bearer <secret>` header. The Solana settler at `contracts/blockster-settler/src/middleware/hmac-auth.ts` does not — it requires `x-timestamp` (unix seconds, ±5 min window) + `x-signature` (`hex(hmac_sha256(secret, "<timestamp>.<body>"))`). The main app was still sending the Bearer header, so every authenticated settler call returned `401 Missing authentication headers`. Callers swallowed the error silently — features APPEARED to work but didn't:
+
+- Engagement BUX never landed on-chain on article reads
+- Profile balance reads returned 0
+- Legacy email reclaim merge ran end-to-end but the legacy BUX never got minted to the new wallet (verified on Solscan: user 2220's wallet `DaqXmvYFAgv1teJm3Y4YzfJBfqUhGv1bAzjUhKUWZndF` had 0 BUX despite legacy user 17 carrying 474,298 BUX in Mnesia)
+- Shop checkout intent creation 401'd
+- Coin Flip `/submit-commitment` and `/settle-bet` 401'd
+
+**Fix**:
+
+1. New helper `lib/blockster_v2/settler_hmac.ex` exposes `headers(body_str, secret)` returning the three required headers. Body is hashed as the exact UTF-8 bytes the client sends.
+2. `lib/blockster_v2/bux_minter.ex` — refactored 12 POST sites to compute `body = Jason.encode!(payload)` once and call `auth_headers(body, api_secret) → SettlerHmac.headers(...)`. The 3 GET sites already used the helper signed with `"{}"` (matches `express.json` empty-body default). Removed the Bearer-emitting `auth_headers/1`.
+3. `lib/blockster_v2/settler_client.ex` (shop payment intents) — `post/2` and `get/1` rewritten to compute headers from the actual body (or `"{}"` for GETs).
+4. `lib/blockster_v2/coin_flip_game.ex` — `submit_commitment` and `settle_bet` switched to `SettlerHmac.headers(body, secret)`.
+5. **Settler-side defensive fix** to avoid Elixir-Jason vs JS-`JSON.stringify` roundtrip drift (e.g. Elixir `1.0` → `JSON.stringify(JSON.parse("1.0"))` = `"1"`, breaking the HMAC). `contracts/blockster-settler/src/index.ts` now passes a `verify` callback to `express.json` that captures the raw request bytes onto `req.rawBody`. `contracts/blockster-settler/src/middleware/hmac-auth.ts` prefers `req.rawBody` over `JSON.stringify(req.body)` so the signature is checked against the exact bytes the client sent. Backwards-compatible: GETs / requests without a body still fall back to `"{}"` (matching what the Elixir client signs).
+
+Cross-verified the Elixir `:crypto.mac/4` output matches Node `crypto.createHmac` byte-for-byte on a sample `{timestamp, body, secret}`. Files touched but left alone (their `Authorization: Bearer` is correct because they target third-party APIs, not the settler): `bux_booster_onchain.ex` (legacy EVM), `social/x_api_client.ex`, `content_automation/{image_finder,tweet_finder}.ex`, `ads_manager/platform_client.ex`.
+
+Post-deploy verification ran `BlocksterV2.LegacyMerge.merge_legacy_into!/3` with `skip_reclaimable_check: true` for user 2220 ↔ legacy user 17 — the 474,298 BUX minted on-chain to `DaqXmvYFAgv1teJm3Y4YzfJBfqUhGv1bAzjUhKUWZndF` once the Bearer→HMAC fix shipped.
+
+### EmailOtpStore migrated from per-node ETS to cluster-wide Mnesia (commit 9b92d3b)
+
+Web3Auth email sign-in's "in-app OTP" lives in `BlocksterV2.Auth.EmailOtpStore`. Pre-fix it used a private ETS table created via `:ets.new(@table, [:set, :public, :named_table])` on application start — visible only to the local node. With main app on two machines (`17817e62f16438` + `865d14f7225508`), an OTP issued by node A could not be verified by node B, so users hitting the second machine on resume saw "Invalid code".
+
+**Fix**: switched the table to Mnesia by adding `{:web3auth_email_otps, attributes: [:email, :code, :sent_at, :expires_at, :attempts], type: :set, index: []}` to `@tables` in `lib/blockster_v2/mnesia_initializer.ex`. The empty `index: []` is required — `MnesiaInitializer.create_table/2` pattern-matches on it before calling `:mnesia.create_table`, and tables omitting it skipped creation entirely. Mnesia replicates per the existing cluster topology, so OTPs are visible cluster-wide. Reads use `:mnesia.dirty_read`, writes use `:mnesia.dirty_write` to preserve the GenServer-bypass throughput we already had on the ETS path.
+
+### Mobile modal "back from email app" persistence (commit a3fdca5 + visibilitychange follow-up)
+
+iOS Safari and many Android browsers do NOT reload the tab when the user switches to their email app and switches back — the LiveView socket reconnects but `mounted()` already ran on first paint. Result: user enters email, receives OTP, switches to mail app, copies code, switches back — modal is closed because the LV state didn't survive the disconnect, and the JS hook only fired once at first mount.
+
+**Fix** (two waves):
+
+1. Wave 1 (commit a3fdca5): Added `assets/js/hooks/email_otp_resume.js` that reads `localStorage["blockster:email_otp_pending"]` on `mounted()` and pushes `restore_email_otp_state` to the LV. `WalletAuthEvents.handle_event("start_email_login")` now also pushes `phx:save_email_otp_state` (writes `{email, savedAt}` to localStorage with a 10-min TTL); `verify_email_otp` pushes `phx:clear_email_otp_state`. The `restore_email_otp_state` LV handler only fires when the modal stage is in `[nil, :enter_email]` so it can't disrupt mid-flow input. A hidden `<div id="email-otp-resume" phx-hook="EmailOtpResume">` was wired into both `redesign.html.heex` and `app.html.heex`.
+2. Wave 2 (this session): The hook only fired once on first mount, so a tab kept alive across the app-switch never re-checked localStorage. Extracted the body into `tryRestore()`, attached a `document.addEventListener("visibilitychange", ...)` that calls `tryRestore()` when `document.visibilityState === "visible"`, and added a matching `destroyed()` cleanup. Now whenever the tab becomes visible again — whether after a fresh mount or just an iOS app-switch — the hook re-checks localStorage and re-opens the modal in enter-code stage if the email is still within the 10-min server-side TTL.
+
+### Web3Auth signing key cluster sync — manual gotcha after every machine recreation
+
+Each main-app machine generates its own RSA signing key on first boot at `/data/web3auth/signing_key.json`, used to mint Custom JWTs for the Web3Auth `blockster-email` + `blockster-telegram` verifiers. If two machines hold different keys, JWT verification fails for whichever node serves the verify request after the issuing node serves the sign request. Fly's deploy strategy spins up new machines with fresh keys, so every redeploy that recreates machines breaks the cluster until the keys are synced.
+
+Sync command (run after every deploy that recreates machines):
+
+```bash
+flyctl ssh console --machine 17817e62f16438 --app blockster-v2 -C "/app/bin/blockster_v2 rpc '
+key_content = File.read!(\"/data/web3auth/signing_key.json\")
+node_b = :\"blockster-v2@fdaa:0:9cc8:a7b:195:c889:9afe:2\"
+:rpc.call(node_b, File, :write, [\"/data/web3auth/signing_key.json\", key_content])
+Process.exit(:rpc.call(node_b, Process, :whereis, [BlocksterV2.Auth.Web3AuthSigning]), :kill)
+'"
+```
+
+The `Process.exit/2` call against `Web3AuthSigning` on the remote node forces it to reload the key from disk via supervisor restart. Long-term TODO is to move the signing key into a Fly secret so all machines load the same value at boot — until then, this RPC sync is the runbook step.
+
+### Fly deploy volume-claim panic — workaround via per-machine `flyctl machines update --image`
+
+Every `flyctl deploy --app blockster-v2` of this branch failed at the machine-swap step with:
+
+```
+failed to launch VM: failed_precondition: volume already claimed by machine ...
+panic: runtime error: invalid memory address or nil pointer dereference
+```
+
+Setting `[deploy] strategy = 'immediate'` in `fly.toml` did not fix it — the new VM still races the existing volume claim. Image WAS built and pushed though; deployment simply couldn't roll over.
+
+**Workaround** (now baked into the deploy runbook): after the swap fails, extract the image tag from the failed deploy output (`registry.fly.io/blockster-v2:deployment-XXX`) and update each machine in place:
+
+```bash
+for M in 17817e62f16438 865d14f7225508; do
+  flyctl machines update $M --image "<TAG>" --app blockster-v2 --yes
+done
+```
+
+Both volumes (`vol_493dxol8yx95p054` + `vol_r779xw2ww3n2031r`) stay attached. Verify with `flyctl machines list --app blockster-v2`. Re-sync the Web3Auth signing key as above after the update completes.
+
+### Build context savings already in place
+
+`.dockerignore` excludes `/contracts` (saves ~2.3 GB upload). Don't undo it — settler ships from its own image, not from the main app's. Even with the exclusion, context upload still runs ~770 KB/s to Fly's builder (5–10 min/deploy). Verified user's connection is fine (35 Mbps to Cloudflare); the upstream limit is on Fly's side.
+
+---
+
 ## Pool + /play UI Polish + Web3Auth Reauth-Pill Pattern (2026-04-27) ✅
 
 Two unrelated tracks landed in one session: (a) a sweep of the pool surfaces (`/pool`, `/pool/sol`, `/pool/bux`) and the play page (`/play`) to kill hardcoded marketing numbers and standardize how SOL/BUX values render, and (b) a new "Reconnect wallet" pill UX that replaces the modal-on-mount we briefly shipped earlier in the day for Web3Auth OAuth (X / Google / Apple) users whose sessions had aged out.
