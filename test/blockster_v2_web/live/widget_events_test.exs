@@ -22,7 +22,7 @@ defmodule BlocksterV2Web.WidgetEventsTest do
   end
 
   describe "mount_widgets/2" do
-    test "subscribes to fs + rt data topics + per-banner selection topics on connected mount",
+    test "subscribes to rt data topic + per-banner selection topics on connected mount",
          %{conn: conn} do
       b1 = create_widget_banner(%{name: "b1", widget_type: "fs_hero_portrait"})
       b2 = create_widget_banner(%{name: "b2", widget_type: "rt_chart_landscape"})
@@ -31,9 +31,8 @@ defmodule BlocksterV2Web.WidgetEventsTest do
 
       # Dispatch a message on each topic the macro should have subscribed to.
       # If the subscription happened, the LV receives it and push_event fires.
-      Phoenix.PubSub.broadcast(BlocksterV2.PubSub, "widgets:fateswap:feed", {:fs_trades, [%{"id" => "t1"}]})
-      assert_push_event(view, "widget:fs_feed:update", %{trades: [%{"id" => "t1"}]})
-
+      # `widgets:fateswap:feed` is intentionally NOT subscribed anymore — the
+      # tracker was retired (see widget_events.ex moduledoc).
       Phoenix.PubSub.broadcast(BlocksterV2.PubSub, "widgets:roguetrader:bots", {:rt_bots, [%{"bot_id" => "x"}]})
       assert_push_event(view, "widget:rt_bots:update", %{bots: [%{"bot_id" => "x"}]})
 
@@ -89,19 +88,10 @@ defmodule BlocksterV2Web.WidgetEventsTest do
   end
 
   describe "handle_info/2" do
-    test "{:fs_trades, _} updates @fs_trades and pushes widget:fs_feed:update", %{conn: conn} do
-      _ = create_widget_banner()
-      {:ok, view, _html} = live_isolated(conn, WidgetEventsTestHost)
-
-      Phoenix.PubSub.broadcast(
-        BlocksterV2.PubSub,
-        "widgets:fateswap:feed",
-        {:fs_trades, [%{"id" => "a"}, %{"id" => "b"}]}
-      )
-
-      assert_push_event(view, "widget:fs_feed:update", %{trades: trades})
-      assert length(trades) == 2
-    end
+    # The `{:fs_trades, _}` clause was removed alongside the FateSwap tracker
+    # retirement. There's no producer broadcasting on `widgets:fateswap:feed`
+    # anymore, so the matching handle_info is dead weight — see
+    # docs/session_learnings.md "PubSub broadcasts are fan-out bombs".
 
     test "{:rt_bots, _} updates @rt_bots and pushes widget:rt_bots:update", %{conn: conn} do
       _ = create_widget_banner()
@@ -159,8 +149,8 @@ defmodule BlocksterV2Web.WidgetEventsTest do
 
       # If the nil path crashed the LV, the next subscribed message wouldn't
       # round-trip. Broadcast a known event and assert we still see the push.
-      Phoenix.PubSub.broadcast(BlocksterV2.PubSub, "widgets:fateswap:feed", {:fs_trades, []})
-      assert_push_event(view, "widget:fs_feed:update", %{trades: []})
+      Phoenix.PubSub.broadcast(BlocksterV2.PubSub, "widgets:roguetrader:bots", {:rt_bots, []})
+      assert_push_event(view, "widget:rt_bots:update", %{bots: []})
     end
   end
 

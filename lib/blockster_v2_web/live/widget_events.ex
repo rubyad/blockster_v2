@@ -35,7 +35,13 @@ defmodule BlocksterV2Web.WidgetEvents do
       alias BlocksterV2.Ads
       alias BlocksterV2.Widgets.{ClickRouter, FateSwapFeedTracker, RogueTraderBotsTracker, RogueTraderChartTracker, TrackerStatus}
 
-      @widget_fs_feed_topic "widgets:fateswap:feed"
+      # FateSwap feed topic intentionally absent — the feed tracker was
+      # retired (see application.ex), no producer broadcasts to
+      # `widgets:fateswap:feed` anymore. Subscribers used to register on
+      # every page mount, costing ETS writes against the PubSub registry
+      # for a topic with no traffic. Read path (`FateSwapFeedTracker.get_trades/0`)
+      # still works against the empty Mnesia cache and returns `[]`, so
+      # heex consumers of `@fs_trades` keep rendering as inert markup.
       @widget_rt_bots_topic "widgets:roguetrader:bots"
       @widget_selection_topic_prefix "widgets:selection:"
       @widget_rt_chart_topic_prefix "widgets:roguetrader:chart:"
@@ -52,7 +58,6 @@ defmodule BlocksterV2Web.WidgetEvents do
         widget_banners = Enum.filter(banners, fn b -> b.widget_type end)
 
         if Phoenix.LiveView.connected?(socket) do
-          Phoenix.PubSub.subscribe(BlocksterV2.PubSub, @widget_fs_feed_topic)
           Phoenix.PubSub.subscribe(BlocksterV2.PubSub, @widget_rt_bots_topic)
 
           for banner <- widget_banners do
@@ -84,14 +89,10 @@ defmodule BlocksterV2Web.WidgetEvents do
       end
 
       # ── handle_info ────────────────────────────────────────────────────
-
-      def handle_info({:fs_trades, trades}, socket) do
-        {:noreply,
-         socket
-         |> Phoenix.Component.assign(:fs_trades, trades)
-         |> Phoenix.Component.assign(:widget_tracker_errors, TrackerStatus.errors())
-         |> Phoenix.LiveView.push_event("widget:fs_feed:update", %{trades: trades})}
-      end
+      # Note: `{:fs_trades, _}` clause removed alongside the FateSwap tracker
+      # retirement — no producer publishes to `widgets:fateswap:feed`, so
+      # subscribing is dead weight on every mount. Heex consumers read
+      # `@fs_trades` (seeded once via the empty Mnesia cache) as `[]`.
 
       def handle_info({:rt_bots, bots}, socket) do
         {:noreply,

@@ -151,8 +151,10 @@ defmodule BlocksterV2.Application do
     widgets_children =
       if Application.get_env(:blockster_v2, :widgets, [])[:enabled] and
            Application.get_env(:blockster_v2, :start_genservers, true) do
+        # FateSwapFeedTracker disabled — feed widgets retired. Mnesia-backed
+        # readers (get_trades/0, get_order/1) degrade to [] / nil when the
+        # GenServer isn't running, so cached pages keep rendering.
         [
-          {BlocksterV2.Widgets.FateSwapFeedTracker, []},
           {BlocksterV2.Widgets.RogueTraderBotsTracker, []},
           {BlocksterV2.Widgets.RogueTraderChartTracker, []}
         ]

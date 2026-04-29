@@ -1,6 +1,6 @@
 defmodule BlocksterV2.Widgets.RogueTraderBotsTracker do
   @moduledoc """
-  Polls `GET /api/bots` on the RogueTrader sister app every 10s, caches the
+  Polls `GET /api/bots` on the RogueTrader sister app every 30s, caches the
   bot snapshot list in Mnesia, broadcasts on `"widgets:roguetrader:bots"`
   when the snapshot changes, and re-runs `WidgetSelector.pick_rt/2` for
   every active RogueTrader widget banner.
@@ -18,7 +18,11 @@ defmodule BlocksterV2.Widgets.RogueTraderBotsTracker do
   @table :widget_rt_bots_cache
   @topic "widgets:roguetrader:bots"
   @selection_topic_prefix "widgets:selection:"
-  @default_interval :timer.seconds(10)
+  # 30s interval — was 10s, which on a 1000-LV connected cluster fanned the
+  # ticker re-render across every LV subscribed to the bots topic 6x/min.
+  # 30s keeps the ticker prices fresh enough that nothing reads as stale
+  # while cutting the broadcast/fan-out load 3×.
+  @default_interval :timer.seconds(30)
   @default_timeout 5_000
   @default_path "/api/bots"
 

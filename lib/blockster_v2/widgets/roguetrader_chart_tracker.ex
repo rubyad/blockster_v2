@@ -21,7 +21,11 @@ defmodule BlocksterV2.Widgets.RogueTraderChartTracker do
   @table :widget_rt_chart_cache
   @topic_prefix "widgets:roguetrader:chart:"
   @timeframes ~w(1h 6h 24h 48h 7d)
-  @default_interval :timer.seconds(60)
+  # 10-min sweep — was 60s, which fanned out to ~150 HTTP calls/min against
+  # the sister app (30 bots × 5 timeframes) and broadcast a chart update to
+  # every connected LV on every successful poll. Charts don't need sub-minute
+  # freshness; live overlay from RogueTraderBotsTracker covers the trailing edge.
+  @default_interval :timer.minutes(10)
   @default_timeout 5_000
 
   # ── Client API ────────────────────────────────────────────────────────────
