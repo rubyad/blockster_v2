@@ -68,3 +68,11 @@ logs/
 # (target/) and Node modules (settler/node_modules) from the docker
 # context upload — without this, deploys timed out on slow connections.
 /contracts
+
+# Sister project (lives in this repo for convenience but is its own Phoenix
+# app — its own deploy, its own Dockerfile). 174MB of deps + node_modules
+# unnecessary for the main app build.
+/high-rollers-elixir
+
+# Stray archive
+/blockster_v2.zip
