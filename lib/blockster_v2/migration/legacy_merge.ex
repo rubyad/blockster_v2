@@ -65,6 +65,7 @@ defmodule BlocksterV2.Migration.LegacyMerge do
     # Capture the originals BEFORE we deactivate the legacy row, since
     # deactivation NULLs/overwrites several of these fields.
     originals = %{
+      legacy_id: legacy_user.id,
       email: legacy_user.email,
       username: legacy_user.username,
       slug: legacy_user.slug,
@@ -74,7 +75,9 @@ defmodule BlocksterV2.Migration.LegacyMerge do
       telegram_group_joined_at: legacy_user.telegram_group_joined_at,
       locked_x_user_id: legacy_user.locked_x_user_id,
       referrer_id: legacy_user.referrer_id,
-      referred_at: legacy_user.referred_at
+      referred_at: legacy_user.referred_at,
+      is_admin: legacy_user.is_admin,
+      is_author: legacy_user.is_author
     }
 
     Repo.transaction(fn ->
@@ -110,6 +113,12 @@ defmodule BlocksterV2.Migration.LegacyMerge do
       # 10. Finalize the new user's email field (writes pending_email -> email).
       new_user = finalize_new_user_email(new_user)
 
+      # 11. Preserve admin/author privileges from the legacy row. Without this
+      #     a legacy admin who reclaims their email gets demoted to a regular
+      #     user. Confirmed prod incident 2026-04-29 — adam+admin1 + lidia
+      #     both had to be re-granted admin manually after their reclaims.
+      {new_user, role_flags_transferred} = maybe_transfer_role_flags(new_user, originals)
+
       %{
         user: new_user,
         summary: %{
@@ -122,7 +131,8 @@ defmodule BlocksterV2.Migration.LegacyMerge do
           phone_transferred: phone_transferred,
           fingerprints_transferred: fingerprint_count,
           content: content_counts,
-          referrals: referral_counts
+          referrals: referral_counts,
+          role_flags_transferred: role_flags_transferred
         }
       }
     end)
@@ -168,31 +178,73 @@ defmodule BlocksterV2.Migration.LegacyMerge do
   # ============================================================================
   # Step 2: BUX claim
   # ============================================================================
+  #
+  # Source of legacy BUX amount priority:
+  #   1. The legacy user's Mnesia `:user_bux_balances` row, keyed by user_id.
+  #      This is the canonical record of how much BUX they had earned —
+  #      EngagementTracker writes here on every reward, so it stays in sync
+  #      with on-chain mints. After the EVM → Solana migration this is also
+  #      the only place the historical balance is preserved.
+  #   2. Fallback: `LegacyBuxMigration` table by email. This was the original
+  #      design (snapshot-based), but the production snapshot was never
+  #      populated — the table had 0 rows on 2026-04-29. Kept as a fallback
+  #      in case it gets backfilled later, but no longer the primary source.
+  #
+  # Idempotency: `merge_legacy_into!/3` refuses to merge an already-deactivated
+  # legacy user (`legacy.is_active == false → :legacy_already_deactivated`),
+  # so a successful mint can't be replayed for the same legacy row.
+  defp maybe_claim_legacy_bux(new_user, originals) do
+    amount = legacy_bux_amount(originals)
 
-  defp maybe_claim_legacy_bux(new_user, %{email: email}) do
-    case email && Repo.get_by(LegacyBuxMigration, email: String.downcase(email)) do
-      nil ->
+    cond do
+      amount > 0 ->
+        mint_legacy_bux(new_user, originals, amount)
+
+      true ->
         {0.0, nil}
-
-      false ->
-        {0.0, nil}
-
-      %LegacyBuxMigration{migrated: true} ->
-        # Defensive — shouldn't happen mid-merge.
-        {0.0, nil}
-
-      %LegacyBuxMigration{legacy_bux_balance: bal} = migration ->
-        amount = decimal_to_float(bal)
-
-        if amount > 0 do
-          mint_legacy_bux(new_user, migration, amount)
-        else
-          {0.0, nil}
-        end
     end
   end
 
-  defp mint_legacy_bux(new_user, migration, amount) do
+  # Returns the BUX amount to mint for the legacy user. Mnesia first, then
+  # LegacyBuxMigration fallback.
+  defp legacy_bux_amount(%{legacy_id: legacy_id} = originals) when is_integer(legacy_id) do
+    case mnesia_legacy_balance(legacy_id) do
+      bal when bal > 0 -> bal
+      _ -> migration_table_balance(originals)
+    end
+  end
+
+  defp legacy_bux_amount(originals), do: migration_table_balance(originals)
+
+  defp mnesia_legacy_balance(legacy_id) do
+    case :mnesia.dirty_read(:user_bux_balances, legacy_id) do
+      # Tuple shape: {:user_bux_balances, user_id, wallet, _ts, total, ...}
+      [tuple] when tuple_size(tuple) >= 5 ->
+        case elem(tuple, 4) do
+          n when is_number(n) and n > 0 -> n * 1.0
+          _ -> 0.0
+        end
+
+      _ ->
+        0.0
+    end
+  rescue
+    _ -> 0.0
+  catch
+    :exit, _ -> 0.0
+  end
+
+  defp migration_table_balance(%{email: email}) when is_binary(email) and email != "" do
+    case Repo.get_by(LegacyBuxMigration, email: String.downcase(email)) do
+      %LegacyBuxMigration{migrated: true} -> 0.0
+      %LegacyBuxMigration{legacy_bux_balance: bal} -> decimal_to_float(bal)
+      _ -> 0.0
+    end
+  end
+
+  defp migration_table_balance(_), do: 0.0
+
+  defp mint_legacy_bux(new_user, originals, amount) do
     case @bux_minter.mint_bux(
            new_user.wallet_address,
            amount,
@@ -202,18 +254,11 @@ defmodule BlocksterV2.Migration.LegacyMerge do
          ) do
       {:ok, response} ->
         signature = response["signature"] || response[:signature]
-        now = DateTime.utc_now() |> DateTime.truncate(:second)
+        record_migration(originals, new_user, signature)
 
-        migration
-        |> Ecto.Changeset.change(%{
-          new_wallet_address: new_user.wallet_address,
-          mint_tx_signature: signature,
-          migrated: true,
-          migrated_at: now
-        })
-        |> Repo.update!()
-
-        Logger.info("[LegacyMerge] Minted #{amount} legacy BUX to #{new_user.wallet_address} (sig: #{inspect(signature)})")
+        Logger.info(
+          "[LegacyMerge] Minted #{amount} legacy BUX to #{new_user.wallet_address} (sig: #{inspect(signature)})"
+        )
 
         {amount, signature}
 
@@ -222,6 +267,48 @@ defmodule BlocksterV2.Migration.LegacyMerge do
         Repo.rollback({:bux_mint_failed, reason})
     end
   end
+
+  # Update the LegacyBuxMigration row if one exists for audit trail, OR insert
+  # a fresh one so future runs (and ops queries) can see this user was migrated.
+  # Best-effort — failures don't roll back the merge since the on-chain mint
+  # already succeeded.
+  defp record_migration(%{email: email} = originals, new_user, signature)
+       when is_binary(email) and email != "" do
+    now = DateTime.utc_now() |> DateTime.truncate(:second)
+    email_key = String.downcase(email)
+
+    case Repo.get_by(LegacyBuxMigration, email: email_key) do
+      %LegacyBuxMigration{} = existing ->
+        existing
+        |> Ecto.Changeset.change(%{
+          new_wallet_address: new_user.wallet_address,
+          mint_tx_signature: signature,
+          migrated: true,
+          migrated_at: now
+        })
+        |> Repo.update()
+
+      nil ->
+        amount_d =
+          case mnesia_legacy_balance(originals[:legacy_id] || 0) do
+            n when is_number(n) -> Decimal.from_float(n * 1.0)
+            _ -> Decimal.new(0)
+          end
+
+        %LegacyBuxMigration{}
+        |> Ecto.Changeset.change(%{
+          email: email_key,
+          legacy_bux_balance: amount_d,
+          new_wallet_address: new_user.wallet_address,
+          mint_tx_signature: signature,
+          migrated: true,
+          migrated_at: now
+        })
+        |> Repo.insert()
+    end
+  end
+
+  defp record_migration(_originals, _new_user, _signature), do: :ok
 
   # ============================================================================
   # Step 3: Username transfer
@@ -538,6 +625,49 @@ defmodule BlocksterV2.Migration.LegacyMerge do
         |> Repo.update!()
     end
   end
+
+  # ============================================================================
+  # Step 11: Preserve admin / author role flags
+  # ============================================================================
+  #
+  # When a legacy admin reclaims their email, the new user row is a fresh
+  # `is_admin: false, is_author: false` record. Without this transfer, the
+  # admin loses their dashboard access until someone manually toggles the
+  # flag. Confirmed prod incident 2026-04-29 — adam+admin1 (legacy id=17,
+  # new id=2220) and lidia (legacy id=7, new id=2236) both signed in,
+  # got merged, lost admin, had to be re-granted via direct DB update.
+  #
+  # We always promote: if the legacy was admin/author, the new user is too.
+  # We never demote — if the new user was already admin (rare but possible),
+  # leave that alone. OR-logic on each flag.
+  defp maybe_transfer_role_flags(new_user, originals) do
+    legacy_admin = !!Map.get(originals, :is_admin)
+    legacy_author = !!Map.get(originals, :is_author)
+
+    needs_admin = legacy_admin and not new_user.is_admin
+    needs_author = legacy_author and not new_user.is_author
+
+    cond do
+      needs_admin or needs_author ->
+        changes =
+          %{}
+          |> maybe_put(:is_admin, needs_admin && true)
+          |> maybe_put(:is_author, needs_author && true)
+
+        new_user =
+          new_user
+          |> Ecto.Changeset.change(changes)
+          |> Repo.update!()
+
+        {new_user, Map.keys(changes)}
+
+      true ->
+        {new_user, []}
+    end
+  end
+
+  defp maybe_put(map, _key, false), do: map
+  defp maybe_put(map, key, true), do: Map.put(map, key, true)
 
   # ============================================================================
   # Helpers
