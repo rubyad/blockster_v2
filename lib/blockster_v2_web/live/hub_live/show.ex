@@ -55,9 +55,17 @@ defmodule BlocksterV2Web.HubLive.Show do
             [] -> {nil, []}
           end
 
+        # Resolve gradient colors once at mount via HubColor — uses DB
+        # `color_primary`/`color_secondary` when set, falls back to a stable
+        # slug-derived HSL otherwise. Means the show page always has *some*
+        # brand color even for hubs that never had brand colors set in admin.
+        {hub_primary, hub_secondary} = BlocksterV2.Blog.HubColor.gradient(hub)
+
         {:ok,
          socket
          |> assign(:hub, hub)
+         |> assign(:hub_primary, hub_primary)
+         |> assign(:hub_secondary, hub_secondary)
          |> assign(:all_posts, all_posts)
          |> assign(:pinned_post, pinned_post)
          |> assign(:mosaic_posts, mosaic_posts)
