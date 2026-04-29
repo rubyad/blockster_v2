@@ -602,17 +602,22 @@ defmodule BlocksterV2Web.AuthController do
 
         id_token = BlocksterV2.Auth.Web3AuthSigning.sign_id_token(claims)
 
-        # Stash the JWT in Mnesia (cluster-replicated) instead of the session
-        # cookie — see Auth.PendingTelegramJwtStore for the overflow story.
-        case BlocksterV2.Auth.PendingTelegramJwtStore.stash(id_token) do
-          {:ok, token} ->
-            conn
-            |> put_session(:pending_telegram_jwt_token, token)
-            |> redirect(to: "/?telegram_login=1")
+        # Embed the JWT in the URL fragment (`#tg_jwt=<jwt>`). Fragments are
+        # NEVER sent to servers and never appear in referer headers, so this
+        # is privacy-equivalent to the session-cookie stash but avoids the
+        # cookie-overflow + session-cluster failure modes that bit us today
+        # (see PendingTelegramJwtStore moduledoc for the cookie story; the
+        # store itself remains in lib/ as a fallback but is no longer the
+        # primary handoff mechanism). The JS hook reads the fragment on
+        # mount via _completeTelegramRedirectReturn.
+        encoded = Base.url_encode64(id_token, padding: false)
+        location = "/?telegram_login=1#tg_jwt=" <> encoded
 
-          {:error, _reason} ->
-            telegram_callback_redirect_with_error(conn, "telegram_stash_failed")
-        end
+        # Hand-roll the redirect because Phoenix.Controller.redirect/2 with
+        # `to:` strips/validates the URL fragment in some versions.
+        conn
+        |> Plug.Conn.put_resp_header("location", location)
+        |> Plug.Conn.send_resp(302, "")
     end
   end
 

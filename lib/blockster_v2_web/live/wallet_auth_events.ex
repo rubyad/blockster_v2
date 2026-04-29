@@ -613,6 +613,23 @@ defmodule BlocksterV2Web.WalletAuthEvents do
         end
       end
 
+      # Pushed by the Web3Auth JS hook on mount when the URL came back from
+      # auth.web3auth.io's redirect-return — i.e., the user's social login
+      # is in the post-OAuth resume window where Web3Auth's MPC handshake
+      # may take up to 8s. Without opening the modal here the user sees
+      # nothing during that window. Once `_completeLogin` fires, the normal
+      # `web3auth_authenticated` handler takes over.
+      def handle_event("web3auth_resume_in_progress", %{"provider" => provider}, socket) do
+        provider = if is_binary(provider) and provider != "", do: provider, else: "email"
+
+        {:noreply,
+         socket
+         |> assign(:show_wallet_selector, true)
+         |> assign(:connecting, true)
+         |> assign(:connecting_provider, provider)
+         |> assign(:connecting_wallet_name, nil)}
+      end
+
       def handle_event("web3auth_error", %{"error" => error}, socket) do
         # Keep the wallet selector open so the user can retry immediately
         # without navigating away. Web3Auth failures are often transient

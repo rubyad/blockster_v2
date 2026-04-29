@@ -197,6 +197,17 @@ export const Web3Auth = {
     })()
 
     if (pendingRedirectProvider && this._clientId) {
+      // Tell the LV to show the modal in connecting state IMMEDIATELY,
+      // before we await Web3Auth init/settle (which can take up to 8s on
+      // mobile). Without this, the user sees no modal during the resume
+      // window — looking like the login "disappeared" — and only sees it
+      // again when MPC completes or errors. UX symptom on iPad X login:
+      // "modal appears, disappears, appears" — the disappearance was the
+      // resume window with no modal showing.
+      this.pushEvent("web3auth_resume_in_progress", {
+        provider: pendingRedirectProvider,
+      })
+
       // Redirect return takes precedence over silent reconnect — this is
       // the post-OAuth path where we need to mint a server session cookie.
       this._completeRedirectReturn(pendingRedirectProvider).catch((e) => {
@@ -393,21 +404,14 @@ export const Web3Auth = {
   },
 
   // Telegram redirect-mode return — runs from `mounted()` when the URL has
-  // `?telegram_login=1`. The server stashed a Custom JWT in session during
-  // /api/auth/telegram/callback. Pull it via /api/auth/telegram/pending_jwt
-  // (one-shot — server clears the session entry on read), then hand it to
-  // _startJwtLogin to complete the Web3Auth Custom connector flow.
+  // `?telegram_login=1`. The server placed the Custom JWT directly in the
+  // URL fragment (`#tg_jwt=<base64>`) so we don't need a session cookie,
+  // a Mnesia stash, or a fetch round-trip. Fragments are never sent to
+  // servers, so this is privacy-equivalent to the previous session stash.
   // ?telegram_login_error=<code> takes the same path but surfaces the code
   // as an error to the LV instead.
   async _completeTelegramRedirectReturn() {
-    // Strip the URL flag so a refresh doesn't re-enter this branch.
-    try {
-      const url = new URL(window.location.href)
-      url.searchParams.delete("telegram_login")
-      url.searchParams.delete("telegram_login_error")
-      window.history.replaceState({}, "", url.toString())
-    } catch (_) {}
-
+    // Read params + fragment BEFORE stripping the URL.
     const errorParam = (() => {
       try {
         return new URLSearchParams(window.location.search).get(
@@ -418,6 +422,29 @@ export const Web3Auth = {
       }
     })()
 
+    const fragmentJwt = (() => {
+      try {
+        const hash = window.location.hash || ""
+        const match = hash.match(/#tg_jwt=([A-Za-z0-9_-]+)/)
+        if (!match) return null
+        // Decode base64-url back to the JWT string.
+        let b64 = match[1].replace(/-/g, "+").replace(/_/g, "/")
+        while (b64.length % 4) b64 += "="
+        return atob(b64)
+      } catch (_) {
+        return null
+      }
+    })()
+
+    // Strip URL flag + fragment so a refresh doesn't replay.
+    try {
+      const url = new URL(window.location.href)
+      url.searchParams.delete("telegram_login")
+      url.searchParams.delete("telegram_login_error")
+      url.hash = ""
+      window.history.replaceState({}, "", url.toString())
+    } catch (_) {}
+
     if (errorParam) {
       this.pushEvent("web3auth_error", {
         error: `Telegram login failed: ${errorParam}`,
@@ -425,23 +452,35 @@ export const Web3Auth = {
       return
     }
 
-    const res = await fetch("/api/auth/telegram/pending_jwt", {
-      method: "GET",
-      credentials: "same-origin",
-    })
+    if (!fragmentJwt) {
+      // Fallback path — older deploys may still use the session-stashed JWT.
+      // Try the legacy pending_jwt endpoint once before giving up.
+      try {
+        const res = await fetch("/api/auth/telegram/pending_jwt", {
+          method: "GET",
+          credentials: "same-origin",
+        })
+        const json = await res.json().catch(() => ({}))
+        if (res.ok && json?.success && json?.id_token) {
+          await this._startJwtLogin({
+            provider: "telegram",
+            id_token: json.id_token,
+            verifier_id: this._telegramVerifierId,
+            verifier_id_field: "sub",
+          })
+          return
+        }
+      } catch (_) {}
 
-    const json = await res.json().catch(() => ({}))
-
-    if (!res.ok || !json?.success || !json?.id_token) {
       this.pushEvent("web3auth_error", {
-        error: json?.error || "Telegram login state was not found in session",
+        error: "Telegram login state was not found",
       })
       return
     }
 
     await this._startJwtLogin({
       provider: "telegram",
-      id_token: json.id_token,
+      id_token: fragmentJwt,
       verifier_id: this._telegramVerifierId,
       verifier_id_field: "sub",
     })
