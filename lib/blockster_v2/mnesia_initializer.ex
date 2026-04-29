@@ -1481,6 +1481,18 @@ defmodule BlocksterV2.MnesiaInitializer do
 
   # Ensure the schema has disc_copies on this node.
   # Must be called AFTER cleanup_stale_nodes to avoid combine_error.
+  #
+  # Handles three starting states:
+  #   1. Schema already :disc_copies on this node — no-op.
+  #   2. Schema is :ram_copies on this node — change_table_copy_type works directly.
+  #   3. Schema is :unknown (no local storage at all, only a remote pointer) —
+  #      change_table_copy_type fails with `{:badarg, :schema, :unknown}` because
+  #      there's no source storage type to convert from. Recovery is to first
+  #      `add_table_copy(:schema, node(), :ram_copies)` (creates the local
+  #      schema record), THEN `change_table_copy_type(... :disc_copies)`. This
+  #      state is what we hit on machine 865d14f7225508 in the 2026-04-29 prod
+  #      incident — see docs/session_learnings.md "Mnesia split-brain after
+  #      deploy restart" entry.
   defp ensure_schema_disc_copies do
     case :mnesia.change_table_copy_type(:schema, node(), :disc_copies) do
       {:atomic, :ok} ->
@@ -1489,8 +1501,54 @@ defmodule BlocksterV2.MnesiaInitializer do
       {:aborted, {:already_exists, :schema, _, :disc_copies}} ->
         Logger.info("[MnesiaInitializer] Schema already disc_copies")
 
+      {:aborted, {:badarg, :schema, :unknown}} ->
+        recover_unknown_schema()
+
       {:aborted, reason} ->
         Logger.warning("[MnesiaInitializer] Schema disc_copies failed: #{inspect(reason)}")
+    end
+  end
+
+  # Schema storage type is :unknown — we know the cluster has the schema (we
+  # joined via change_config + extra_db_nodes) but there's no local storage
+  # backing it. Add a ram_copy first to materialize the local schema, then
+  # promote it to disc_copies for persistence.
+  defp recover_unknown_schema do
+    Logger.warning(
+      "[MnesiaInitializer] Schema is :unknown on this node — recovering via ram_copies → disc_copies"
+    )
+
+    case :mnesia.add_table_copy(:schema, node(), :ram_copies) do
+      {:atomic, :ok} ->
+        Logger.info("[MnesiaInitializer] Added schema as ram_copies, promoting to disc")
+
+        case :mnesia.change_table_copy_type(:schema, node(), :disc_copies) do
+          {:atomic, :ok} ->
+            Logger.info("[MnesiaInitializer] Schema promoted to disc_copies")
+
+          {:aborted, promote_err} ->
+            Logger.error(
+              "[MnesiaInitializer] Schema ram→disc promotion failed: #{inspect(promote_err)}. " <>
+                "Node will operate in ram-only mode until next restart."
+            )
+        end
+
+      {:aborted, {:already_exists, :schema, _}} ->
+        Logger.info("[MnesiaInitializer] Schema ram_copies already present, retrying disc promotion")
+
+        case :mnesia.change_table_copy_type(:schema, node(), :disc_copies) do
+          {:atomic, :ok} ->
+            Logger.info("[MnesiaInitializer] Schema promoted to disc_copies")
+
+          {:aborted, promote_err} ->
+            Logger.error("[MnesiaInitializer] Schema ram→disc retry failed: #{inspect(promote_err)}")
+        end
+
+      {:aborted, add_err} ->
+        Logger.error(
+          "[MnesiaInitializer] Could not materialize local schema (add ram_copies failed: #{inspect(add_err)}). " <>
+            "Table copies on this node will fail until manual intervention."
+        )
     end
   end
 
@@ -1594,14 +1652,31 @@ defmodule BlocksterV2.MnesiaInitializer do
     end)
   end
 
-  # Safe version that never deletes tables - but will create if no other option
+  # Safe version that never deletes tables - but will create if no other option.
+  #
+  # IMPORTANT — `:already_exists` does NOT mean the local node has a copy. The
+  # error shape is `{:already_exists, Table, _}` and Mnesia returns it whenever
+  # the operation can't proceed because of an existing schema entry — including
+  # "the schema records *some other* node as having this table." On a node
+  # joining a cluster without a local schema disc copy, attempting to add a
+  # `:disc_copies` copy of an existing cluster table lands HERE, not in the
+  # `:atomic, :ok` branch. Logging "already has disc_copies on this node" and
+  # moving on leaves the node with no local copy and `where_to_read = :nowhere`
+  # for any node that subsequently goes offline. See `docs/session_learnings.md`
+  # "MnesiaInitializer.safe_add_table_copy/2 misreads :already_exists" for the
+  # 2026-04-29 prod incident this caused.
   defp safe_add_table_copy(table_name, table_def) do
     case :mnesia.add_table_copy(table_name, node(), :disc_copies) do
       {:atomic, :ok} ->
         Logger.info("[MnesiaInitializer] Successfully added #{table_name} disc_copies to this node")
 
       {:aborted, {:already_exists, _, _}} ->
-        Logger.info("[MnesiaInitializer] Table #{table_name} already has disc_copies on this node")
+        # Could mean (a) we genuinely have a local disc_copy already, or
+        # (b) some OTHER node has a copy and our schema doesn't have us as
+        # disc-on-this-node. Discriminate by checking the actual disc_copies
+        # list. Case (b) usually means the local schema isn't disc — fix
+        # that and retry once.
+        handle_already_exists(table_name, table_def)
 
       {:aborted, {:system_limit, _, {_node, :none_active}}} ->
         # No active copies anywhere - we need to create a fresh table
@@ -1618,6 +1693,41 @@ defmodule BlocksterV2.MnesiaInitializer do
         # Try to create the table if we can't add copy for other reasons
         Logger.warning("[MnesiaInitializer] Could not add #{table_name} copy: #{inspect(reason)} - attempting to create fresh")
         create_table(table_def, :disc_copies)
+    end
+  end
+
+  # Sub-case for safe_add_table_copy/2 when add_table_copy returned :already_exists.
+  # The discriminator is whether `node()` is in the table's actual `:disc_copies`
+  # list. If yes, this is the genuinely-benign case (we already have the copy).
+  # If no, the schema almost certainly isn't disc on this node — convert it,
+  # then retry add_table_copy once.
+  defp handle_already_exists(table_name, table_def) do
+    if node() in :mnesia.table_info(table_name, :disc_copies) do
+      Logger.info("[MnesiaInitializer] Table #{table_name} already has disc_copies on this node (verified)")
+    else
+      Logger.warning(
+        "[MnesiaInitializer] Table #{table_name} returned :already_exists but node()=#{node()} not in disc_copies " <>
+          "— schema likely not disc on this node, converting + retrying"
+      )
+
+      # Ensure schema is disc_copies before retrying. ensure_schema_disc_copies
+      # treats {:already_exists, :schema, _, :disc_copies} as success.
+      ensure_schema_disc_copies()
+
+      case :mnesia.add_table_copy(table_name, node(), :disc_copies) do
+        {:atomic, :ok} ->
+          Logger.info("[MnesiaInitializer] Successfully added #{table_name} disc_copies on retry")
+
+        {:aborted, retry_reason} ->
+          # If the retry still fails, attempt to create fresh. Worst case we
+          # get a duplicate cookie that needs manual cleanup; better than
+          # silently leaving the node without a copy.
+          Logger.error(
+            "[MnesiaInitializer] Retry add_table_copy for #{table_name} failed: #{inspect(retry_reason)} " <>
+              "— attempting create_table fallback"
+          )
+          create_table(table_def, :disc_copies)
+      end
     end
   end
 
