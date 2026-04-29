@@ -7,6 +7,9 @@ For active reference material, see the main [CLAUDE.md](../CLAUDE.md).
 ---
 
 ## Table of Contents
+- [Welcome hero hijacked the top post on the homepage](#welcome-hero-hijacked-the-top-post-on-the-homepage-2026-04-29)
+- [Telegram login: popup hangs on mobile, fix is redirect mode](#telegram-login-popup-hangs-on-mobile-fix-is-redirect-mode-2026-04-29)
+- [Mnesia split-brain after deploy restart — open follow-up](#mnesia-split-brain-after-deploy-restart--open-follow-up-2026-04-29)
 - [PubSub broadcasts are fan-out bombs — keep them rare](#pubsub-broadcasts-are-fan-out-bombs--keep-them-rare-2026-04-29)
 - [Don't speculate — verify, then respond](#dont-speculate--verify-then-respond-2026-04-29)
 - [`MnesiaInitializer.safe_add_table_copy/2` misreads `:already_exists`](#mnesiainitializersafe_add_table_copy2-misreads-already_exists-2026-04-29)
@@ -79,9 +82,141 @@ For active reference material, see the main [CLAUDE.md](../CLAUDE.md).
 
 ---
 
+## Welcome hero hijacked the top post on the homepage (2026-04-29)
+
+The anonymous-only `welcome_hero` component was rendering a *preview card* of the latest post (the "hero post"). To avoid duplication, mount excluded the hero post id from the cycling feed via `displayed_post_ids = [hero.id]`. Two consequences:
+
+1. For logged-in users, `welcome_hero` doesn't render at all — the most recent post was fetched, then filtered out of the feed, then never displayed anywhere. Lidia published a post and it was invisible to logged-in homepage visitors.
+2. For anonymous users, the welcome_hero preview card had no link wrapper, so the most-recent-post card was visible but unclickable. Worse, even if clickable it would have been a duplicate-vs-feed UX.
+
+**Rule going forward**: featured/hero/welcome surfaces must NEVER hijack a post that's also expected to appear in the main feed. Either render the post as a link FROM the feed (no separate hero rendering) OR render only in the hero (excluded from feed) — never both, and never excluded-from-feed-only.
+
+**Fix shipped**: `welcome_hero` no longer takes `preview_*` attrs. The component still renders for anon users (welcome copy + stats row) but no preview card. Top post stays in the cycling feed at the top for everyone. Logic in `post_live/index.ex` mount: `displayed_post_ids` is now always `[]` for the first batch — hero_post is fetched only for its bux_balance seed.
+
+---
+
+## Telegram login: popup hangs on mobile, fix is redirect mode (2026-04-29)
+
+User reported Telegram login worked on desktop but on mobile the Telegram OAuth popup hangs and only page refresh dismisses it. Cause: `window.Telegram.Login.auth({bot_id, …}, callback)` opens a popup window pointed at `oauth.telegram.org`. The callback fires via `window.opener.postMessage` from the popup back to the parent. iOS Safari + many Android in-app browsers either:
+
+- Block the popup outright → Telegram script can't open the window → `auth(...)` never resolves
+- Open the popup as a separate tab where `window.opener` is null or postMessage doesn't reach the parent
+
+Either way the JS Promise wrapping the callback never resolves and the user can't get out of the stuck Telegram window without refreshing.
+
+**Two-layer fix shipped**:
+
+1. **Defensive 60s timeout** on the popup-mode callback Promise so the LV state recovers even if the callback never fires. Doesn't fix the popup itself but the user gets a "Telegram login was cancelled or the popup was blocked" error and can try another method.
+2. **Proper redirect-mode flow** for mobile (`isMobileUA()` check in `_startTelegramLogin`):
+   - Mobile: `window.location.href = "https://oauth.telegram.org/auth?bot_id=…&origin=…&request_access=write&return_to=https://blockster.com/api/auth/telegram/callback"` — full-page navigation, user approves in their installed Telegram app, Telegram redirects back to our callback URL with the widget payload as query params.
+   - Server: new `GET /api/auth/telegram/callback` does the same HMAC-SHA256 of `data_check_string` with `secret = SHA256(bot_token)` validation as the existing `POST /api/auth/telegram/verify`. On valid: signs the Custom JWT, stashes in `:pending_telegram_jwt` session entry, redirects to `/?telegram_login=1`. On invalid: redirects to `/?telegram_login_error=<code>`.
+   - JS hook `mounted()` detects `?telegram_login=1` in URL → strips the flag (so refresh doesn't re-enter) → `GET /api/auth/telegram/pending_jwt` (one-shot endpoint, server clears the session entry on read) → `_startJwtLogin({provider: "telegram", id_token, …})` runs the same Custom JWT path the email OTP flow uses.
+
+**Why this generalizes**: any mobile OAuth-style flow that relies on `window.opener.postMessage` will hit the same wall. The X / Google / Apple OAuth flows already use redirect mode on mobile (`uxMode: "redirect"` in Web3Auth init when `isMobileUA()` is true) — Telegram was the gap because it doesn't go through Web3Auth's SDK; we own its hook code. Pattern to copy for any future provider that opens its own popup.
+
+**Operator note**: BotFather `/setdomain blockster.com` must be set (same prereq as the existing widget). If the redirect comes back with `?telegram_login_error=invalid_telegram_signature`, the bot domain is the most likely cause.
+
+**Files**: `lib/blockster_v2_web/controllers/auth_controller.ex` (`telegram_callback/2` + `telegram_pending_jwt/2`), `lib/blockster_v2_web/router.ex` (2 new GET routes), `assets/js/hooks/web3auth_hook.js` (`_completeTelegramRedirectReturn` + mobile branch in `_startTelegramLogin`).
+
+---
+
+## Mnesia split-brain after deploy restart — open follow-up (2026-04-29)
+
+**Status: OPEN.** Today's deploys reproduced this twice. Each `flyctl deploy` of `blockster-v2` leaves machine `865d14f7225508` in a split-brain state where Erlang reconnects fine but Mnesia does not auto-rejoin the cluster. Manual recovery (~2 min, see runbook below) is currently required after every deploy. The fix(mnesia_init) commit `8444ef7` partially helps but doesn't address the actual trigger.
+
+**Symptom on the broken node** (machine 865d14f7225508):
+
+```
+:mnesia.system_info(:running_db_nodes) → [self() only]   # split-brain
+:mnesia.table_info(:user_bux_balances, :where_to_read) → :nowhere
+:mnesia.table_info(:schema, :disc_copies) → [stale_ghost_node, alive_other_node]   # ghost re-emerges
+:mnesia.dirty_read(:user_bux_balances, _) → {:aborted, {:no_exists, ...}}
+```
+
+User-visible: any request landing on the broken machine that needs `:user_bux_balances`, `:user_post_rewards`, `:hub_bux_points`, `:post_bux_points`, etc. errors out. Roughly 50% of traffic.
+
+**Why the existing fix isn't enough**:
+
+`MnesiaInitializer.safe_add_table_copy/2` (commit `8444ef7`) and `recover_unknown_schema/0` ARE wired in but they're downstream of the actual trigger — they handle "node is in cluster but missing local copies." They do NOT handle "node thinks it's alone." The broken machine never reaches the safe_add_table_copy path because, from its perspective, there's nothing to copy from.
+
+The trigger: machine `865d14f7225508` boots with an on-disk schema that references `[ghost_node_X, alive_other_machine]` (because of historical deploy churn). Mnesia loads the schema, sees the ghost is unreachable, sees the alive node is unreachable too (the Erlang cluster hasn't reconnected yet at that moment), and falls back to single-node mode. By the time libcluster connects the Erlang nodes, Mnesia has already settled on "I'm alone." It does not retry.
+
+**Manual recovery runbook** (the sequence I ran twice today, both times successfully):
+
+```elixir
+# On the broken machine (865d14f7225508):
+ghost = :"blockster-v2@fdaa:0:9cc8:a7b:195:3603:63e:2"
+other = :"blockster-v2@fdaa:0:9cc8:a7b:e770:82b0:7db3:2"
+self_node = node()
+
+# Step 1: drop ghost from schema (may error :no_exists, that's fine)
+:mnesia.del_table_copy(:schema, ghost)
+
+# Step 2: drop the 14 locally-created cache tables that conflict with cluster versions
+# (they were created during the partition and have different "cookies" than cluster)
+for t <- :mnesia.system_info(:tables) |> Enum.reject(& &1 == :schema),
+    self_node in :mnesia.table_info(t, :disc_copies) do
+  :mnesia.delete_table(t)
+end
+
+# Step 3: rejoin the cluster
+:mnesia.change_config(:extra_db_nodes, [other])
+# → {:ok, [other]}
+
+# Step 4: verify
+:mnesia.system_info(:running_db_nodes)  # both nodes
+:mnesia.dirty_read(:user_bux_balances, <id>)  # works (remote read)
+```
+
+After the manual fix, machine `865d14f7225508` reads tables via remote (~2ms vs 50µs local) but functions correctly. To restore local copies (eliminating the 40× read latency), `add_table_copy(table, node(), :disc_copies)` is needed for ~30 tables — the safe_add_table_copy fix DOES handle this correctly once the schema is healthy.
+
+**The actual fix needed (TODO)**: `MnesiaInitializer` should explicitly call `:mnesia.change_config(:extra_db_nodes, alive_nodes)` during boot, AFTER libcluster has populated `Node.list/0`, instead of waiting on Mnesia's internal auto-discovery. It also needs to detect the merge_schema_failed case (locally-created cache tables conflicting with cluster versions) and drop the local conflicts before retrying. Pseudocode:
+
+```elixir
+def initialize_mnesia_for_joining_node do
+  # Wait for libcluster (with bounded retry)
+  alive_nodes = wait_for_cluster_nodes(timeout: 10_000)
+
+  # Force the cluster join — don't rely on Mnesia auto-discovery
+  case :mnesia.change_config(:extra_db_nodes, alive_nodes) do
+    {:ok, _} -> :ok
+
+    {:error, {:merge_schema_failed, _details}} ->
+      # Drop locally-created tables that have different cookies than cluster
+      drop_conflicting_local_tables()
+      :mnesia.change_config(:extra_db_nodes, alive_nodes)
+  end
+
+  initialize_with_persistence()  # existing logic, now operates against rejoined cluster
+end
+```
+
+Filed in the in-session task list as task #13 today; this section is the durable record.
+
+**Why this can't sit unfixed**: every deploy means manual SSH + RPC + the user is impacted between deploy and intervention. Today the gap was ~5 min twice. Should be fixed before the next non-trivial deploy.
+
+---
+
 ## PubSub broadcasts are fan-out bombs — keep them rare (2026-04-29)
 
-The widget tracker rewrite shipped with three pollers each broadcasting on `Phoenix.PubSub` whenever upstream data changed. Individually each looked harmless: a 3-second tick on FateSwap, a 60-second sweep on RogueTrader chart, a 10-second tick on RogueTrader bots. In aggregate on prod they were the dominant load on the cluster, manifesting as: socket-join falling back to longpoll inside 2.5s, mobile bottom-nav clicks taking seconds to register, the auth modal hanging, the page going white when the LV crashed.
+**Verification note (added later in same session, after code re-read):**
+the trackers can ONLY start via `lib/blockster_v2/application.ex:152`,
+which is gated by `WIDGETS_ENABLED`. There's no manual `start_link`
+caller anywhere else in the codebase (verified by grep). On 2026-04-29
+prod did NOT have `WIDGETS_ENABLED` set in fly secrets, so the
+supervisor never added the tracker children. `Process.whereis(...)`
+on each tracker returned `nil`. So the prod incident this entry was
+written for — auth modals hanging + page white + mobile clicks slow —
+was almost certainly NOT caused by widget broadcasts. The actual
+causes were the Mnesia split-brain (machine 865d14f7225508 reading
+remote-only) and the stale settler dist (HMAC failures). The poll
+intervals + supervisor cuts in commit `44274de` are still the right
+move because we want them on the lighter cadence BEFORE flipping the
+feature flag — but don't read this entry as "we fixed prod by cutting
+broadcasts." The MATH below is real and would have hit hard the
+moment WIDGETS_ENABLED flipped on with the original config.
+
+The widget tracker rewrite shipped with three pollers each broadcasting on `Phoenix.PubSub` whenever upstream data changed. Individually each looked harmless: a 3-second tick on FateSwap, a 60-second sweep on RogueTrader chart, a 10-second tick on RogueTrader bots. **Had they been enabled** on a 1000-LV cluster, in aggregate they would have been the dominant load on the cluster, manifesting as: socket-join falling back to longpoll inside 2.5s, mobile bottom-nav clicks taking seconds to register, the auth modal hanging, the page going white when the LV crashed.
 
 **The mechanism**:
 

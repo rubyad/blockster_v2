@@ -993,9 +993,11 @@ flyctl secrets set WIDGETS_ENABLED=true --stage --app blockster-v2
 flyctl deploy --app blockster-v2
 ```
 
-After this deploy lands, the 3 trackers (`FateSwapFeedTracker`, `RogueTraderBotsTracker`, `RogueTraderChartTracker`) start polling. Combined load:
-- FateSwap: ~20 req/min to `fateswap.fly.dev/api/feed/recent`
-- RogueTrader: ~6 req/min to `roguetrader-v2.fly.dev/api/bots` + ~150 req/min to `roguetrader-v2.fly.dev/api/bots/:id/chart` (30 bots × 5 timeframes, staggered across 60s window)
+After this deploy lands, the 2 trackers (`RogueTraderBotsTracker`, `RogueTraderChartTracker`) start polling. Combined load (current cadence — slowed in 2026-04-29 perf work):
+- `roguetrader-v2.fly.dev/api/bots` — ~2 req/min (30s interval)
+- `roguetrader-v2.fly.dev/api/bots/:id/chart` — ~15 req/min (30 bots × 5 timeframes, staggered across a 10-minute sweep window)
+
+`FateSwapFeedTracker` was retired in the 2026-04-29 widget cleanup — feed widgets are gone, the tracker is no longer in the supervisor. Static `fateswap_combined` / `fateswap_kinetic` luxury ad templates still ship; they're SVG creatives, not data-driven widgets, so they don't need a tracker.
 
 Traffic is constant regardless of visitor count (single GlobalSingleton per cluster — no per-user fanout).
 
@@ -1004,16 +1006,36 @@ Traffic is constant regardless of visitor count (single GlobalSingleton per clus
 Open `https://blockster.com/` (homepage) and any article page — confirm:
 - Top ticker (homepage) shows live RogueTrader bot prices scrolling
 - Article right sidebar (`rt_skyscraper`) shows 30 ranked bots with live bid/ask prices
-- Article left sidebar (`fs_skyscraper`) shows recent FateSwap trades with status pills
 - No widget shows the "feed paused — retrying" amber error placeholder (means `last_error` is set)
+
+(`fs_skyscraper` no longer ships — admin can't even create new fs_* widget banners since the dropdown was stripped in `banners_admin_live.ex`. The fs_* component files remain in `lib/blockster_v2_web/components/widgets/` for easy revival if FateSwap is ever reactivated.)
 
 If skeletons are stuck (no data after 30s), check:
 
 ```bash
-flyctl logs --app blockster-v2 | grep -E "FateSwapFeedTracker|RogueTraderBotsTracker|RogueTraderChartTracker"
+flyctl logs --app blockster-v2 | grep -E "RogueTraderBotsTracker|RogueTraderChartTracker"
 ```
 
 Expected log lines: `[<TrackerName>] Started — polling every <ms>ms`. If you see `Poll failed: ...`, the sister API is unhealthy or rate-limiting.
+
+**4.5 Mnesia recovery on machine 865d14f7225508**:
+
+Until the open issue documented in `session_learnings.md` "Mnesia split-brain after deploy restart — open follow-up (2026-04-29)" is fixed, every `blockster-v2` deploy puts machine 865d14f7225508 into a Mnesia split-brain state where reads to `:user_bux_balances` etc. fail with `:no_exists`. Run the manual recovery sequence (also in `memory/project_mnesia_split_brain_open.md`) immediately after the deploy completes — takes ~2 min:
+
+```elixir
+# flyctl ssh console --app blockster-v2 --machine 865d14f7225508 -C "/app/bin/blockster_v2 rpc '...'"
+ghost = :"blockster-v2@fdaa:0:9cc8:a7b:195:3603:63e:2"
+other = :"blockster-v2@fdaa:0:9cc8:a7b:e770:82b0:7db3:2"
+self_node = node()
+:mnesia.del_table_copy(:schema, ghost)
+for t <- :mnesia.system_info(:tables) |> Enum.reject(& &1 == :schema),
+    self_node in :mnesia.table_info(t, :disc_copies) do
+  :mnesia.delete_table(t)
+end
+:mnesia.change_config(:extra_db_nodes, [other])
+```
+
+Verify post-recovery: `:mnesia.system_info(:running_db_nodes)` returns both nodes, `:mnesia.dirty_read(:user_bux_balances, <some_id>)` succeeds.
 
 **5. Verify luxury ads render**:
 
