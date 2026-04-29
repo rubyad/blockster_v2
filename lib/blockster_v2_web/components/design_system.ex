@@ -660,33 +660,37 @@ defmodule BlocksterV2Web.DesignSystem do
                     </svg>
                   </.link>
 
-                  <%= if BlocksterV2.WalletSelfCustody.Auth.feature_enabled?() do %>
-                    <%!-- Label differs by auth method: web3auth users get
-                         the "self-custody" affordance + lime pulse dot;
-                         external-wallet users see a plain "Wallet" overview
-                         (same route, Export card hidden on the page). --%>
-                    <% web3auth? = BlocksterV2.WalletSelfCustody.Auth.web3auth_user?(@current_user) %>
-                    <.link
-                      navigate={~p"/wallet"}
-                      class="group flex items-center gap-3 px-4 py-2.5 text-[13.5px] text-[#141414] hover:bg-neutral-50 transition-colors"
-                    >
-                      <span class="w-7 h-7 rounded-lg bg-neutral-100 group-hover:bg-white group-hover:ring-1 group-hover:ring-black/[0.06] grid place-items-center transition-all">
-                        <svg class="w-3.5 h-3.5 text-[#141414]" viewBox="0 0 20 20" fill="none" aria-hidden="true">
-                          <rect x="4" y="9" width="12" height="8" rx="1.5" stroke="currentColor" stroke-width="1.5"/>
-                          <path d="M7 9V6a3 3 0 016 0v3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-                        </svg>
-                      </span>
-                      <span class="flex-1 font-medium">
-                        <%= if web3auth?, do: "Wallet & self-custody", else: "Wallet" %>
-                      </span>
-                      <%= if web3auth? do %>
-                        <span class="w-1.5 h-1.5 rounded-full bg-[#CAFC00] ds-pulse" aria-hidden="true"></span>
-                      <% end %>
-                      <svg class="w-3 h-3 text-neutral-300 opacity-0 group-hover:opacity-100 group-hover:translate-x-0 -translate-x-1 transition-all" viewBox="0 0 12 12" fill="none" aria-hidden="true">
-                        <path d="M4 2l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                  <%!-- Wallet link — ALWAYS shown for authenticated users.
+                       Previously gated behind WALLET_SELF_CUSTODY_ENABLED which
+                       defaulted to off in prod, so the link kept "disappearing"
+                       across deploys whenever the env var wasn't set. The route
+                       is `/wallet` for both auth methods; web3auth users get the
+                       extended "self-custody" label + lime pulse dot, external
+                       wallet users see a plain "Wallet" overview (Export card
+                       is hidden on the page side for non-web3auth users). The
+                       regression test in design_system_test.exs guards this. --%>
+                  <% web3auth? = BlocksterV2.WalletSelfCustody.Auth.web3auth_user?(@current_user) %>
+                  <.link
+                    id="ds-user-menu-wallet-link"
+                    navigate={~p"/wallet"}
+                    class="group flex items-center gap-3 px-4 py-2.5 text-[13.5px] text-[#141414] hover:bg-neutral-50 transition-colors"
+                  >
+                    <span class="w-7 h-7 rounded-lg bg-neutral-100 group-hover:bg-white group-hover:ring-1 group-hover:ring-black/[0.06] grid place-items-center transition-all">
+                      <svg class="w-3.5 h-3.5 text-[#141414]" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                        <rect x="4" y="9" width="12" height="8" rx="1.5" stroke="currentColor" stroke-width="1.5"/>
+                        <path d="M7 9V6a3 3 0 016 0v3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
                       </svg>
-                    </.link>
-                  <% end %>
+                    </span>
+                    <span class="flex-1 font-medium">
+                      <%= if web3auth?, do: "Wallet & self-custody", else: "Wallet" %>
+                    </span>
+                    <%= if web3auth? do %>
+                      <span class="w-1.5 h-1.5 rounded-full bg-[#CAFC00] ds-pulse" aria-hidden="true"></span>
+                    <% end %>
+                    <svg class="w-3 h-3 text-neutral-300 opacity-0 group-hover:opacity-100 group-hover:translate-x-0 -translate-x-1 transition-all" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+                      <path d="M4 2l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                  </.link>
 
                   <.link
                     navigate={~p"/notifications"}
@@ -779,7 +783,7 @@ defmodule BlocksterV2Web.DesignSystem do
                 <div class="border-t border-neutral-100 py-1">
                   <button
                     type="button"
-                    phx-click={JS.show(to: "#logout-overlay") |> JS.push("disconnect_wallet")}
+                    phx-click="disconnect_wallet"
                     class="group w-full flex items-center gap-3 px-4 py-2.5 text-[13.5px] text-neutral-500 hover:bg-red-50/60 hover:text-red-600 transition-colors cursor-pointer"
                   >
                     <span class="w-7 h-7 rounded-lg bg-neutral-100 group-hover:bg-white group-hover:ring-1 group-hover:ring-red-200 grid place-items-center transition-all">

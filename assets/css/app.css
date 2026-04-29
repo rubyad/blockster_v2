@@ -1009,12 +1009,15 @@ html {
   word-break: break-all;
 }
 
-/* Hide LiveView connection error flash on mobile reconnection
-   The phx-disconnected and phx-error classes are added by LiveView
-   when the WebSocket connection drops. On mobile, this is expected
-   behavior when users switch apps, so we hide these messages. */
-.phx-disconnected,
-.phx-error {
+/* Hide ONLY the default Phoenix client/server-error flash banners that
+   ship in core_components.flash_group, not the LiveView root container.
+   The phx-disconnected / phx-error / phx-server-error classes are added
+   by LiveView to the LV ROOT element (see view.js setContainerClasses);
+   selecting them globally with `display: none !important` hid the entire
+   page on every transient socket error and made every LV crash invisible.
+   Scope to the flash IDs only — the LV root keeps rendering. */
+#client-error,
+#server-error {
   display: none !important;
 }
 

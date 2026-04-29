@@ -123,6 +123,67 @@ defmodule BlocksterV2Web.DesignSystem.HeaderTest do
       assert html =~ "/member/marcus"
     end
 
+    # Regression guard. The Wallet link kept disappearing from the user dropdown
+    # whenever the WALLET_SELF_CUSTODY_ENABLED env var wasn't set in prod
+    # (default off). The link is now always rendered for authenticated users —
+    # the env-flag wrapper has been removed. Keep this test green so the link
+    # can't get re-gated by accident.
+    test "renders the Wallet link in the user dropdown for ALL authenticated users" do
+      external_wallet_user = %{
+        username: "marcus",
+        wallet_address: "7xQk8",
+        slug: "marcus",
+        is_author: false,
+        is_admin: false,
+        auth_method: "wallet"
+      }
+
+      web3auth_user = %{
+        username: "alice",
+        wallet_address: "9zPm4",
+        slug: "alice",
+        is_author: false,
+        is_admin: false,
+        auth_method: "web3auth_email"
+      }
+
+      for user <- [external_wallet_user, web3auth_user] do
+        assigns = %{user: user}
+
+        html =
+          rendered_to_string(~H"""
+          <.header current_user={@user} />
+          """)
+
+        assert html =~ ~s(id="ds-user-menu-wallet-link"),
+               "Wallet dropdown link missing for auth_method=#{user.auth_method}"
+
+        assert html =~ ~s(href="/wallet"),
+               "Wallet href missing for auth_method=#{user.auth_method}"
+      end
+
+      # External wallet users see the short label.
+      assigns = %{user: external_wallet_user}
+
+      external_html =
+        rendered_to_string(~H"""
+        <.header current_user={@user} />
+        """)
+
+      refute external_html =~ "Wallet &amp; self-custody"
+
+      # Web3Auth users get the extended label + lime pulse dot.
+      assigns = %{user: web3auth_user}
+
+      web3_html =
+        rendered_to_string(~H"""
+        <.header current_user={@user} />
+        """)
+
+      assert web3_html =~ "Wallet &amp; self-custody"
+      assert web3_html =~ "ds-pulse"
+    end
+
     test "preserves toggle_notification_dropdown handler on the bell" do
       user = %{username: "marcus", wallet_address: "abc", slug: "marcus", is_author: false, is_admin: false, auth_method: "wallet"}
       assigns = %{user: user}

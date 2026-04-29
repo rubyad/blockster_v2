@@ -94,23 +94,5 @@
   </head>
   <body class="bg-[#F5F6FB] overflow-x-clip">
     {@inner_content}
-    <%!-- Logout overlay. Shown via `JS.show(to: "#logout-overlay")` on the
-         disconnect button click (see design_system.ex + layouts.ex), so
-         the user gets INSTANT visual feedback while the redirect to /
-         lands. Hidden by default; the redirect serves a fresh DOM that
-         doesn't re-include this overlay, so it goes away with the
-         navigation. --%>
-    <div
-      id="logout-overlay"
-      class="fixed inset-0 z-[100] bg-white/95 backdrop-blur grid place-items-center hidden"
-    >
-      <div class="flex items-center gap-3 text-neutral-700 font-mono text-[13px]">
-        <svg class="w-5 h-5 animate-spin" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-          <circle class="opacity-20" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" />
-          <path class="opacity-80" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-        </svg>
-        <span>Signing out…</span>
-      </div>
-    </div>
   </body>
 </html>

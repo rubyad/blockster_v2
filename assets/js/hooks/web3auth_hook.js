@@ -132,7 +132,23 @@ export const Web3Auth = {
     } else if (hadSession && this._clientId) {
       // Silent init — if the session rehydrates, install the signer but do
       // NOT push wallet_authenticated (the user already has a session cookie).
-      this._silentReconnect()
+      //
+      // Wrapped in a 3s Promise.race timeout. Without it, `_waitForConnectorSettle`
+      // inside silent-reconnect can stall indefinitely on a stuck Web3Auth state
+      // machine — and because `mounted()` runs on EVERY LV reconnect (not just
+      // first page load), an unstable LV socket stacks up overlapping reconnect
+      // promises that wedge the hook. The timeout guarantees `.finally()` fires
+      // and the Reconnect pill becomes available within a bounded window. The
+      // background reconnect promise may still resolve later and install the
+      // signer; that's a benign no-op if the user has already moved on.
+      const SILENT_RECONNECT_TIMEOUT_MS = 3000
+      const reconnectTimeout = new Promise((_, reject) =>
+        setTimeout(
+          () => reject(new Error("silent reconnect timed out")),
+          SILENT_RECONNECT_TIMEOUT_MS,
+        ),
+      )
+      Promise.race([this._silentReconnect(), reconnectTimeout])
         .catch((e) => {
           console.warn("[Web3Auth] silent reconnect failed:", e?.message || e)
         })
