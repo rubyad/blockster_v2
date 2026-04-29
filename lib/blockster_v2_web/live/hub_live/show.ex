@@ -69,6 +69,8 @@ defmodule BlocksterV2Web.HubLive.Show do
          |> assign(:all_posts, all_posts)
          |> assign(:pinned_post, pinned_post)
          |> assign(:mosaic_posts, mosaic_posts)
+         |> assign(:mosaic_components, build_post_components(mosaic_posts, hub.name))
+         |> assign(:news_components, build_post_components(all_posts, hub.name))
          |> assign(:videos_posts, videos_posts)
          |> assign(:hub_products, hub_products)
          |> assign(:sol_usd_rate, sol_usd_rate)
@@ -234,4 +236,45 @@ defmodule BlocksterV2Web.HubLive.Show do
   defp tab_count("videos", assigns), do: length(assigns.videos_posts)
   defp tab_count("shop", assigns), do: length(assigns.hub_products)
   defp tab_count("events", _assigns), do: 0
+
+  # Chunk posts into the same Three(5) → Four(3) → Five(6) → Six(5) cycle
+  # used on the homepage so hub pages render identical layout components.
+  # Components with no posts are dropped — works for partial cycles when
+  # the hub has fewer than 19 posts. PostsThreeComponent itself handles
+  # 1-4 posts via its built-in "simple grid" branch.
+  defp build_post_components([], _hub_name), do: []
+
+  defp build_post_components(posts, hub_name) do
+    {three_posts, rest} = Enum.split(posts, 5)
+    {four_posts, rest} = Enum.split(rest, 3)
+    {five_posts, rest} = Enum.split(rest, 6)
+    {six_posts, _} = Enum.split(rest, 5)
+
+    uid = System.unique_integer([:positive])
+
+    [
+      %{
+        id: "hub-three-#{uid}",
+        module: BlocksterV2Web.PostLive.PostsThreeComponent,
+        posts: three_posts
+      },
+      %{
+        id: "hub-four-#{uid}",
+        module: BlocksterV2Web.PostLive.PostsFourComponent,
+        posts: four_posts
+      },
+      %{
+        id: "hub-five-#{uid}",
+        module: BlocksterV2Web.PostLive.PostsFiveComponent,
+        posts: five_posts
+      },
+      %{
+        id: "hub-six-#{uid}",
+        module: BlocksterV2Web.PostLive.PostsSixComponent,
+        posts: six_posts
+      }
+    ]
+    |> Enum.filter(fn c -> c.posts != [] end)
+    |> Enum.map(fn c -> Map.merge(c, %{type: "hub-posts", content: hub_name}) end)
+  end
 end
