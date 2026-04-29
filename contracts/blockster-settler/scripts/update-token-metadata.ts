@@ -44,12 +44,16 @@ const BANKROLL_PROGRAM_ID = new PublicKey(
 const KEYPAIR_DIR = path.join(__dirname, "..", "keypairs");
 
 // =====================================================================
-// FILL THESE IN after uploading metadata JSON to Irys
+// Token metadata URIs — Blockster's own static-served JSON, no Irys needed.
+// The `priv/static/{bux,sol-lp,bux-lp}-metadata.json` files are served via
+// Phoenix Plug.Static (entries in lib/blockster_v2_web.ex `static_paths`).
+// Each JSON points at the imagekit-hosted PNG logo. To change a logo,
+// edit the JSON's `image` field and redeploy — no on-chain tx needed.
 // =====================================================================
 const IRYS_URIS = {
-  bux: "", // e.g. "https://gateway.irys.xyz/abc123..."
-  solLp: "", // e.g. "https://gateway.irys.xyz/def456..."
-  buxLp: "", // e.g. "https://gateway.irys.xyz/ghi789..."
+  bux: "https://blockster.com/bux-metadata.json",
+  solLp: "https://blockster.com/sol-lp-metadata.json",
+  buxLp: "https://blockster.com/bux-lp-metadata.json",
 };
 
 // Token details (must match what was set in create-token-metadata.ts)

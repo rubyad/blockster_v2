@@ -437,21 +437,35 @@ defmodule BlocksterV2Web.WalletAuthEvents do
       # back from their email app land where they left off. Server-side
       # the OTP record is still in Mnesia (10-min ttl), so the next
       # verify_email_otp tick succeeds without re-sending.
+      #
+      # Idempotency: restore unconditionally (modulo email validity + not
+      # mid-Web3Auth-connecting). The previous guard `email_otp_stage in
+      # [nil, :enter_email]` rejected the restore when the LV had kept
+      # state across the visibility change — but in that exact case some
+      # other UI fluke could have cleared `show_wallet_selector`, leaving
+      # the user with no modal and no way back. Making restore idempotent
+      # always reopens the modal, which is what the user wants when they
+      # return from their email app.
       def handle_event("restore_email_otp_state", %{"email" => email}, socket)
           when is_binary(email) do
-        if BlocksterV2Web.WalletAuthEvents.valid_email?(email) and
-             socket.assigns[:email_otp_stage] in [nil, :enter_email] do
-          {:noreply,
-           socket
-           |> assign(:show_wallet_selector, true)
-           |> assign(:email_prefill, email)
-           |> assign(:email_otp_stage, :enter_code)
-           |> assign(:email_otp_error, nil)
-           |> assign(:email_otp_resend_cooldown, 0)}
-        else
-          # Either user is mid-other-flow (don't disrupt) or email is
-          # malformed (let the user re-enter normally).
-          {:noreply, socket |> push_event("clear_email_otp_state", %{})}
+        cond do
+          not BlocksterV2Web.WalletAuthEvents.valid_email?(email) ->
+            # Malformed email — wipe and let the user re-enter.
+            {:noreply, push_event(socket, "clear_email_otp_state", %{})}
+
+          socket.assigns[:connecting] == true ->
+            # Mid-Web3Auth-connecting (popup just returned, MPC handshake
+            # in flight) — don't disrupt with a stale OTP modal.
+            {:noreply, socket}
+
+          true ->
+            {:noreply,
+             socket
+             |> assign(:show_wallet_selector, true)
+             |> assign(:email_prefill, email)
+             |> assign(:email_otp_stage, :enter_code)
+             |> assign(:email_otp_error, nil)
+             |> assign(:email_otp_resend_cooldown, 0)}
         end
       end
 
