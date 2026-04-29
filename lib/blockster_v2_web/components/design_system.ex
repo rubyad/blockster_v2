@@ -4367,8 +4367,8 @@ defmodule BlocksterV2Web.DesignSystem do
   attr :follower_count, :integer, default: 0
   attr :user_follows_hub, :boolean, default: false
   attr :current_user, :any, default: nil
-  attr :latest_post, :any, default: nil, doc: "Most recently published post in this hub (used for Latest Activity)"
-  attr :posts_this_month, :integer, default: 0
+  attr :top_earning_post, :any, default: nil, doc: "Hub post with the highest total_distributed BUX (used for Latest Activity)"
+  attr :active_pool_total, :integer, default: 0, doc: "Sum of remaining BUX still available to earn across all hub posts"
   attr :total_bux_paid, :integer, default: 0
   attr :class, :string, default: nil
   attr :rest, :global
@@ -4512,33 +4512,35 @@ defmodule BlocksterV2Web.DesignSystem do
                 <span class="text-[9px] font-mono text-white/45">live</span>
               </div>
               <div class="space-y-3.5">
-                <%= if @latest_post do %>
-                  <a href={"/" <> @latest_post.slug} class="flex items-center gap-3 group cursor-pointer">
-                    <div class="w-7 h-7 rounded-full bg-white/15 grid place-items-center text-[10px] font-bold text-white shrink-0">
-                      <svg class="w-3 h-3" viewBox="0 0 20 20" fill="currentColor"><path d="M9 4.804A7.968 7.968 0 005.5 4c-1.255 0-2.443.29-3.5.804v10A7.969 7.969 0 015.5 14c1.669 0 3.218.51 4.5 1.385A7.962 7.962 0 0114.5 14c1.255 0 2.443.29 3.5.804v-10A7.968 7.968 0 0014.5 4c-1.255 0-2.443.29-3.5.804V12a1 1 0 11-2 0V4.804z"/></svg>
-                    </div>
-                    <div class="flex-1 min-w-0">
-                      <div class="text-[11px] text-white/85 truncate group-hover:text-white transition-colors">{@latest_post.title}</div>
-                      <div class="text-[9px] text-white/45 font-mono">latest story · {hub_relative_time(@latest_post.published_at)}</div>
-                    </div>
-                  </a>
-                <% end %>
-                <div class="flex items-center gap-3">
-                  <div class="w-7 h-7 rounded-full bg-white/15 grid place-items-center text-[10px] font-bold text-white shrink-0">{@posts_this_month}</div>
-                  <div class="flex-1 min-w-0">
-                    <div class="text-[11px] text-white/85 truncate">{if @posts_this_month == 1, do: "story", else: "stories"} this month</div>
-                    <div class="text-[9px] text-white/45 font-mono">{@post_count} {if @post_count == 1, do: "story", else: "stories"} total</div>
-                  </div>
-                </div>
                 <div class="flex items-center gap-3">
                   <div class="w-7 h-7 rounded-full bg-[#CAFC00] grid place-items-center text-[10px] font-bold text-black shrink-0">
                     <svg class="w-3 h-3" viewBox="0 0 20 20" fill="currentColor"><path d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z"/></svg>
                   </div>
                   <div class="flex-1 min-w-0">
                     <div class="text-[11px] text-white/85 truncate">{compact_number(@total_bux_paid)} BUX rewarded</div>
-                    <div class="text-[9px] text-white/45 font-mono">{@follower_count} {if @follower_count == 1, do: "follower", else: "followers"}</div>
+                    <div class="text-[9px] text-white/45 font-mono">to readers across all stories</div>
                   </div>
                 </div>
+                <div class="flex items-center gap-3">
+                  <div class="w-7 h-7 rounded-full bg-white/15 grid place-items-center shrink-0">
+                    <svg class="w-3 h-3 text-white" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/></svg>
+                  </div>
+                  <div class="flex-1 min-w-0">
+                    <div class="text-[11px] text-white/85 truncate">{compact_number(@active_pool_total)} BUX up for grabs</div>
+                    <div class="text-[9px] text-white/45 font-mono">in active reward pools</div>
+                  </div>
+                </div>
+                <%= if @top_earning_post do %>
+                  <a href={"/" <> @top_earning_post.slug} class="flex items-center gap-3 group cursor-pointer">
+                    <div class="w-7 h-7 rounded-full bg-white/15 grid place-items-center shrink-0">
+                      <svg class="w-3 h-3 text-white" viewBox="0 0 20 20" fill="currentColor"><path d="M2.166 4.999A11.954 11.954 0 0010 1.944 11.954 11.954 0 0017.834 5c.11.65.166 1.32.166 2.001 0 5.225-3.34 9.67-8 11.317C5.34 16.67 2 12.225 2 7c0-.682.057-1.35.166-2.001zm11.541 3.708a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                      <div class="text-[11px] text-white/85 truncate group-hover:text-white transition-colors">{@top_earning_post.title}</div>
+                      <div class="text-[9px] text-white/45 font-mono">top story · {compact_number(trunc(Map.get(@top_earning_post, :bux_balance, 0) || 0))} BUX paid</div>
+                    </div>
+                  </a>
+                <% end %>
               </div>
             </div>
           </div>
@@ -4551,19 +4553,6 @@ defmodule BlocksterV2Web.DesignSystem do
   defp compact_number(n) when n >= 1_000_000, do: "#{Float.round(n / 1_000_000, 1)}M"
   defp compact_number(n) when n >= 1_000, do: "#{Float.round(n / 1_000, 1)}k"
   defp compact_number(n), do: "#{n}"
-
-  # Short relative-time string for the hub Latest Activity panel.
-  # Mirrors X/Twitter style: "5m", "3h", "2d", "Apr 12".
-  defp hub_relative_time(nil), do: ""
-  defp hub_relative_time(%DateTime{} = dt), do: hub_relative_time_from_seconds(DateTime.diff(DateTime.utc_now(), dt), dt)
-  defp hub_relative_time(%NaiveDateTime{} = ndt), do: hub_relative_time(DateTime.from_naive!(ndt, "Etc/UTC"))
-  defp hub_relative_time(_), do: ""
-
-  defp hub_relative_time_from_seconds(s, _dt) when s < 60, do: "just now"
-  defp hub_relative_time_from_seconds(s, _dt) when s < 3600, do: "#{div(s, 60)}m ago"
-  defp hub_relative_time_from_seconds(s, _dt) when s < 86_400, do: "#{div(s, 3600)}h ago"
-  defp hub_relative_time_from_seconds(s, _dt) when s < 604_800, do: "#{div(s, 86_400)}d ago"
-  defp hub_relative_time_from_seconds(_s, dt), do: Calendar.strftime(dt, "%b %d")
 
   # Normalizes a BUX reward value (any of nil / int / float / "0.0" / Decimal)
   # into a non-negative integer for display in preview badges.

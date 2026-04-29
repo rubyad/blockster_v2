@@ -71,8 +71,8 @@ defmodule BlocksterV2Web.HubLive.Show do
          |> assign(:mosaic_posts, mosaic_posts)
          |> assign(:mosaic_components, build_post_components(mosaic_posts, hub.name))
          |> assign(:news_components, build_post_components(all_posts, hub.name))
-         |> assign(:latest_post, List.first(all_posts))
-         |> assign(:posts_this_month, count_posts_this_month(all_posts))
+         |> assign(:top_earning_post, top_earning_post(all_posts))
+         |> assign(:active_pool_total, active_pool_total(all_posts))
          |> assign(:total_bux_paid, total_bux_paid(all_posts))
          |> assign(:videos_posts, videos_posts)
          |> assign(:hub_products, hub_products)
@@ -241,24 +241,32 @@ defmodule BlocksterV2Web.HubLive.Show do
   defp tab_count("events", _assigns), do: 0
 
   # Stats for the Latest Activity panel — computed once at mount from the
-  # already-loaded `all_posts` list (no extra queries).
-  defp count_posts_this_month(posts) do
-    today = Date.utc_today()
-    start_of_month = %{today | day: 1}
-
-    Enum.count(posts, fn p ->
-      case p.published_at do
-        nil -> false
-        %DateTime{} = dt -> Date.compare(DateTime.to_date(dt), start_of_month) != :lt
-        %NaiveDateTime{} = ndt -> Date.compare(NaiveDateTime.to_date(ndt), start_of_month) != :lt
-        _ -> false
-      end
-    end)
-  end
+  # already-loaded `all_posts` list. `bux_balance` on each post is
+  # actually total_distributed (see Blog.with_bux_earned/1) — the BUX
+  # already paid out to readers from that post.
 
   defp total_bux_paid(posts) do
     posts
     |> Enum.map(fn p -> Map.get(p, :bux_balance, 0) || 0 end)
+    |> Enum.sum()
+    |> trunc()
+  end
+
+  defp top_earning_post([]), do: nil
+  defp top_earning_post(posts) do
+    Enum.max_by(posts, fn p -> Map.get(p, :bux_balance, 0) || 0 end, fn -> nil end)
+  end
+
+  # Active reward pool — sum of REMAINING BUX still available to earn across
+  # all of this hub's posts. Distinct from total_bux_paid (already distributed).
+  # Single batch read from Mnesia.
+  defp active_pool_total([]), do: 0
+  defp active_pool_total(posts) do
+    post_ids = Enum.map(posts, & &1.id)
+
+    BlocksterV2.EngagementTracker.get_post_bux_balances(post_ids)
+    |> Map.values()
+    |> Enum.map(&max(&1 || 0, 0))
     |> Enum.sum()
     |> trunc()
   end
