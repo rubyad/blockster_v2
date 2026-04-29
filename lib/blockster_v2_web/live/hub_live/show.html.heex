@@ -132,91 +132,46 @@
           </div>
         </div>
 
-        <div class="grid grid-cols-12 gap-4" style="grid-auto-rows: 180px;">
-          <%= for {post, idx} <- Enum.with_index(@mosaic_posts) do %>
-            <%= cond do %>
-              <% idx == 0 -> %>
-                <%!-- Big feature card (7-col, 2-row) --%>
-                <.link navigate={~p"/#{post.slug}"} class="col-span-12 md:col-span-7 row-span-2 block rounded-2xl overflow-hidden relative bg-neutral-900 group">
-                  <%= if post.featured_image do %>
-                    <img src={ImageKit.w800(post.featured_image)} alt="" class="absolute inset-0 w-full h-full object-cover" />
-                  <% end %>
-                  <div class="absolute inset-0 bg-gradient-to-t from-black/85 via-black/40 to-transparent"></div>
-                  <div class="absolute inset-x-0 bottom-0 p-6">
-                    <div class="flex items-center gap-2 mb-3">
-                      <div class="w-5 h-5 rounded grid place-items-center" style={"background: #{@hub_primary}"}>
-                        <%= if @hub.logo_url do %>
-                          <img src={@hub.logo_url} alt="" class="w-2.5 h-2.5 object-contain" />
-                        <% else %>
-                          <span class="text-[8px] font-bold text-white">{String.first(@hub.token || @hub.name)}</span>
-                        <% end %>
-                      </div>
-                      <%= if post.category do %>
-                        <span class="text-white text-[11px] uppercase tracking-[0.14em] font-bold">{post.category.name}</span>
-                        <span class="text-white/40">&middot;</span>
-                      <% end %>
-                    </div>
-                    <h3 class="font-bold text-white text-[28px] md:text-[32px] tracking-[-0.022em] leading-[1.04] mb-3 max-w-[480px]">{post.title}</h3>
-                    <div class="flex items-center justify-between flex-wrap gap-3">
-                      <div class="flex items-center gap-2 text-white/80 text-[12px]">
-                        <.author_avatar initials={author_initials(post)} size="xs" />
-                        <span>{author_display_name(post)} &middot; {read_time(post)} min</span>
-                      </div>
-                      <div class="flex items-center gap-1 bg-[#CAFC00] text-black px-2.5 py-1 rounded-full text-[11px] font-bold">
-                        <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="" class="w-3 h-3 rounded-full" />
-                        {Map.get(post, :bux_balance, 0)} BUX
-                      </div>
-                    </div>
-                  </div>
-                </.link>
-
-              <% idx in [1, 2] -> %>
-                <%!-- Medium horizontal card (5-col, 1-row) --%>
-                <.link navigate={~p"/#{post.slug}"} class="col-span-12 md:col-span-5 row-span-1 block bg-white rounded-2xl border border-neutral-200/70 overflow-hidden group">
-                  <div class="flex h-full">
-                    <div class="w-2/5 bg-neutral-100 overflow-hidden">
-                      <%= if post.featured_image do %>
-                        <img src={ImageKit.w500_h500(post.featured_image)} alt="" class="w-full h-full object-cover" />
-                      <% end %>
-                    </div>
-                    <div class="flex-1 p-4 flex flex-col">
-                      <%= if post.category do %>
-                        <div class="flex items-center gap-1.5 mb-2">
-                          <span class="text-[9px] uppercase tracking-[0.12em] text-neutral-500">{post.category.name}</span>
-                        </div>
-                      <% end %>
-                      <h3 class="font-bold text-[14px] text-[#141414] leading-[1.25] line-clamp-2 tracking-tight mb-auto">{post.title}</h3>
-                      <div class="flex items-center justify-between text-[10px] mt-2">
-                        <span class="text-neutral-500">{author_display_name(post)} &middot; {read_time(post)}m</span>
-                        <div class="flex items-center gap-1 bg-[#CAFC00] text-black px-1.5 py-0.5 rounded-full font-bold">
-                          <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="" class="w-2.5 h-2.5 rounded-full" />
-                          +{Map.get(post, :bux_balance, 0)}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </.link>
-
-              <% true -> %>
-                <%!-- Small card (3-col, 1-row) --%>
-                <.link navigate={~p"/#{post.slug}"} class="col-span-6 md:col-span-3 row-span-1 block bg-white rounded-2xl border border-neutral-200/70 overflow-hidden flex flex-col group">
-                  <div class="aspect-[16/9] bg-neutral-100 overflow-hidden">
-                    <%= if post.featured_image do %>
-                      <img src={ImageKit.w500_h500(post.featured_image)} alt="" class="w-full h-full object-cover" loading="lazy" />
+        <%!-- Uniform full-sized post-card grid — matches homepage posts_three_component
+             "simple grid" treatment: square image (with green gradient fallback),
+             centered category + title + date + BUX badge. --%>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <%= for post <- @mosaic_posts do %>
+            <.link navigate={~p"/#{post.slug}"} class="rounded-xl shadow-lg hover:shadow-xl bg-white transition-all flex flex-col group cursor-pointer">
+              <div class="w-full overflow-hidden rounded-t-xl aspect-square relative">
+                <%= if post.featured_image do %>
+                  <img alt={post.title} src={ImageKit.w800(post.featured_image)} class="w-full h-full object-cover" loading="lazy" />
+                <% else %>
+                  <div class="w-full h-full bg-gradient-to-br from-[#8AE388] to-[#BAF55F] grid place-items-center">
+                    <%= if @hub.logo_url do %>
+                      <img src={@hub.logo_url} alt="" class="w-16 h-16 object-contain opacity-80" />
+                    <% else %>
+                      <span class="text-5xl font-bold text-white/90">{String.first(@hub.token || @hub.name)}</span>
                     <% end %>
                   </div>
-                  <div class="p-3 flex flex-col flex-1">
-                    <%= if post.category do %>
-                      <div class="text-[9px] uppercase tracking-[0.12em] text-neutral-500 mb-1.5">{post.category.name}</div>
-                    <% end %>
-                    <h3 class="font-bold text-[12px] text-[#141414] leading-[1.25] line-clamp-2 tracking-tight mb-auto">{post.title}</h3>
-                    <div class="flex items-center justify-between text-[9px] mt-2">
-                      <span class="text-neutral-500">{read_time(post)} min</span>
-                      <span class="text-[#141414] font-bold">+{Map.get(post, :bux_balance, 0)} BUX</span>
+                <% end %>
+                <%= if post.video_id do %>
+                  <div class="absolute inset-0 grid place-items-center pointer-events-none">
+                    <div class="w-14 h-14 rounded-full bg-white/95 grid place-items-center shadow-xl">
+                      <svg class="w-6 h-6 text-[#0a0a0a] ml-0.5" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
                     </div>
                   </div>
-                </.link>
-            <% end %>
+                <% end %>
+              </div>
+              <div class="px-4 py-4 md:px-5 md:py-5 flex flex-col text-center flex-1">
+                <%= if post.category do %>
+                  <span class="uppercase text-[11px] font-extralight text-black tracking-[0.2em] mb-1.5">{post.category.name}</span>
+                <% end %>
+                <h3 class="text-base md:text-lg font-medium text-[#141414] leading-snug tracking-wide flex-1">{post.title}</h3>
+                <p class="text-xs font-light text-neutral-500 mt-2">{format_date(post.published_at)} &middot; {read_time(post)} min</p>
+                <div class="flex justify-center mt-auto pt-3">
+                  <span class="inline-flex items-center gap-1 bg-[#CAFC00] text-black px-2.5 py-1 rounded-full text-[11px] font-bold">
+                    <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="" class="w-3 h-3 rounded-full" />
+                    {Map.get(post, :bux_balance, 0)} BUX
+                  </span>
+                </div>
+              </div>
+            </.link>
           <% end %>
         </div>
       </section>
@@ -343,61 +298,46 @@
           <p class="text-[13px] text-neutral-500 max-w-sm mx-auto">Stories from {@hub.name} will appear here.</p>
         </div>
       <% else %>
-        <div class="grid grid-cols-12 gap-4" style="grid-auto-rows: 180px;">
-          <%= for {post, idx} <- Enum.with_index(@all_posts) do %>
-            <%= cond do %>
-              <% idx == 0 -> %>
-                <.link navigate={~p"/#{post.slug}"} class="col-span-12 md:col-span-7 row-span-2 block rounded-2xl overflow-hidden relative bg-neutral-900 group">
-                  <%= if post.featured_image do %>
-                    <img src={ImageKit.w800(post.featured_image)} alt="" class="absolute inset-0 w-full h-full object-cover" />
-                  <% end %>
-                  <div class="absolute inset-0 bg-gradient-to-t from-black/85 via-black/40 to-transparent"></div>
-                  <div class="absolute inset-x-0 bottom-0 p-6">
-                    <h3 class="font-bold text-white text-[28px] md:text-[32px] tracking-[-0.022em] leading-[1.04] mb-3 max-w-[480px]">{post.title}</h3>
-                    <div class="flex items-center gap-2 text-white/80 text-[12px]">
-                      <.author_avatar initials={author_initials(post)} size="xs" />
-                      <span>{author_display_name(post)} &middot; {read_time(post)} min</span>
-                    </div>
-                  </div>
-                </.link>
-              <% idx in [1, 2] -> %>
-                <.link navigate={~p"/#{post.slug}"} class="col-span-12 md:col-span-5 row-span-1 block bg-white rounded-2xl border border-neutral-200/70 overflow-hidden">
-                  <div class="flex h-full">
-                    <div class="w-2/5 bg-neutral-100 overflow-hidden">
-                      <%= if post.featured_image do %>
-                        <img src={ImageKit.w500_h500(post.featured_image)} alt="" class="w-full h-full object-cover" />
-                      <% end %>
-                    </div>
-                    <div class="flex-1 p-4 flex flex-col">
-                      <div class="text-[9px] uppercase tracking-[0.12em] text-neutral-500 mb-1.5">News</div>
-                      <h3 class="font-bold text-[14px] text-[#141414] leading-[1.25] line-clamp-2 tracking-tight mb-auto">{post.title}</h3>
-                      <div class="flex items-center justify-between text-[10px] mt-2">
-                        <span class="text-neutral-500">{author_display_name(post)} &middot; {read_time(post)}m</span>
-                        <div class="flex items-center gap-1 bg-[#CAFC00] text-black px-1.5 py-0.5 rounded-full font-bold">
-                          <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="" class="w-2.5 h-2.5 rounded-full" />
-                          +{Map.get(post, :bux_balance, 0)}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </.link>
-              <% true -> %>
-                <.link navigate={~p"/#{post.slug}"} class="col-span-6 md:col-span-3 row-span-1 block bg-white rounded-2xl border border-neutral-200/70 overflow-hidden flex flex-col">
-                  <div class="aspect-[16/9] bg-neutral-100 overflow-hidden">
-                    <%= if post.featured_image do %>
-                      <img src={ImageKit.w500_h500(post.featured_image)} alt="" class="w-full h-full object-cover" loading="lazy" />
+        <%!-- Uniform full-sized post-card grid — same treatment as the All-tab
+             "Latest stories" section. Square image with green gradient fallback,
+             centered category + title + date + BUX badge. --%>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <%= for post <- @all_posts do %>
+            <.link navigate={~p"/#{post.slug}"} class="rounded-xl shadow-lg hover:shadow-xl bg-white transition-all flex flex-col group cursor-pointer">
+              <div class="w-full overflow-hidden rounded-t-xl aspect-square relative">
+                <%= if post.featured_image do %>
+                  <img alt={post.title} src={ImageKit.w800(post.featured_image)} class="w-full h-full object-cover" loading="lazy" />
+                <% else %>
+                  <div class="w-full h-full bg-gradient-to-br from-[#8AE388] to-[#BAF55F] grid place-items-center">
+                    <%= if @hub.logo_url do %>
+                      <img src={@hub.logo_url} alt="" class="w-16 h-16 object-contain opacity-80" />
+                    <% else %>
+                      <span class="text-5xl font-bold text-white/90">{String.first(@hub.token || @hub.name)}</span>
                     <% end %>
                   </div>
-                  <div class="p-3 flex flex-col flex-1">
-                    <div class="text-[9px] uppercase tracking-[0.12em] text-neutral-500 mb-1.5">News</div>
-                    <h3 class="font-bold text-[12px] text-[#141414] leading-[1.25] line-clamp-2 tracking-tight mb-auto">{post.title}</h3>
-                    <div class="flex items-center justify-between text-[9px] mt-2">
-                      <span class="text-neutral-500">{read_time(post)} min</span>
-                      <span class="text-[#141414] font-bold">+{Map.get(post, :bux_balance, 0)} BUX</span>
+                <% end %>
+                <%= if post.video_id do %>
+                  <div class="absolute inset-0 grid place-items-center pointer-events-none">
+                    <div class="w-14 h-14 rounded-full bg-white/95 grid place-items-center shadow-xl">
+                      <svg class="w-6 h-6 text-[#0a0a0a] ml-0.5" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
                     </div>
                   </div>
-                </.link>
-            <% end %>
+                <% end %>
+              </div>
+              <div class="px-4 py-4 md:px-5 md:py-5 flex flex-col text-center flex-1">
+                <%= if post.category do %>
+                  <span class="uppercase text-[11px] font-extralight text-black tracking-[0.2em] mb-1.5">{post.category.name}</span>
+                <% end %>
+                <h3 class="text-base md:text-lg font-medium text-[#141414] leading-snug tracking-wide flex-1">{post.title}</h3>
+                <p class="text-xs font-light text-neutral-500 mt-2">{format_date(post.published_at)} &middot; {read_time(post)} min</p>
+                <div class="flex justify-center mt-auto pt-3">
+                  <span class="inline-flex items-center gap-1 bg-[#CAFC00] text-black px-2.5 py-1 rounded-full text-[11px] font-bold">
+                    <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="" class="w-3 h-3 rounded-full" />
+                    {Map.get(post, :bux_balance, 0)} BUX
+                  </span>
+                </div>
+              </div>
+            </.link>
           <% end %>
         </div>
       <% end %>

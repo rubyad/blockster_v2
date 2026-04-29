@@ -354,12 +354,12 @@ defmodule BlocksterV2Web.DesignSystem do
       class="ds-header bg-white/[0.92] backdrop-blur-md border-b border-neutral-200/70 sticky top-0 z-30"
     >
       <div class="max-w-[1280px] mx-auto px-3 md:px-6 h-14 flex items-center justify-between gap-2 md:gap-4">
-        <%!-- Left: logo + Solana mainnet pulse --%>
-        <div class="flex items-center gap-3 min-w-0 shrink-0">
+        <%!-- Left: logo + Solana mainnet pulse (stacks below logo on mobile) --%>
+        <div class="flex flex-col md:flex-row md:items-center md:gap-3 min-w-0 shrink-0">
           <.link navigate={~p"/"} class="flex items-center" aria-label="Blockster home">
             <.logo size="22px" />
           </.link>
-          <div class="hidden md:flex items-center ml-2 gap-1.5 text-[11px] text-neutral-500 font-mono">
+          <div class="flex items-center md:ml-2 gap-1.5 text-[10px] md:text-[11px] text-neutral-500 font-mono mt-0.5 md:mt-0">
             <span class="w-1.5 h-1.5 rounded-full bg-[#22C55E]"></span>
             <span>Solana mainnet</span>
           </div>
