@@ -621,8 +621,21 @@ defmodule BlocksterV2Web.AuthController do
     end
   end
 
-  def telegram_callback(conn, _params) do
-    telegram_callback_redirect_with_error(conn, "missing_telegram_payload")
+  def telegram_callback(conn, params) do
+    require Logger
+
+    Logger.warning(
+      "[Auth] telegram_callback fell through to fallback head — params keys: " <>
+        inspect(Map.keys(params))
+    )
+
+    # Empty/missing-param callback typically means the user canceled the
+    # Telegram auth (Telegram redirects to return_to with no auth params on
+    # cancel) OR Telegram couldn't validate the bot domain. Either way,
+    # there's nothing actionable for the user — silently land them on the
+    # home page rather than flashing a scary "missing_telegram_payload"
+    # error that they can't act on.
+    redirect(conn, to: "/")
   end
 
   defp telegram_callback_redirect_with_error(conn, error_code) do

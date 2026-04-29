@@ -331,52 +331,72 @@ export const Web3Auth = {
   // ── Login ────────────────────────────────────────────────────
 
   async _startLogin({ provider, email_hint }) {
+    // 60s overall timeout — same defense as _startJwtLogin. On iOS Safari
+    // an OAuth popup can be blocked OR the redirect-mode navigation might
+    // never fire if the SDK is in a stuck state, leaving the user staring
+    // at "Opening X" forever.
+    const LOGIN_TIMEOUT_MS = 60_000
+    let timeoutId
+    const timeoutPromise = new Promise((_, reject) => {
+      timeoutId = setTimeout(() => {
+        reject(new Error(
+          "Sign-in did not complete within 60 seconds. " +
+            "Try Safari directly (not an in-app browser) or a different login method."
+        ))
+      }, LOGIN_TIMEOUT_MS)
+    })
+
     try {
-      await this._ensureInit()
-      const { WALLET_CONNECTORS, AUTH_CONNECTION } = this._sdkModules
-
-      // Stale session → clear before re-connecting
-      if (this._web3auth.connected) {
-        try { await this._web3auth.logout() } catch (_) {}
-        await this._waitForConnectorSettle(2000)
-      }
-
-      const loginParams = await this._loginParamsFor(provider, email_hint, AUTH_CONNECTION)
-      if (!loginParams) return
-
-      // Mobile redirect flow: the SDK will navigate the whole page to
-      // auth.web3auth.io and never return control to this promise. Stash
-      // the provider so `mounted` can finish the login on return.
-      if (isMobileUA()) {
-        try { sessionStorage.setItem(REDIRECT_PROVIDER_KEY, provider) } catch (_) {}
-      }
-
-      // Web3Auth.init() resolves BEFORE its internal connector rehydrate
-      // finishes — the connect runs inside a fire-and-forget event listener
-      // for CONNECTORS_UPDATED. Calling connectTo before the state machine
-      // settles throws "Wallet connector is not ready yet". _connectWithRetry
-      // waits for settle + retries the retriable transient states.
-      this._provider = await this._connectWithRetry(
-        WALLET_CONNECTORS.AUTH,
-        loginParams,
-      )
-      if (!this._provider) {
-        // In redirect mode, connectTo returns null on its way out — the
-        // browser is already navigating. Don't surface that as an error.
-        if (isMobileUA()) return
-        this.pushEvent("web3auth_error", { error: "connectTo returned null" })
-        return
-      }
-
-      await this._completeLogin(provider)
+      await Promise.race([
+        this._doLogin({ provider, email_hint }),
+        timeoutPromise,
+      ])
     } catch (e) {
-      // If we stashed a redirect provider but `connectTo` then threw, clear
-      // the hint so a future page mount doesn't try to complete a login that
-      // never happened.
       try { sessionStorage.removeItem(REDIRECT_PROVIDER_KEY) } catch (_) {}
       console.error("[Web3Auth] login failed", e)
       this.pushEvent("web3auth_error", { error: friendlyWeb3AuthError(e) })
+    } finally {
+      if (timeoutId) clearTimeout(timeoutId)
     }
+  },
+
+  async _doLogin({ provider, email_hint }) {
+    await this._ensureInit()
+    const { WALLET_CONNECTORS, AUTH_CONNECTION } = this._sdkModules
+
+    // Stale session → clear before re-connecting
+    if (this._web3auth.connected) {
+      try { await this._web3auth.logout() } catch (_) {}
+      await this._waitForConnectorSettle(2000)
+    }
+
+    const loginParams = await this._loginParamsFor(provider, email_hint, AUTH_CONNECTION)
+    if (!loginParams) return
+
+    // Mobile redirect flow: the SDK will navigate the whole page to
+    // auth.web3auth.io and never return control to this promise. Stash
+    // the provider so `mounted` can finish the login on return.
+    if (isMobileUA()) {
+      try { sessionStorage.setItem(REDIRECT_PROVIDER_KEY, provider) } catch (_) {}
+    }
+
+    // Web3Auth.init() resolves BEFORE its internal connector rehydrate
+    // finishes — the connect runs inside a fire-and-forget event listener
+    // for CONNECTORS_UPDATED. Calling connectTo before the state machine
+    // settles throws "Wallet connector is not ready yet". _connectWithRetry
+    // waits for settle + retries the retriable transient states.
+    this._provider = await this._connectWithRetry(
+      WALLET_CONNECTORS.AUTH,
+      loginParams,
+    )
+    if (!this._provider) {
+      // In redirect mode, connectTo returns null on its way out — the
+      // browser is already navigating. Don't surface that as an error.
+      if (isMobileUA()) return
+      throw new Error("connectTo returned null")
+    }
+
+    await this._completeLogin(provider)
   },
 
   // Called from `mounted` when we detect a pending redirect return
@@ -595,57 +615,82 @@ export const Web3Auth = {
   // step server-side, click submit, the page navigates to web3auth.io,
   // navigates back, and the modal hangs because no resume handler ran.
   async _startJwtLogin({ provider, id_token, verifier_id, verifier_id_field }) {
+    // 60s overall timeout: Web3Auth's CUSTOM JWT flow does in-page iframe
+    // MPC regardless of uxMode (uxMode only governs OAuth login redirect).
+    // On iOS Safari with ITP, the cross-origin iframe gets storage-blocked
+    // and MPC hangs SILENTLY — connectTo never resolves and the user sits
+    // on the "signing you in" modal forever. The timeout bounds that hang
+    // and surfaces an error so the modal closes and the user can retry.
+    const JWT_LOGIN_TIMEOUT_MS = 60_000
+    let timeoutId
+    const timeoutPromise = new Promise((_, reject) => {
+      timeoutId = setTimeout(() => {
+        reject(new Error(
+          "Sign-in did not complete within 60 seconds. " +
+            "This typically means your browser blocked the secure key " +
+            "derivation. Try Safari (not an in-app browser) or a different " +
+            "login method."
+        ))
+      }, JWT_LOGIN_TIMEOUT_MS)
+    })
+
     try {
-      await this._ensureInit()
-      const { WALLET_CONNECTORS, AUTH_CONNECTION } = this._sdkModules
-
-      if (this._web3auth.connected) {
-        try { await this._web3auth.logout() } catch (_) {}
-        await this._waitForConnectorSettle(2000)
-      }
-
-      const loginParams = {
-        authConnection: AUTH_CONNECTION.CUSTOM,
-        authConnectionId: verifier_id || "blockster-email",
-        extraLoginOptions: {
-          id_token,
-          verifierIdField: verifier_id_field || "sub",
-        },
-      }
-
-      // Stash provider so we can resume after Web3Auth's redirect-back.
-      // Same pattern as `_startLogin` (the OAuth path) at line ~340.
-      if (isMobileUA()) {
-        try { sessionStorage.setItem(REDIRECT_PROVIDER_KEY, provider) } catch (_) {}
-      }
-
-      this._provider = await this._connectWithRetry(
-        WALLET_CONNECTORS.AUTH,
-        loginParams,
-      )
-      if (!this._provider) {
-        // In redirect mode, connectTo returns null on its way out — the
-        // browser is already navigating. Don't surface that as an error;
-        // the resume happens via _completeRedirectReturn on return.
-        if (isMobileUA()) return
-        this.pushEvent("web3auth_error", { error: "connectTo returned null" })
-        return
-      }
-
-      // connectTo resolved without redirecting (in-page MPC iframe path
-      // — possible on desktop, or some mobile browsers that don't navigate).
-      // Clear the redirect marker so a future page mount doesn't try to
-      // resume a flow that already completed in this tab.
-      try { sessionStorage.removeItem(REDIRECT_PROVIDER_KEY) } catch (_) {}
-
-      await this._completeLogin(provider)
+      await Promise.race([
+        this._doJwtLogin({ provider, id_token, verifier_id, verifier_id_field }),
+        timeoutPromise,
+      ])
     } catch (e) {
       console.error("[Web3Auth] jwt login failed", e)
-      // On error, also clear the marker — the user will retry, no
-      // meaningful resume is pending.
       try { sessionStorage.removeItem(REDIRECT_PROVIDER_KEY) } catch (_) {}
       this.pushEvent("web3auth_error", { error: friendlyWeb3AuthError(e) })
+    } finally {
+      if (timeoutId) clearTimeout(timeoutId)
     }
+  },
+
+  async _doJwtLogin({ provider, id_token, verifier_id, verifier_id_field }) {
+    await this._ensureInit()
+    const { WALLET_CONNECTORS, AUTH_CONNECTION } = this._sdkModules
+
+    if (this._web3auth.connected) {
+      try { await this._web3auth.logout() } catch (_) {}
+      await this._waitForConnectorSettle(2000)
+    }
+
+    const loginParams = {
+      authConnection: AUTH_CONNECTION.CUSTOM,
+      authConnectionId: verifier_id || "blockster-email",
+      extraLoginOptions: {
+        id_token,
+        verifierIdField: verifier_id_field || "sub",
+      },
+    }
+
+    // Stash provider so we can resume after Web3Auth's redirect-back.
+    // Same pattern as `_startLogin` (the OAuth path) at line ~340.
+    if (isMobileUA()) {
+      try { sessionStorage.setItem(REDIRECT_PROVIDER_KEY, provider) } catch (_) {}
+    }
+
+    this._provider = await this._connectWithRetry(
+      WALLET_CONNECTORS.AUTH,
+      loginParams,
+    )
+    if (!this._provider) {
+      // In redirect mode, connectTo returns null on its way out — the
+      // browser is already navigating. Don't surface that as an error;
+      // the resume happens via _completeRedirectReturn on return.
+      if (isMobileUA()) return
+      throw new Error("connectTo returned null")
+    }
+
+    // connectTo resolved without redirecting (in-page MPC iframe path
+    // — possible on desktop, or some mobile browsers that don't navigate).
+    // Clear the redirect marker so a future page mount doesn't try to
+    // resume a flow that already completed in this tab.
+    try { sessionStorage.removeItem(REDIRECT_PROVIDER_KEY) } catch (_) {}
+
+    await this._completeLogin(provider)
   },
 
   // Telegram social login — three-step flow:
@@ -1087,7 +1132,12 @@ export const Web3Auth = {
   // ── Keypair + signer ─────────────────────────────────────────
 
   async _fetchKeypair() {
-    if (!this._provider) return null
+    if (!this._provider) {
+      this.pushEvent("web3auth_error", {
+        error: "Sign-in incomplete — no key provider attached after MPC.",
+      })
+      return null
+    }
     let raw
     try {
       raw = await this._provider.request({ method: "solana_privateKey" })
@@ -1099,7 +1149,18 @@ export const Web3Auth = {
         return null
       }
     }
-    if (!raw) return null
+    // Empty/null key is the silent-failure mode where MPC iframe was
+    // storage-blocked on iOS Safari (ITP) — provider.request resolves
+    // with empty data instead of throwing. Without this push, the modal
+    // hangs in "Signing in" forever.
+    if (!raw) {
+      this.pushEvent("web3auth_error", {
+        error:
+          "Sign-in incomplete — your browser blocked the secure key derivation. " +
+          "Try Safari directly (not an in-app browser) or a different login method.",
+      })
+      return null
+    }
     const secret = decodeSecret(raw)
     if (!secret) {
       this.pushEvent("web3auth_error", { error: "Unrecognized private key format" })
