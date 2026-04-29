@@ -139,6 +139,41 @@ export const Web3Auth = {
       })
     }
 
+    // Telegram fragment-mode return — fallback for when oauth.telegram.org
+    // doesn't honor `return_to` and instead drops the auth payload into the
+    // URL fragment as `#tgAuthResult=<base64-json>`. This happens on iOS
+    // Safari where the popup-mode postMessage transport falls back to a
+    // hash-based handoff. Without this branch, the user lands back with the
+    // fragment in the URL but our flow never runs and the modal stays open
+    // showing "No pending Telegram login". Decode the base64 payload, POST
+    // to /api/auth/telegram/verify (same HMAC-validation as the popup flow),
+    // then hand the JWT to _startJwtLogin like the redirect path.
+    const tgFragment = (() => {
+      try {
+        const hash = window.location.hash || ""
+        if (!hash.startsWith("#tgAuthResult=")) return null
+        const b64 = hash.slice("#tgAuthResult=".length)
+        // Strip the fragment immediately so a refresh / back-nav doesn't replay.
+        try {
+          const url = new URL(window.location.href)
+          url.hash = ""
+          window.history.replaceState({}, "", url.toString())
+        } catch (_) {}
+        return b64
+      } catch (_) {
+        return null
+      }
+    })()
+
+    if (tgFragment) {
+      this._completeTelegramFragmentReturn(tgFragment).catch((e) => {
+        console.warn("[Web3Auth] Telegram fragment return failed:", e?.message || e)
+        this.pushEvent("web3auth_error", {
+          error: friendlyWeb3AuthError(e) || "Telegram login failed",
+        })
+      })
+    }
+
     // Redirect-mode return: if we stashed a provider in sessionStorage
     // before navigating to the OAuth window, we're landing back here after
     // Web3Auth finished the login and navigated back. Complete the flow.
@@ -400,6 +435,66 @@ export const Web3Auth = {
     if (!res.ok || !json?.success || !json?.id_token) {
       this.pushEvent("web3auth_error", {
         error: json?.error || "Telegram login state was not found in session",
+      })
+      return
+    }
+
+    await this._startJwtLogin({
+      provider: "telegram",
+      id_token: json.id_token,
+      verifier_id: this._telegramVerifierId,
+      verifier_id_field: "sub",
+    })
+  },
+
+  // Telegram fragment-mode return — see `mounted()` for why this exists.
+  // The fragment payload is base64-encoded JSON of the same shape the
+  // Telegram Login Widget would push via postMessage:
+  //   { id, first_name, username, photo_url, auth_date, hash }
+  // We POST that to /api/auth/telegram/verify which HMAC-validates and
+  // returns a Custom JWT, then hand to _startJwtLogin.
+  async _completeTelegramFragmentReturn(b64) {
+    let payload
+    try {
+      // base64 in fragments is sometimes URL-safe, sometimes not — try both.
+      let decoded
+      try {
+        decoded = atob(b64)
+      } catch (_) {
+        decoded = atob(b64.replace(/-/g, "+").replace(/_/g, "/"))
+      }
+      payload = JSON.parse(decoded)
+    } catch (e) {
+      this.pushEvent("web3auth_error", {
+        error: "Telegram returned malformed auth payload (fragment).",
+      })
+      return
+    }
+
+    if (!payload || !payload.id || !payload.hash) {
+      this.pushEvent("web3auth_error", {
+        error: "Telegram auth payload missing required fields.",
+      })
+      return
+    }
+
+    const csrf =
+      document.querySelector("meta[name='csrf-token']")?.getAttribute("content") || ""
+
+    const res = await fetch("/api/auth/telegram/verify", {
+      method: "POST",
+      credentials: "same-origin",
+      headers: {
+        "content-type": "application/json",
+        "x-csrf-token": csrf,
+      },
+      body: JSON.stringify(payload),
+    })
+
+    const json = await res.json().catch(() => ({}))
+    if (!res.ok || !json?.success || !json?.id_token) {
+      this.pushEvent("web3auth_error", {
+        error: json?.error || "Telegram verify failed",
       })
       return
     }
