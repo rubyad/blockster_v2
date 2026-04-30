@@ -110,8 +110,8 @@ Record each result inline in this doc under §6 Results.
    - `_handleOAuth(provider)` — call SFA's `triggerLogin({verifier, typeOfLogin, clientId, customState, uxMode: "redirect"})`. Top-level navigation to provider, returns to our domain with JWT in URL hash.
    - `_completeOAuthRedirectReturn()` — on mount, check URL hash for SFA's redirect-result format (`#sessionId=...` or whatever `triggerLogin` returns), parse, complete login.
    - `_silentReconnect()` — if `localStorage["blockster_web3auth_sfa_session"]` is set, GET `/api/auth/web3auth/refresh_jwt` (existing endpoint), call `_doSfaLogin`. No SDK-level session to rehydrate (SFA is stateless per-call).
-   - `_installSigner(keypair)` — **identical to current hook.** Same `window.__signer.signAndConfirm`, `signTransaction`, `signMessage` interface. Each signer call invokes `_fetchKeypairForSign` to get fresh secret bytes, signs, then `secretKey.fill(0)` in `finally`. Honors CLAUDE.md "never cache the key" rule.
-   - `_fetchKeypairForSign(idToken)` — calls `sfa.getKey(...)` per-sign to get fresh secret key bytes. Returns `Keypair`. Caller does `secretKey.fill(0)` after.
+   - `_installSigner(keypair)` — **identical to current hook.** Same `window.__signer.signAndConfirm`, `signTransaction`, `signMessage` interface. Each signer call invokes `_fetchKeypairForSign` to get the secret bytes, signs, then `secretKey.fill(0)` in `finally`.
+   - `_fetchKeypairForSign(idToken)` — calls `sfa.getKey(...)` per-sign by default (~1s per call due to Torus DKG round-trip). For latency-sensitive flows (coin flip), §3.7 layers a short-lived in-memory seed cache on top.
    - `_clearSession()` — `localStorage.removeItem("blockster_web3auth_sfa_session")`. No SDK logout call (SFA has no session state).
 
 ### 3.2 Files to modify
@@ -165,6 +165,25 @@ Read live in `wallet_components.ex` on every mount. Hot reloads — no deploy ne
 Flip `WEB3AUTH_USE_SFA=false` Fly secret (`flyctl secrets set WEB3AUTH_USE_SFA=false --stage --app blockster-v2`, then deploy). Mobile reverts to modal on next page load.
 
 Not applicable if Phase 0 reported parity mismatch and Phase 2 has migrated desktop too — at that point modal is gone from the bundle.
+
+### 3.7 Performance: soft cache for fast signing (Phase 1.1, deferred)
+
+Phase 1 (current) re-derives the keypair on every sign — `customauth.getTorusKey(...)` HTTPS round-trip to ~5 Torus DKG nodes per call, ~800–1500ms latency. Acceptable for one-shot flows (shop checkout, pool deposit/withdraw, airdrop claim, BUX burn) where the user is already in a "submitting…" UI. **Felt for coin flip betting**, where every bet is a sign and a 1s pause-per-bet hurts UX.
+
+Phase 1.1 layers a short-lived in-memory seed cache on top of the per-sign fetch. Sketch:
+
+- After a successful `_fetchKeypair`, store the 32-byte ed25519 seed in a closure-scoped variable (NOT in localStorage / sessionStorage / IndexedDB).
+- TTL: 30–60 seconds, default 60_000 ms (configurable via `data-key-cache-ttl-ms` attribute on the hook root).
+- Subsequent signs within the window: derive `Keypair.fromSeed(cached)` locally, sign, zero the keypair's secretKey. The cached seed itself stays.
+- On TTL expiry: zero the cached seed, next sign re-derives via Torus.
+- On logout / hook destroyed: zero the cached seed immediately.
+- Modal hook is unaffected — `provider.request({method: "solana_privateKey"})` is already fast, no caching layer needed there.
+
+**Security trade-off.** The previous strict-per-sign rule was XSS defense in depth — limit the window an attacker with code execution can exfiltrate the secret. With a 60s cache, an XSS attacker can grab the cached seed during the window, but they could already have waited one user-initiated sign cycle to exfiltrate via the per-sign path. The protection delta is modest. The load-bearing rule remains: **never write keys to persistent storage.** That's where XSS damage compounds (key survives reload, attacker has unlimited time).
+
+CLAUDE.md updated 2026-04-29 to reflect this — the strict "never cache" bullet is replaced with "never write to localStorage/sessionStorage; short-lived in-memory cache OK".
+
+Effort: ~15 LOC in `web3auth_sfa_hook.js`. Zero server-side. Implement when (a) we get user feedback that mobile coin flip feels slow, OR (b) before any other latency-sensitive feature ships on mobile.
 
 ---
 

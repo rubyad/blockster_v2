@@ -96,6 +96,16 @@ function decodeSecret(raw) {
 
 export const Web3Auth = {
   async mounted() {
+    // Phase 1 of the SFA migration: mobile users go through the SFA hook
+    // (assets/js/hooks/web3auth_sfa_hook.js), which uses customauth's
+    // pure-HTTPS getTorusKey path and avoids the iOS Safari ITP iframe
+    // block. Modal stays the desktop SDK. Skip the entire modal mount on
+    // mobile so the two hooks don't race on email/Telegram or fight over
+    // window.__signer. OAuth (X / Google / Apple) is also currently
+    // skipped on mobile — the SFA hook surfaces a clear error for those
+    // until Phase 1.1 wires customauth.triggerLogin.
+    if (isMobileUA()) return
+
     this._clientId = this.el.dataset.clientId || ""
     this._rpcUrl = this.el.dataset.rpcUrl || ""
     this._chainId = this.el.dataset.chainId || "0x67" // devnet default per integration doc
