@@ -199,7 +199,8 @@ defmodule BlocksterV2Web.Admin.Web3AuthSfaTestLive do
   @impl true
   def render(assigns) do
     ~H"""
-    <div class="max-w-3xl mx-auto py-8 px-4">
+    <BlocksterV2Web.DesignSystem.header current_user={@current_user} />
+    <div class="max-w-3xl mx-auto py-8 px-4 pt-28">
       <h1 class="text-2xl font-haas_medium_65 mb-2">Web3Auth SFA Parity Test</h1>
       <p class="text-sm text-gray-600 mb-6">
         Phase 0 of the SFA mobile migration. Pick an existing Web3Auth-signed-in user

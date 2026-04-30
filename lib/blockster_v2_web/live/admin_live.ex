@@ -31,8 +31,13 @@ defmodule BlocksterV2Web.AdminLive do
     Enum.filter(users, fn user ->
       matches_email = user.email && String.contains?(String.downcase(user.email), query)
       matches_username = user.username && String.contains?(String.downcase(user.username), query)
-      matches_wallet = user.wallet_address && String.contains?(String.downcase(user.wallet_address), query)
-      matches_smart_wallet = user.smart_wallet_address && String.contains?(String.downcase(user.smart_wallet_address), query)
+
+      matches_wallet =
+        user.wallet_address && String.contains?(String.downcase(user.wallet_address), query)
+
+      matches_smart_wallet =
+        user.smart_wallet_address &&
+          String.contains?(String.downcase(user.smart_wallet_address), query)
 
       matches_email || matches_username || matches_wallet || matches_smart_wallet
     end)
@@ -144,7 +149,8 @@ defmodule BlocksterV2Web.AdminLive do
         end
 
       _ ->
-        {:noreply, assign(socket, send_bux_status: {:error, "Please enter a valid positive integer"})}
+        {:noreply,
+         assign(socket, send_bux_status: {:error, "Please enter a valid positive integer"})}
     end
   end
 
@@ -192,14 +198,17 @@ defmodule BlocksterV2Web.AdminLive do
                |> assign(send_rogue_amount: "")}
 
             {:error, reason} ->
-              {:noreply, assign(socket, send_rogue_status: {:error, "Failed: #{inspect(reason)}"})}
+              {:noreply,
+               assign(socket, send_rogue_status: {:error, "Failed: #{inspect(reason)}"})}
           end
         else
-          {:noreply, assign(socket, send_rogue_status: {:error, "User has no smart wallet address"})}
+          {:noreply,
+           assign(socket, send_rogue_status: {:error, "User has no smart wallet address"})}
         end
 
       _ ->
-        {:noreply, assign(socket, send_rogue_status: {:error, "Please enter a valid positive number"})}
+        {:noreply,
+         assign(socket, send_rogue_status: {:error, "Please enter a valid positive number"})}
     end
   end
 
@@ -254,7 +263,8 @@ defmodule BlocksterV2Web.AdminLive do
             {:noreply, assign(socket, digest_status: {:ok, length(posts), admin.email})}
 
           {:error, reason} ->
-            {:noreply, assign(socket, digest_status: {:error, "Delivery failed: #{inspect(reason)}"})}
+            {:noreply,
+             assign(socket, digest_status: {:error, "Delivery failed: #{inspect(reason)}"})}
         end
       end
     end
@@ -269,6 +279,7 @@ defmodule BlocksterV2Web.AdminLive do
     else
       # Find the latest published post that belongs to a hub
       import Ecto.Query
+
       post =
         BlocksterV2.Repo.one(
           from p in BlocksterV2.Blog.Post,
@@ -308,7 +319,8 @@ defmodule BlocksterV2Web.AdminLive do
             {:noreply, assign(socket, hub_post_status: {:ok, post.title, admin.email})}
 
           {:error, reason} ->
-            {:noreply, assign(socket, hub_post_status: {:error, "Delivery failed: #{inspect(reason)}"})}
+            {:noreply,
+             assign(socket, hub_post_status: {:error, "Delivery failed: #{inspect(reason)}"})}
         end
       end
     end
@@ -317,6 +329,7 @@ defmodule BlocksterV2Web.AdminLive do
   @impl true
   def render(assigns) do
     ~H"""
+    <BlocksterV2Web.DesignSystem.header current_user={@current_user} />
     <div class="min-h-screen bg-gray-50 pt-24 pb-8">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="bg-white rounded-lg shadow">
@@ -338,9 +351,11 @@ defmodule BlocksterV2Web.AdminLive do
                     <%= if @digest_status do %>
                       <%= case @digest_status do %>
                         <% {:ok, count, to_email} -> %>
-                          <p class="text-xs text-green-600 mt-1">Sent <%= count %> articles to <%= to_email %></p>
+                          <p class="text-xs text-green-600 mt-1">
+                            Sent {count} articles to {to_email}
+                          </p>
                         <% {:error, msg} -> %>
-                          <p class="text-xs text-red-600 mt-1"><%= msg %></p>
+                          <p class="text-xs text-red-600 mt-1">{msg}</p>
                       <% end %>
                     <% end %>
                   </div>
@@ -354,9 +369,9 @@ defmodule BlocksterV2Web.AdminLive do
                     <%= if @hub_post_status do %>
                       <%= case @hub_post_status do %>
                         <% {:ok, title, to_email} -> %>
-                          <p class="text-xs text-green-600 mt-1">Sent "<%= title %>" to <%= to_email %></p>
+                          <p class="text-xs text-green-600 mt-1">Sent "{title}" to {to_email}</p>
                         <% {:error, msg} -> %>
-                          <p class="text-xs text-red-600 mt-1"><%= msg %></p>
+                          <p class="text-xs text-red-600 mt-1">{msg}</p>
                       <% end %>
                     <% end %>
                   </div>
@@ -423,7 +438,11 @@ defmodule BlocksterV2Web.AdminLive do
                           target="_blank"
                           class="text-xs text-blue-600 hover:text-blue-800 hover:underline font-mono cursor-pointer"
                         >
-                          <%= String.slice(user.wallet_address, 0, 8) %>...<%= String.slice(user.wallet_address, -4, 4) %>
+                          {String.slice(user.wallet_address, 0, 8)}...{String.slice(
+                            user.wallet_address,
+                            -4,
+                            4
+                          )}
                         </a>
                       <% else %>
                         <span class="text-xs text-gray-400">—</span>
@@ -431,14 +450,14 @@ defmodule BlocksterV2Web.AdminLive do
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap">
                       <%= if user.email do %>
-                        <span class="text-sm text-gray-900"><%= user.email %></span>
+                        <span class="text-sm text-gray-900">{user.email}</span>
                       <% else %>
                         <span class="text-sm text-gray-400">—</span>
                       <% end %>
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap">
                       <%= if user.username do %>
-                        <span class="text-sm text-gray-900"><%= user.username %></span>
+                        <span class="text-sm text-gray-900">{user.username}</span>
                       <% else %>
                         <span class="text-sm text-gray-400">—</span>
                       <% end %>
@@ -446,19 +465,22 @@ defmodule BlocksterV2Web.AdminLive do
                     <td class="px-6 py-4 whitespace-nowrap">
                       <span class={[
                         "px-2 inline-flex text-xs leading-5 font-semibold rounded-full",
-                        if(user.auth_method == "email", do: "bg-blue-100 text-blue-800", else: "bg-purple-100 text-purple-800")
+                        if(user.auth_method == "email",
+                          do: "bg-blue-100 text-blue-800",
+                          else: "bg-purple-100 text-purple-800"
+                        )
                       ]}>
-                        <%= user.auth_method %>
+                        {user.auth_method}
                       </span>
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      <%= user.level %>
+                      {user.level}
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      <%= user.bux_balance %>
+                      {user.bux_balance}
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      <%= Calendar.strftime(user.inserted_at, "%b %d, %Y") %>
+                      {Calendar.strftime(user.inserted_at, "%b %d, %Y")}
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm">
                       <button
@@ -466,10 +488,13 @@ defmodule BlocksterV2Web.AdminLive do
                         phx-value-user-id={user.id}
                         class={[
                           "px-3 py-1 rounded-full text-xs font-semibold transition-colors",
-                          if(user.is_admin, do: "bg-red-100 text-red-800 hover:bg-red-200", else: "bg-gray-100 text-gray-600 hover:bg-gray-200")
+                          if(user.is_admin,
+                            do: "bg-red-100 text-red-800 hover:bg-red-200",
+                            else: "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                          )
                         ]}
                       >
-                        <%= if user.is_admin, do: "Admin ✓", else: "Make Admin" %>
+                        {if user.is_admin, do: "Admin ✓", else: "Make Admin"}
                       </button>
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm">
@@ -478,15 +503,22 @@ defmodule BlocksterV2Web.AdminLive do
                         phx-value-user-id={user.id}
                         class={[
                           "px-3 py-1 rounded-full text-xs font-semibold transition-colors cursor-pointer",
-                          if(user.is_author, do: "bg-green-100 text-green-800 hover:bg-green-200", else: "bg-gray-100 text-gray-600 hover:bg-gray-200")
+                          if(user.is_author,
+                            do: "bg-green-100 text-green-800 hover:bg-green-200",
+                            else: "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                          )
                         ]}
                       >
-                        <%= if user.is_author, do: "Author ✓", else: "Make Author" %>
+                        {if user.is_author, do: "Author ✓", else: "Make Author"}
                       </button>
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm">
                       <%= if @send_bux_user_id == user.id do %>
-                        <form phx-change="update_bux_amount" phx-submit="send_bux" class="flex items-center gap-2">
+                        <form
+                          phx-change="update_bux_amount"
+                          phx-submit="send_bux"
+                          class="flex items-center gap-2"
+                        >
                           <input
                             type="number"
                             name="amount"
@@ -515,18 +547,18 @@ defmodule BlocksterV2Web.AdminLive do
                           <%= case @send_bux_status do %>
                             <% {:success, amount, tx_hash} -> %>
                               <div class="mt-1 text-xs text-green-600">
-                                Sent <%= amount %> BUX! TX:
+                                Sent {amount} BUX! TX:
                                 <a
                                   href={BlocksterV2Web.Solscan.tx_url(tx_hash)}
                                   target="_blank"
                                   class="text-blue-600 hover:underline cursor-pointer font-mono break-all"
                                 >
-                                  <%= tx_hash %>
+                                  {tx_hash}
                                 </a>
                               </div>
                             <% {:error, message} -> %>
                               <div class="mt-1 text-xs text-red-600">
-                                <%= message %>
+                                {message}
                               </div>
                           <% end %>
                         <% end %>
@@ -553,9 +585,11 @@ defmodule BlocksterV2Web.AdminLive do
           <div class="px-6 py-4 bg-gray-50 border-t border-gray-200">
             <p class="text-sm text-gray-600">
               <%= if @filter_query != "" do %>
-                Showing <span class="font-semibold"><%= length(@filtered_users) %></span> of <span class="font-semibold"><%= length(@users) %></span> users
+                Showing <span class="font-semibold">{length(@filtered_users)}</span>
+                of <span class="font-semibold">{length(@users)}</span>
+                users
               <% else %>
-                Total users: <span class="font-semibold"><%= length(@users) %></span>
+                Total users: <span class="font-semibold">{length(@users)}</span>
               <% end %>
             </p>
           </div>
