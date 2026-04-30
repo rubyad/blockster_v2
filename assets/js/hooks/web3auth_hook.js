@@ -375,9 +375,14 @@ export const Web3Auth = {
 
     // Mobile redirect flow: the SDK will navigate the whole page to
     // auth.web3auth.io and never return control to this promise. Stash
-    // the provider so `mounted` can finish the login on return.
+    // the provider so `mounted` can finish the login on return. Set
+    // uxMode + redirectUrl per-call to force redirect mode (constructor
+    // uxMode is unreliable for some flows in @web3auth/no-modal v10 —
+    // see the matching note in _doJwtLogin).
     if (isMobileUA()) {
       try { sessionStorage.setItem(REDIRECT_PROVIDER_KEY, provider) } catch (_) {}
+      loginParams.uxMode = "redirect"
+      loginParams.redirectUrl = window.location.origin + "/"
     }
 
     // Web3Auth.init() resolves BEFORE its internal connector rehydrate
@@ -666,10 +671,18 @@ export const Web3Auth = {
       },
     }
 
-    // Stash provider so we can resume after Web3Auth's redirect-back.
-    // Same pattern as `_startLogin` (the OAuth path) at line ~340.
+    // Force the redirect flow PER-CALL on mobile. The constructor's
+    // `uiConfig.uxMode` is meant to govern this but the CUSTOM JWT path
+    // in @web3auth/no-modal v10 sometimes still does in-page iframe MPC
+    // — which iOS Safari ITP blocks, leaving connectTo to hang forever
+    // (60s timeout fires with the "browser blocked secure key derivation"
+    // message). Setting uxMode + redirectUrl directly in LoginParams
+    // forces the SDK to navigate the WHOLE page to web3auth.io for the
+    // MPC ceremony (no iframe → no ITP block) and then redirect back.
     if (isMobileUA()) {
       try { sessionStorage.setItem(REDIRECT_PROVIDER_KEY, provider) } catch (_) {}
+      loginParams.uxMode = "redirect"
+      loginParams.redirectUrl = window.location.origin + "/"
     }
 
     this._provider = await this._connectWithRetry(
