@@ -2990,9 +2990,21 @@ defmodule BlocksterV2Web.CoinFlipLive do
     selected_token = socket.assigns.selected_token
     selected_difficulty = socket.assigns.selected_difficulty
 
+    # Reload user_stats now that the just-played bet is in :coin_flip_games
+    # (it wasn't yet when handle_info(:show_final_result) seeded user_stats
+    # at line 2935 — settlement runs asynchronously after that point).
+    # Without this reload the "Your stats updated" panel renders the
+    # PRE-bet snapshot every time the user wins.
+    user_stats = load_user_stats(user_id, selected_token)
+
     socket =
       socket
-      |> assign(settlement_sig: sig, settlement_status: :settled, settlement_timeout_ref: nil)
+      |> assign(
+        settlement_sig: sig,
+        settlement_status: :settled,
+        settlement_timeout_ref: nil,
+        user_stats: user_stats
+      )
       |> start_async(:fetch_house_balance, fn ->
         fetch_house_balance_async(selected_token, selected_difficulty)
       end)
