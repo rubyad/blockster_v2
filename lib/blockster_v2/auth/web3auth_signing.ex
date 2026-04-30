@@ -94,4 +94,45 @@ defmodule BlocksterV2.Auth.Web3AuthSigning do
     |> Map.put("alg", "RS256")
     |> then(&%{keys: [&1]})
   end
+
+  @doc """
+  Verify a JWT we issued ourselves (`iss == "blockster"`, `kid == kid()`).
+  Used by the Web3Auth SFA mobile flow's `verify_web3auth` controller path:
+  the SFA hook hands our own self-signed JWT back to the server (it never
+  sees a Web3Auth-signed JWT because it bypasses the modal/ws-embed iframe
+  layer), so the server verifies the signature against the same private
+  key it used to issue.
+
+  Returns `{:ok, claims}` (string-keyed map) or `{:error, reason}`.
+  Does NOT check claim values (iss / aud / exp / nbf) — caller layers
+  those checks. This function only confirms signature + kid.
+  """
+  def verify_token(token, server \\ __MODULE__) when is_binary(token) do
+    %{pem: pem, kid: expected_kid} = Agent.get(server, & &1)
+
+    header =
+      case Joken.peek_header(token) do
+        {:ok, h} -> h
+        h when is_map(h) -> h
+        _ -> nil
+      end
+
+    cond do
+      is_nil(header) ->
+        {:error, :malformed_token}
+
+      header["kid"] != expected_kid ->
+        {:error, {:unknown_kid, header["kid"]}}
+
+      true ->
+        signer = Joken.Signer.create("RS256", %{"pem" => pem})
+
+        case Joken.verify(token, signer) do
+          {:ok, claims} -> {:ok, claims}
+          {:error, reason} -> {:error, {:signature_invalid, reason}}
+        end
+    end
+  rescue
+    _ -> {:error, :malformed_token}
+  end
 end

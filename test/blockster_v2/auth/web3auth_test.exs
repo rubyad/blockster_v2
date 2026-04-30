@@ -21,6 +21,7 @@ defmodule BlocksterV2.Auth.Web3AuthTest do
     end
 
     :ets.delete_all_objects(:web3auth_jwks_cache)
+
     :ets.insert(
       :web3auth_jwks_cache,
       {kid, public_map, :erlang.system_time(:second) + 3600}
@@ -95,6 +96,7 @@ defmodule BlocksterV2.Auth.Web3AuthTest do
 
     test "rejects when expected_wallet_pubkey does not match", ctx do
       token = sign_token(ctx.signer, %{})
+
       assert {:error, {:wallet_mismatch, _}} =
                Web3Auth.verify_id_token(token,
                  expected_audience: @test_audience,
@@ -105,17 +107,21 @@ defmodule BlocksterV2.Auth.Web3AuthTest do
     test "rejects expired tokens", ctx do
       now = System.system_time(:second)
       token = sign_token(ctx.signer, %{"iat" => now - 3600, "exp" => now - 1800})
-      assert {:error, :expired} = Web3Auth.verify_id_token(token, expected_audience: @test_audience)
+
+      assert {:error, :expired} =
+               Web3Auth.verify_id_token(token, expected_audience: @test_audience)
     end
 
     test "rejects audience mismatch", ctx do
       token = sign_token(ctx.signer, %{"aud" => "some-other-client"})
+
       assert {:error, {:audience_mismatch, _}} =
                Web3Auth.verify_id_token(token, expected_audience: @test_audience)
     end
 
     test "rejects issuer mismatch", ctx do
       token = sign_token(ctx.signer, %{"iss" => "https://evil.example.com"})
+
       assert {:error, {:issuer_mismatch, _}} =
                Web3Auth.verify_id_token(token, expected_audience: @test_audience)
     end
@@ -124,7 +130,11 @@ defmodule BlocksterV2.Auth.Web3AuthTest do
       token = sign_token(ctx.signer, %{})
       [header, payload, _sig] = String.split(token, ".")
       # Replace the signature with random-ish bytes of matching length
-      tampered = header <> "." <> payload <> "." <> Base.url_encode64(:crypto.strong_rand_bytes(64), padding: false)
+      tampered =
+        header <>
+          "." <>
+          payload <> "." <> Base.url_encode64(:crypto.strong_rand_bytes(64), padding: false)
+
       assert {:error, {:signature_invalid, _}} =
                Web3Auth.verify_id_token(tampered, expected_audience: @test_audience)
     end
@@ -166,6 +176,117 @@ defmodule BlocksterV2.Auth.Web3AuthTest do
 
       assert {:ok, claims} = Web3Auth.verify_id_token(token, expected_audience: @test_audience)
       assert claims.x_user_id == "987654321"
+    end
+  end
+
+  describe "verify_id_token (self-signed for SFA flow)" do
+    alias BlocksterV2.Auth.Web3AuthSigning
+
+    test "verifies an email JWT we issued ourselves" do
+      claims = %{
+        "sub" => "alice@example.com",
+        "email" => "alice@example.com",
+        "email_verified" => true
+      }
+
+      token = Web3AuthSigning.sign_id_token(claims)
+
+      assert {:ok, normalized} = Web3Auth.verify_id_token(token)
+      assert normalized.email == "alice@example.com"
+      assert normalized.verifier == "blockster-email"
+      assert normalized.auth_connection == "email"
+      assert normalized.verifier_id == "alice@example.com"
+    end
+
+    test "verifies a telegram JWT we issued ourselves" do
+      claims = %{
+        "sub" => "12345678",
+        "telegram_user_id" => "12345678",
+        "telegram_username" => "alice"
+      }
+
+      token = Web3AuthSigning.sign_id_token(claims)
+
+      assert {:ok, normalized} = Web3Auth.verify_id_token(token)
+      assert normalized.telegram_user_id == "12345678"
+      assert normalized.telegram_username == "alice"
+      assert normalized.verifier == "blockster-telegram"
+      assert normalized.auth_connection == "telegram"
+      assert normalized.verifier_id == "12345678"
+    end
+
+    test "injects expected_wallet_pubkey as solana_pubkey" do
+      token =
+        Web3AuthSigning.sign_id_token(%{
+          "sub" => "bob@example.com",
+          "email" => "bob@example.com",
+          "email_verified" => true
+        })
+
+      pubkey = "AbCdEf1234567890AbCdEf1234567890AbCdEf123"
+
+      assert {:ok, normalized} =
+               Web3Auth.verify_id_token(token, expected_wallet_pubkey: pubkey)
+
+      assert normalized.solana_pubkey == pubkey
+    end
+
+    test "rejects an expired self-signed JWT" do
+      token =
+        Web3AuthSigning.sign_id_token(%{
+          "sub" => "carol@example.com",
+          "email" => "carol@example.com",
+          "email_verified" => true
+        })
+
+      # Test in a far-future "now" so the JWT is past its 600s TTL plus skew.
+      far_future = System.system_time(:second) + 10_000
+
+      assert {:error, :expired} =
+               Web3Auth.verify_id_token(token, now: far_future)
+    end
+
+    test "rejects a tampered self-signed JWT" do
+      token =
+        Web3AuthSigning.sign_id_token(%{
+          "sub" => "dave@example.com",
+          "email" => "dave@example.com",
+          "email_verified" => true
+        })
+
+      # Flip a character in the signature to break verification.
+      [header, payload, sig] = String.split(token, ".")
+
+      sig_tampered =
+        case String.at(sig, 0) do
+          "A" -> "B" <> binary_part(sig, 1, byte_size(sig) - 1)
+          _ -> "A" <> binary_part(sig, 1, byte_size(sig) - 1)
+        end
+
+      tampered = header <> "." <> payload <> "." <> sig_tampered
+
+      assert {:error, _} = Web3Auth.verify_id_token(tampered)
+    end
+
+    test "rejects a JWT with the wrong audience" do
+      # Hand-craft a JWT with our kid + signing key but mismatched aud.
+      %{pem: pem, kid: kid} = Agent.get(Web3AuthSigning, & &1)
+      jwk = JOSE.JWK.from_pem(pem)
+      jws = %{"alg" => "RS256", "typ" => "JWT", "kid" => kid}
+      now = System.system_time(:second)
+
+      payload = %{
+        "iss" => "blockster",
+        "aud" => "wrong-audience",
+        "iat" => now,
+        "exp" => now + 600,
+        "sub" => "eve@example.com",
+        "email" => "eve@example.com"
+      }
+
+      {_, signed} = JOSE.JWT.sign(jwk, jws, payload) |> JOSE.JWS.compact()
+
+      assert {:error, {:audience_mismatch, _}} = Web3Auth.verify_id_token(signed)
     end
   end
 end

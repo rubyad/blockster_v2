@@ -36,6 +36,23 @@ defmodule BlocksterV2.Auth.Web3Auth do
   Returns `{:ok, normalized_claims}` or `{:error, reason}`.
   """
   def verify_id_token(token, opts \\ []) when is_binary(token) do
+    case unverified_issuer(token) do
+      {:ok, "blockster"} ->
+        # SFA mobile flow — JWT is one we issued ourselves via
+        # Web3AuthSigning. Verify against our own key + claim shape.
+        verify_self_signed(token, opts)
+
+      {:ok, _} ->
+        # Web3Auth-issued JWT (modal flow). Verify against the
+        # api-auth.web3auth.io JWKS.
+        verify_web3auth_signed(token, opts)
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  defp verify_web3auth_signed(token, opts) do
     with {:ok, jws} <- peek_header(token),
          {:ok, kid} <- fetch_kid(jws),
          {:ok, jwk} <- JwksCache.get(kid, @jwks_url),
@@ -45,6 +62,79 @@ defmodule BlocksterV2.Auth.Web3Auth do
          :ok <- check_expiration(claims, opts),
          :ok <- check_wallets(claims, opts) do
       {:ok, normalize(claims)}
+    end
+  end
+
+  # Self-signed JWT verification for the SFA mobile flow. The client
+  # never received a Web3Auth-signed JWT — it bypassed the modal/ws-embed
+  # iframe layer entirely — so we hand it back the same JWT we issued.
+  # We verify signature + kid against our own signing key, check audience
+  # + expiration, and inject the client-claimed `wallet_address` as
+  # `solana_pubkey` on the normalized claims (the JWT itself doesn't
+  # carry a wallets[] array).
+  #
+  # Trust model: client could in principle pair its own JWT with someone
+  # else's wallet. For Phase 1 (mobile-only, low user count, launched
+  # 2026-04-28) we accept that risk; Phase 1.1 should add a
+  # sign-in-with-Solana proof so the server can verify the client really
+  # controls the claimed pubkey before binding.
+  defp verify_self_signed(token, opts) do
+    with {:ok, claims} <- BlocksterV2.Auth.Web3AuthSigning.verify_token(token),
+         :ok <- check_self_signed_audience(claims),
+         :ok <- check_expiration(claims, opts) do
+      normalized = normalize(claims)
+
+      normalized =
+        case opts[:expected_wallet_pubkey] do
+          pk when is_binary(pk) and pk != "" -> %{normalized | solana_pubkey: pk}
+          _ -> normalized
+        end
+
+      # The JWT doesn't carry the verifier id (we minted it without that
+      # claim — see auth_controller.ex telegram_callback / email_otp_verify
+      # / refresh_web3auth_jwt). Synthesize from the claims shape so
+      # downstream user-creation can route correctly.
+      verifier =
+        cond do
+          is_binary(claims["telegram_user_id"]) -> "blockster-telegram"
+          is_binary(claims["email"]) -> "blockster-email"
+          true -> nil
+        end
+
+      auth_connection =
+        cond do
+          is_binary(claims["telegram_user_id"]) -> "telegram"
+          is_binary(claims["email"]) -> "email"
+          true -> nil
+        end
+
+      normalized = %{
+        normalized
+        | verifier: normalized.verifier || verifier,
+          auth_connection: normalized.auth_connection || auth_connection,
+          verifier_id: normalized.verifier_id || claims["sub"]
+      }
+
+      {:ok, normalized}
+    end
+  end
+
+  defp check_self_signed_audience(%{"aud" => "blockster-web3auth"}), do: :ok
+
+  defp check_self_signed_audience(%{"aud" => other}),
+    do: {:error, {:audience_mismatch, %{got: other, expected: "blockster-web3auth"}}}
+
+  defp check_self_signed_audience(_), do: {:error, :missing_audience}
+
+  defp unverified_issuer(token) do
+    try do
+      case Joken.peek_claims(token) do
+        {:ok, claims} when is_map(claims) -> {:ok, claims["iss"]}
+        claims when is_map(claims) -> {:ok, claims["iss"]}
+        _ -> {:error, :malformed_token}
+      end
+    rescue
+      _ -> {:error, :malformed_token}
     end
   end
 
@@ -121,9 +211,14 @@ defmodule BlocksterV2.Auth.Web3Auth do
     # whitespace that survives the JWT parse.
     aud_clean =
       case aud do
-        s when is_binary(s) -> String.trim(s)
-        list when is_list(list) -> Enum.map(list, fn x -> if is_binary(x), do: String.trim(x), else: x end)
-        other -> other
+        s when is_binary(s) ->
+          String.trim(s)
+
+        list when is_list(list) ->
+          Enum.map(list, fn x -> if is_binary(x), do: String.trim(x), else: x end)
+
+        other ->
+          other
       end
 
     cond do
