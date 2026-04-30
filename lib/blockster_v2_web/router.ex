@@ -36,7 +36,10 @@ defmodule BlocksterV2Web.Router do
         BlocksterV2Web.NewsletterHook,
         BlocksterV2Web.AdminAuth
       ],
-      layout: {BlocksterV2Web.Layouts, :redesign} do
+      # :admin layout = :redesign + always-on design-system header so
+      # admins can navigate. Per-page render(/1) MUST NOT also render
+      # <DesignSystem.header /> or the page double-stacks two headers.
+      layout: {BlocksterV2Web.Layouts, :admin} do
       live "/admin", AdminLive, :index
       live "/admin/posts", PostsAdminLive, :index
       live "/admin/waitlist", WaitlistAdminLive, :index

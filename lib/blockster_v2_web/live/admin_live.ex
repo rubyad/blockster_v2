@@ -329,8 +329,7 @@ defmodule BlocksterV2Web.AdminLive do
   @impl true
   def render(assigns) do
     ~H"""
-    <BlocksterV2Web.DesignSystem.header current_user={@current_user} />
-    <div class="min-h-screen bg-gray-50 pt-24 pb-8">
+    <div class="min-h-screen bg-gray-50 pb-8">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="bg-white rounded-lg shadow">
           <div class="px-6 py-4 border-b border-gray-200">

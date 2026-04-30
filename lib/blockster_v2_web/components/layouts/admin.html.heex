@@ -1,0 +1,42 @@
+<%!--
+  Layout for admin pages (live_session :admin in router.ex).
+
+  Mirrors `redesign.html.heex` (the layout admin previously used) but
+  adds the design-system header at the top so admins can navigate.
+  Without this, every admin LV had to render its own
+  `<BlocksterV2Web.DesignSystem.header />` and most didn't, leaving
+  admins stranded with no nav (reported 2026-04-30).
+
+  If a specific admin page wants a custom header (e.g., active-nav
+  highlight, hidden header), it can wrap its render in a div that
+  overlaps the fixed header — but the default is the global header
+  on every admin route.
+--%>
+
+<BlocksterV2Web.DesignSystem.header current_user={@current_user} />
+
+<%!-- pt-24 clears the fixed header so admin LV templates that don't
+     bring their own top spacing don't slide under. --%>
+<div class="pt-24 pb-20 md:pb-0">
+  {@inner_content}
+</div>
+
+<%!-- Hidden anchor for the EmailOtpResume JS hook (kept for parity
+     with redesign.html.heex — admins can use email-OTP login too). --%>
+<div id="email-otp-resume" phx-hook="EmailOtpResume" style="display:none"></div>
+
+<BlocksterV2Web.WalletComponents.wallet_selector_modal
+  detected_wallets={assigns[:detected_wallets] || []}
+  show={assigns[:show_wallet_selector] || false}
+  connecting={assigns[:connecting] || false}
+  connecting_wallet_name={assigns[:connecting_wallet_name]}
+  connecting_provider={assigns[:connecting_provider]}
+  email_prefill={assigns[:email_prefill]}
+  email_otp_stage={assigns[:email_otp_stage]}
+  email_otp_error={assigns[:email_otp_error]}
+  email_otp_resend_cooldown={assigns[:email_otp_resend_cooldown] || 0}
+  social_login_enabled={BlocksterV2Web.WalletAuthEvents.social_login_enabled?()}
+  web3auth_config={BlocksterV2Web.WalletAuthEvents.web3auth_config()}
+/>
+
+<.flash_group flash={@flash} />

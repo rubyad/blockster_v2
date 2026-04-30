@@ -24,7 +24,8 @@ defmodule BlocksterV2Web.BannersAdminLive do
     {"Split Card (white card with text left, colored panel right)", "split_card"},
     {"Follow Bar (compact dark bar with icon + heading)", "follow_bar"},
     {"Luxury Watch (editorial — brand · watch · model · price)", "luxury_watch"},
-    {"Luxury Watch — Compact Full (whole image visible · image-driven height)", "luxury_watch_compact_full"},
+    {"Luxury Watch — Compact Full (whole image visible · image-driven height)",
+     "luxury_watch_compact_full"},
     {"Luxury Watch — Skyscraper (200 × tall sidebar)", "luxury_watch_skyscraper"},
     {"Luxury Watch — Banner (full-width horizontal leaderboard)", "luxury_watch_banner"},
     {"Luxury Watch — Split (info left, watch panel right)", "luxury_watch_split"},
@@ -34,18 +35,23 @@ defmodule BlocksterV2Web.BannersAdminLive do
     {"Jet Card — Compact (narrower · trimmed jet image · 560px)", "jet_card_compact"},
     {"Jet Card — Skyscraper (200 × tall sidebar)", "jet_card_skyscraper"},
     {"Streaming Trial (brand wordmark · hero image · free-trial badge · CTA)", "streaming_trial"},
-    {"Patriotic Portrait (centered · hero portrait · flag stripe · tribute tagline)", "patriotic_portrait"},
+    {"Patriotic Portrait (centered · hero portrait · flag stripe · tribute tagline)",
+     "patriotic_portrait"},
     {"Patriotic Loop (animated square · text → image → THANK YOU / number)", "patriotic_loop"},
-    {"Trump 2028 Loop (animated square · text → image → TRUMP / 2028 / subtitle)", "trump_2028_loop"},
+    {"Trump 2028 Loop (animated square · text → image → TRUMP / 2028 / subtitle)",
+     "trump_2028_loop"},
     {"FateSwap Combined (440×480 animated Buy→Sell flow)", "fateswap_combined"},
     {"FateSwap Kinetic (440×640 memecoin hero)", "fateswap_kinetic"}
   ]
 
   # Which params each template supports
   @template_params %{
-    "dark_gradient" => ~w(heading description cta_text brand_name brand_color icon_url bg_color bg_color_end),
-    "portrait" => ~w(heading subtitle cta_text brand_name image_url image_fit image_bg_color bg_color bg_color_end accent_color),
-    "split_card" => ~w(heading description cta_text brand_name brand_color icon_url badge panel_color panel_color_end stat_label_top stat_value stat_label_bottom),
+    "dark_gradient" =>
+      ~w(heading description cta_text brand_name brand_color icon_url bg_color bg_color_end),
+    "portrait" =>
+      ~w(heading subtitle cta_text brand_name image_url image_fit image_bg_color bg_color bg_color_end accent_color),
+    "split_card" =>
+      ~w(heading description cta_text brand_name brand_color icon_url badge panel_color panel_color_end stat_label_top stat_value stat_label_bottom),
     "follow_bar" => ~w(heading brand_color icon_url),
     "luxury_watch" =>
       ~w(brand_name image_url image_bg_color model_name reference price_usd tagline cta_text
@@ -58,8 +64,7 @@ defmodule BlocksterV2Web.BannersAdminLive do
     "luxury_watch_skyscraper" =>
       ~w(brand_name image_url image_bg_color model_name reference price_usd
          bg_color bg_color_end accent_color text_color),
-    "luxury_watch_banner" =>
-      ~w(brand_name image_url image_bg_color model_name reference price_usd
+    "luxury_watch_banner" => ~w(brand_name image_url image_bg_color model_name reference price_usd
          bg_color bg_color_end accent_color text_color),
     "luxury_watch_split" =>
       ~w(brand_name image_url image_bg_color model_name reference price_usd cta_text
@@ -72,8 +77,7 @@ defmodule BlocksterV2Web.BannersAdminLive do
     "luxury_car_skyscraper" =>
       ~w(brand_name image_url image_bg_color year model_name trim price_usd
          bg_color bg_color_end accent_color text_color),
-    "luxury_car_banner" =>
-      ~w(brand_name image_url image_bg_color year model_name trim price_usd
+    "luxury_car_banner" => ~w(brand_name image_url image_bg_color year model_name trim price_usd
          bg_color bg_color_end accent_color text_color),
     "jet_card_compact" =>
       ~w(brand_name badge image_url image_bg_color hours headline aircraft_category
@@ -81,20 +85,16 @@ defmodule BlocksterV2Web.BannersAdminLive do
     "jet_card_skyscraper" =>
       ~w(brand_name image_url image_bg_color hours headline aircraft_category price_usd
          bg_color bg_color_end accent_color text_color),
-    "streaming_trial" =>
-      ~w(brand_name brand_tagline brand_color brand_text_color
+    "streaming_trial" => ~w(brand_name brand_tagline brand_color brand_text_color
          heading subheading image_url
          trial_label price_after cta_text watch_on
          bg_color bg_color_end text_color),
-    "patriotic_portrait" =>
-      ~w(brand_name image_url image_bg_color
+    "patriotic_portrait" => ~w(brand_name image_url image_bg_color
          model_name reference heading subheading cta_text
          bg_color bg_color_end accent_color text_color),
-    "patriotic_loop" =>
-      ~w(brand_name image_url headline thank_top number_text
+    "patriotic_loop" => ~w(brand_name image_url headline thank_top number_text
          number_color cta_text cta_meta accent_color),
-    "trump_2028_loop" =>
-      ~w(brand_name image_url headline top_text number_text
+    "trump_2028_loop" => ~w(brand_name image_url headline top_text number_text
          number_color subtitle cta_text accent_color),
     "fateswap_combined" => [],
     "fateswap_kinetic" => [],
@@ -135,7 +135,8 @@ defmodule BlocksterV2Web.BannersAdminLive do
     {"Coin Flip — Landscape Live (full-width, cycles last 10 games)", "cf_inline_landscape"},
     {"Coin Flip — Portrait Live (400px, cycles last 10 games)", "cf_portrait"},
     {"Coin Flip — Sidebar Demo (200×340, animated how-it-works)", "cf_sidebar_demo"},
-    {"Coin Flip — Landscape Demo (full-width, animated how-it-works)", "cf_inline_landscape_demo"},
+    {"Coin Flip — Landscape Demo (full-width, animated how-it-works)",
+     "cf_inline_landscape_demo"},
     {"Coin Flip — Portrait Demo (400px, animated how-it-works)", "cf_portrait_demo"}
   ]
 
@@ -226,7 +227,9 @@ defmodule BlocksterV2Web.BannersAdminLive do
     base = socket.assigns.editing_banner || %Banner{}
     selected_template = params["template"] || socket.assigns.selected_template
     selected_widget_type = params["widget_type"] || socket.assigns.selected_widget_type
-    selected_widget_config = params["widget_config"] || socket.assigns.selected_widget_config || %{}
+
+    selected_widget_config =
+      params["widget_config"] || socket.assigns.selected_widget_config || %{}
 
     # Normalise: clear widget_config when widget_type is blank so we don't carry stale keys
     selected_widget_config =
@@ -234,7 +237,10 @@ defmodule BlocksterV2Web.BannersAdminLive do
 
     params =
       params
-      |> Map.put("widget_type", if(selected_widget_type == "", do: nil, else: selected_widget_type))
+      |> Map.put(
+        "widget_type",
+        if(selected_widget_type == "", do: nil, else: selected_widget_type)
+      )
       |> Map.put("widget_config", selected_widget_config)
 
     changeset =
@@ -420,7 +426,10 @@ defmodule BlocksterV2Web.BannersAdminLive do
   defp param_placeholder("model_name"), do: "Rolex Day-Date 36"
   defp param_placeholder("reference"), do: "Reference 18078 · c. 1988"
   defp param_placeholder("tagline"), do: "A watch you'll pass down."
-  defp param_placeholder("price_usd"), do: "23500 (USD; SOL value is shown live from the price tracker)"
+
+  defp param_placeholder("price_usd"),
+    do: "23500 (USD; SOL value is shown live from the price tracker)"
+
   defp param_placeholder("text_color"), do: "#E8E4DD"
   defp param_placeholder("spec_1_label"), do: "Case"
   defp param_placeholder("spec_1_value"), do: "36mm"
@@ -435,22 +444,9 @@ defmodule BlocksterV2Web.BannersAdminLive do
   @impl true
   def render(assigns) do
     ~H"""
-    <BlocksterV2Web.DesignSystem.header
-      current_user={@current_user}
-      active="home"
-      bux_balance={Map.get(assigns, :bux_balance, 0)}
-      token_balances={Map.get(assigns, :token_balances, %{})}
-      cart_item_count={Map.get(assigns, :cart_item_count, 0)}
-      unread_notification_count={Map.get(assigns, :unread_notification_count, 0)}
-      notification_dropdown_open={Map.get(assigns, :notification_dropdown_open, false)}
-      recent_notifications={Map.get(assigns, :recent_notifications, [])}
-      search_query={Map.get(assigns, :search_query, "")}
-      search_results={Map.get(assigns, :search_results, [])}
-      show_search_results={Map.get(assigns, :show_search_results, false)}
-      show_search_modal={Map.get(assigns, :show_search_modal, false)}
-      connecting={Map.get(assigns, :connecting, false)}
-    />
-    <div class="min-h-screen bg-[#fafaf9] pt-8 pb-12">
+    <%!-- Header is now rendered by the :admin layout — removed from here
+         on 2026-04-30 to avoid double-stacking. --%>
+    <div class="min-h-screen bg-[#fafaf9] pb-12">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="bg-white rounded-lg shadow">
           <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
@@ -471,7 +467,11 @@ defmodule BlocksterV2Web.BannersAdminLive do
           </div>
 
           <%= if @show_new_form || @editing_banner do %>
-            <div id="banner-form" phx-hook="ScrollIntoView" class="px-6 py-4 border-b border-gray-200 bg-gray-50">
+            <div
+              id="banner-form"
+              phx-hook="ScrollIntoView"
+              class="px-6 py-4 border-b border-gray-200 bg-gray-50"
+            >
               <h2 class="text-lg font-semibold text-gray-900 mb-4">
                 {if @editing_banner, do: "Edit Banner", else: "New Banner"}
               </h2>
@@ -484,7 +484,9 @@ defmodule BlocksterV2Web.BannersAdminLive do
                     </div>
                     <ul class="text-xs text-red-700 list-disc list-inside space-y-0.5">
                       <%= for {field, {msg, _}} <- @form.errors do %>
-                        <li><span class="font-medium">{Phoenix.Naming.humanize(field)}</span>: {msg}</li>
+                        <li>
+                          <span class="font-medium">{Phoenix.Naming.humanize(field)}</span>: {msg}
+                        </li>
                       <% end %>
                     </ul>
                   </div>
@@ -534,9 +536,13 @@ defmodule BlocksterV2Web.BannersAdminLive do
                     Banner Image
                     <%= if @selected_widget_type in [nil, ""] do %>
                       <span class="text-red-600 font-normal">*</span>
-                      <span class="text-xs font-normal text-gray-500">— required for template ads</span>
+                      <span class="text-xs font-normal text-gray-500">
+                        — required for template ads
+                      </span>
                     <% else %>
-                      <span class="text-xs font-normal text-gray-500">— ignored for widget banners</span>
+                      <span class="text-xs font-normal text-gray-500">
+                        — ignored for widget banners
+                      </span>
                     <% end %>
                   </label>
                   <div class="flex items-start gap-4">
@@ -575,7 +581,8 @@ defmodule BlocksterV2Web.BannersAdminLive do
                       <% end %>
                       <%= if @form[:image_url].errors != [] do %>
                         <p class="mt-1 text-sm text-red-600">
-                          {Enum.map(@form[:image_url].errors, fn {msg, _} -> msg end) |> Enum.join(", ")}
+                          {Enum.map(@form[:image_url].errors, fn {msg, _} -> msg end)
+                          |> Enum.join(", ")}
                         </p>
                       <% end %>
                     </div>
@@ -616,14 +623,17 @@ defmodule BlocksterV2Web.BannersAdminLive do
                 <% widget_family = widget_family(@selected_widget_type) %>
                 <%= if widget_family in [:rt_self, :fs_self] do %>
                   <% modes = selection_modes_for(@selected_widget_type) %>
-                  <% current_selection = @selected_widget_config["selection"] || default_selection_for(widget_family) %>
+                  <% current_selection =
+                    @selected_widget_config["selection"] || default_selection_for(widget_family) %>
                   <div class="border border-purple-200 rounded-lg p-4 bg-purple-50 space-y-3">
                     <h3 class="text-sm font-semibold text-gray-900">
                       Widget Config
                       <span class="font-normal text-gray-500">— {@selected_widget_type}</span>
                     </h3>
                     <div>
-                      <label class="block text-xs font-medium text-gray-600 mb-1">Selection mode</label>
+                      <label class="block text-xs font-medium text-gray-600 mb-1">
+                        Selection mode
+                      </label>
                       <select
                         name="banner[widget_config][selection]"
                         class="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-gray-900 cursor-pointer"
@@ -637,7 +647,9 @@ defmodule BlocksterV2Web.BannersAdminLive do
                     <%= if current_selection == "fixed" and widget_family == :rt_self do %>
                       <div class="grid grid-cols-2 gap-3">
                         <div>
-                          <label class="block text-xs font-medium text-gray-600 mb-1">Bot ID / slug</label>
+                          <label class="block text-xs font-medium text-gray-600 mb-1">
+                            Bot ID / slug
+                          </label>
                           <input
                             type="text"
                             name="banner[widget_config][bot_id]"
@@ -647,13 +659,17 @@ defmodule BlocksterV2Web.BannersAdminLive do
                           />
                         </div>
                         <div>
-                          <label class="block text-xs font-medium text-gray-600 mb-1">Timeframe</label>
+                          <label class="block text-xs font-medium text-gray-600 mb-1">
+                            Timeframe
+                          </label>
                           <select
                             name="banner[widget_config][timeframe]"
                             class="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg cursor-pointer"
                           >
                             <%= for tf <- @rt_timeframes do %>
-                              <option value={tf} selected={@selected_widget_config["timeframe"] == tf}>{String.upcase(tf)}</option>
+                              <option value={tf} selected={@selected_widget_config["timeframe"] == tf}>
+                                {String.upcase(tf)}
+                              </option>
                             <% end %>
                           </select>
                         </div>
@@ -662,7 +678,9 @@ defmodule BlocksterV2Web.BannersAdminLive do
 
                     <%= if current_selection == "fixed" and widget_family == :fs_self do %>
                       <div>
-                        <label class="block text-xs font-medium text-gray-600 mb-1">Order ID (UUID)</label>
+                        <label class="block text-xs font-medium text-gray-600 mb-1">
+                          Order ID (UUID)
+                        </label>
                         <input
                           type="text"
                           name="banner[widget_config][order_id]"
@@ -686,7 +704,11 @@ defmodule BlocksterV2Web.BannersAdminLive do
                 <% end %>
 
                 <%!-- Template type --%>
-                <div class={if @selected_widget_type not in [nil, ""], do: "opacity-50 pointer-events-none", else: ""}>
+                <div class={
+                  if @selected_widget_type not in [nil, ""],
+                    do: "opacity-50 pointer-events-none",
+                    else: ""
+                }>
                   <label class="block text-sm font-medium text-gray-700 mb-1">Template Style</label>
                   <select
                     name="banner[template]"
@@ -729,7 +751,9 @@ defmodule BlocksterV2Web.BannersAdminLive do
                               <span class="font-normal text-gray-400">— upload or paste URL</span>
                             <% end %>
                             <%= if is_select do %>
-                              <span class="font-normal text-gray-400">— {@enum_params[field].hint}</span>
+                              <span class="font-normal text-gray-400">
+                                — {@enum_params[field].hint}
+                              </span>
                             <% end %>
                           </label>
                           <%= cond do %>
@@ -739,7 +763,14 @@ defmodule BlocksterV2Web.BannersAdminLive do
                                 class="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg cursor-pointer"
                               >
                                 <%= for {label, value} <- @enum_params[field].options do %>
-                                  <option value={value} selected={(current_params[field] || @enum_params[field].default) == value}>{label}</option>
+                                  <option
+                                    value={value}
+                                    selected={
+                                      (current_params[field] || @enum_params[field].default) == value
+                                    }
+                                  >
+                                    {label}
+                                  </option>
                                 <% end %>
                               </select>
                             <% is_upload -> %>
@@ -789,7 +820,11 @@ defmodule BlocksterV2Web.BannersAdminLive do
                                 />
                                 <%= if is_color do %>
                                   <% color_val = current_params[field] || "#7D00FF" %>
-                                  <div class="w-7 h-7 rounded border border-gray-300 flex-shrink-0" style={"background: #{color_val}"}></div>
+                                  <div
+                                    class="w-7 h-7 rounded border border-gray-300 flex-shrink-0"
+                                    style={"background: #{color_val}"}
+                                  >
+                                  </div>
                                 <% end %>
                               </div>
                           <% end %>
@@ -955,7 +990,13 @@ defmodule BlocksterV2Web.BannersAdminLive do
                       <% else %>
                         <span class={[
                           "inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium",
-                          if(banner.template in ["dark_gradient", "portrait", "split_card", "follow_bar"],
+                          if(
+                            banner.template in [
+                              "dark_gradient",
+                              "portrait",
+                              "split_card",
+                              "follow_bar"
+                            ],
                             do: "bg-purple-100 text-purple-800",
                             else: "bg-gray-100 text-gray-600"
                           )
