@@ -419,9 +419,12 @@ export const Web3AuthSfa = {
       kp.secretKey.fill(0)
     } catch (_) {}
 
-    // Cache the JWT + verifier params so per-sign re-derivation skips the
-    // /refresh_jwt round-trip while the JWT is still fresh.
-    this._cachedJwt = id_token
+    // Cache the verifier params so per-sign re-derivation knows which
+    // (verifier, sub) tuple to ask Torus for. We do NOT cache the JWT
+    // itself — Torus marks each JWT one-use after the DKG fan-out, so
+    // reusing it on the next cache-miss returns "Duplicate token
+    // found". Every cache-miss sign mints a fresh JWT via
+    // /refresh_jwt instead.
     this._cachedVerifier = verifier
     this._cachedVerifierId = sub
 
@@ -510,15 +513,15 @@ export const Web3AuthSfa = {
       this._zeroCachedSeed()
     }
 
-    let jwt = this._cachedJwt
-    if (!jwt || !jwtIsFresh(jwt)) {
-      jwt = await this._refreshCachedJwt()
-      if (!jwt) {
-        this.pushEvent("web3auth_error", {
-          error: "Sign-in required — JWT expired and refresh failed",
-        })
-        return null
-      }
+    // Always mint a fresh JWT — Torus marks each JWT one-use after
+    // the DKG fan-out. Reusing the JWT we got at sign-in (or any
+    // previous re-derive) returns "Duplicate token found".
+    const jwt = await this._refreshCachedJwt()
+    if (!jwt) {
+      this.pushEvent("web3auth_error", {
+        error: "Sign-in required — JWT refresh failed",
+      })
+      return null
     }
 
     const ca = await this._ensureSdk()
