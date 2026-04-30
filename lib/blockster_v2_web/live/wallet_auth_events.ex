@@ -524,16 +524,14 @@ defmodule BlocksterV2Web.WalletAuthEvents do
 
           true ->
             Logger.info("[Auth] restore: opening modal in :enter_code")
-            # Tell the EmailOtpResume JS hook that the modal is back —
-            # it drops the resume overlay (see assets/js/hooks/email_otp_resume.js).
+
             {:noreply,
              socket
              |> assign(:show_wallet_selector, true)
              |> assign(:email_prefill, email)
              |> assign(:email_otp_stage, :enter_code)
              |> assign(:email_otp_error, nil)
-             |> assign(:email_otp_resend_cooldown, 0)
-             |> push_event("email_otp_restored", %{})}
+             |> assign(:email_otp_resend_cooldown, 0)}
         end
       end
 
