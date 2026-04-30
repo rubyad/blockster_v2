@@ -80,6 +80,7 @@ defmodule BlocksterV2Web.PostLive.Show do
         if is_nil(post.published_at) do
           # Unpublished draft — only admins can view
           current_user = socket.assigns[:current_user]
+
           if current_user && current_user.is_admin do
             handle_post_params(post, socket |> assign(:is_draft_preview, true))
           else
@@ -92,7 +93,6 @@ defmodule BlocksterV2Web.PostLive.Show do
   end
 
   defp handle_post_params(post, socket) do
-
     # Unsubscribe from previous post if navigating between posts
     if socket.assigns[:post] do
       EngagementTracker.unsubscribe_from_post_bux(socket.assigns.post.id)
@@ -148,8 +148,10 @@ defmodule BlocksterV2Web.PostLive.Show do
       case rewards do
         %{read_bux: read_bux, read_tx_id: tx_id} when is_number(read_bux) and read_bux > 0 ->
           {read_bux, true, tx_id}
+
         %{read_bux: read_bux} when is_number(read_bux) and read_bux > 0 ->
           {read_bux, true, nil}
+
         _ ->
           {nil, false, nil}
       end
@@ -162,10 +164,16 @@ defmodule BlocksterV2Web.PostLive.Show do
     {current_score, current_bux} =
       if already_rewarded do
         # Already rewarded - show final earned values
-        {engagement && engagement.engagement_score || 10, bux_earned}
+        {(engagement && engagement.engagement_score) || 10, bux_earned}
       else
         # Fresh session - always start at 1
-        {1, EngagementTracker.calculate_bux_earned(1, base_bux_reward, user_multiplier, geo_multiplier)}
+        {1,
+         EngagementTracker.calculate_bux_earned(
+           1,
+           base_bux_reward,
+           user_multiplier,
+           geo_multiplier
+         )}
       end
 
     # Social data + suggested posts + airdrop round + announcement banner are
@@ -192,18 +200,22 @@ defmodule BlocksterV2Web.PostLive.Show do
     split_positions = if has_hub, do: [0.33, 0.5, 0.66], else: [0.33, 0.66]
     content_chunks = TipTapRenderer.render_content_split(post.content, split_positions)
 
-    # All ad banner placements deferred to start_async — none of them sit
-    # inside a `@streams` for-loop body on this page (verified against
-    # show.html.heex), so post-mount assigns reactively re-render and the
-    # ad slots fade in once the banner queries return.
-    left_sidebar_banners = []
-    right_sidebar_banners = []
-    article_bottom_banners = []
-    video_player_top_banners = []
-    article_top_banners = []
-    article_inline_1 = []
-    article_inline_2 = []
-    article_inline_3 = []
+    # Banner queries moved out of start_async on 2026-04-30 — widgets
+    # (rt_skyscraper / rt_ticker / rt_sidebar_tile) need their banner
+    # row to render on first paint, otherwise the right sidebar / left
+    # sidebar / article-top ticker pop in ~1s after the rest of the
+    # article. Eight indexed lookups against `banners` table; total
+    # well under the existing first-paint budget.
+    banners_data = fetch_article_banners()
+
+    left_sidebar_banners = banners_data.left_sidebar_banners
+    right_sidebar_banners = banners_data.right_sidebar_banners
+    article_bottom_banners = banners_data.article_bottom_banners
+    video_player_top_banners = banners_data.video_player_top_banners
+    article_top_banners = banners_data.article_top_banners
+    article_inline_1 = banners_data.article_inline_1
+    article_inline_2 = banners_data.article_inline_2
+    article_inline_3 = banners_data.article_inline_3
 
     # Anonymous user tracking assigns
     is_anonymous = socket.assigns[:current_user] == nil
@@ -233,7 +245,10 @@ defmodule BlocksterV2Web.PostLive.Show do
       |> assign(:page_title, post.title)
       |> assign(:author_persona, author_persona)
       |> assign(:show_categories, true)
-      |> assign(:post_category_slug, if(updated_post.category, do: updated_post.category.slug, else: nil))
+      |> assign(
+        :post_category_slug,
+        if(updated_post.category, do: updated_post.category.slug, else: nil)
+      )
       |> assign(:post, updated_post)
       |> assign(:time_spent, time_spent)
       |> assign(:word_count, word_count)
@@ -272,13 +287,13 @@ defmodule BlocksterV2Web.PostLive.Show do
       |> assign(:article_inline_1, article_inline_1)
       |> assign(:article_inline_2, article_inline_2)
       |> assign(:article_inline_3, article_inline_3)
-      |> assign(:article_inline_1_pick, nil)
-      |> assign(:article_inline_2_pick, nil)
-      |> assign(:article_inline_3_pick, nil)
+      |> assign(:article_inline_1_pick, banners_data.article_inline_1_pick)
+      |> assign(:article_inline_2_pick, banners_data.article_inline_2_pick)
+      |> assign(:article_inline_3_pick, banners_data.article_inline_3_pick)
       |> assign(:article_top_banners, article_top_banners)
-      |> assign(:article_top_pick, nil)
-      |> assign(:article_bottom_pick, nil)
-      |> assign(:video_player_top_pick, nil)
+      |> assign(:article_top_pick, banners_data.article_top_pick)
+      |> assign(:article_bottom_pick, banners_data.article_bottom_pick)
+      |> assign(:video_player_top_pick, banners_data.video_player_top_pick)
       |> assign(:content_chunks, content_chunks)
       |> assign(:has_hub, has_hub)
       |> assign(:video_modal_open, false)
@@ -291,16 +306,14 @@ defmodule BlocksterV2Web.PostLive.Show do
       |> assign(:anonymous_video_earned, 0)
       |> assign(:engagement_score, nil)
       |> load_video_engagement()
-      # Subscribe to global widget topics + seed empty widget caches. Per-banner
-      # impressions/topic subscriptions land later in handle_async once the
-      # banner queries return.
-      |> mount_widgets([])
+      # Banners are now loaded synchronously above (banners_data), so widget
+      # PubSub subscriptions + per-banner impressions land on first paint.
+      |> mount_widgets(banners_data.all_banners)
 
     socket =
       if connected?(socket) do
         socket
         |> start_async(:load_article_extras, fn -> fetch_article_extras(post.id, current_user) end)
-        |> start_async(:load_article_banners, fn -> fetch_article_banners() end)
       else
         socket
       end
@@ -320,6 +333,7 @@ defmodule BlocksterV2Web.PostLive.Show do
         user ->
           x_conn = Social.get_x_connection_for_user(user.id)
           campaign = Social.get_campaign_for_post(post_id)
+
           reward =
             if campaign do
               Social.get_successful_share_reward(user.id, campaign.post_id)
@@ -353,7 +367,10 @@ defmodule BlocksterV2Web.PostLive.Show do
     left_sidebar_banners = BlocksterV2.Ads.list_active_banners_by_placement("sidebar_left")
     right_sidebar_banners = BlocksterV2.Ads.list_active_banners_by_placement("sidebar_right")
     article_bottom_banners = BlocksterV2.Ads.list_active_banners_by_placement("article_bottom")
-    video_player_top_banners = BlocksterV2.Ads.list_active_banners_by_placement("video_player_top")
+
+    video_player_top_banners =
+      BlocksterV2.Ads.list_active_banners_by_placement("video_player_top")
+
     article_inline_1 = BlocksterV2.Ads.list_active_banners_by_placement("article_inline_1")
     article_inline_2 = BlocksterV2.Ads.list_active_banners_by_placement("article_inline_2")
     article_inline_3 = BlocksterV2.Ads.list_active_banners_by_placement("article_inline_3")
@@ -405,34 +422,9 @@ defmodule BlocksterV2Web.PostLive.Show do
     {:noreply, socket}
   end
 
-  def handle_async(:load_article_banners, {:ok, b}, socket) do
-    socket =
-      socket
-      |> assign(:article_top_banners, b.article_top_banners)
-      |> assign(:left_sidebar_banners, b.left_sidebar_banners)
-      |> assign(:right_sidebar_banners, b.right_sidebar_banners)
-      |> assign(:article_bottom_banners, b.article_bottom_banners)
-      |> assign(:video_player_top_banners, b.video_player_top_banners)
-      |> assign(:article_inline_1, b.article_inline_1)
-      |> assign(:article_inline_2, b.article_inline_2)
-      |> assign(:article_inline_3, b.article_inline_3)
-      |> assign(:article_top_pick, b.article_top_pick)
-      |> assign(:article_bottom_pick, b.article_bottom_pick)
-      |> assign(:video_player_top_pick, b.video_player_top_pick)
-      |> assign(:article_inline_1_pick, b.article_inline_1_pick)
-      |> assign(:article_inline_2_pick, b.article_inline_2_pick)
-      |> assign(:article_inline_3_pick, b.article_inline_3_pick)
-      # Re-arm widget wiring with the real banner list.
-      |> mount_widgets(b.all_banners)
-
-    {:noreply, socket}
-  end
-
-  def handle_async(:load_article_banners, {:exit, reason}, socket) do
-    require Logger
-    Logger.warning("[PostLive.Show] load_article_banners crashed: #{inspect(reason)}")
-    {:noreply, socket}
-  end
+  # `load_article_banners` async fetch retired 2026-04-30 — banners are
+  # now loaded synchronously in handle_params/mount so widgets render on
+  # first paint instead of popping in ~1s after the article body.
 
   @impl true
   def handle_event("track_ad_click", %{"id" => id}, socket) do
@@ -474,14 +466,18 @@ defmodule BlocksterV2Web.PostLive.Show do
 
   # Returns overall unified multiplier (X × Phone × SOL × Email)
   # Phone multiplier is already included, so no separate geo_multiplier needed
-  defp safe_get_user_multiplier("anonymous"), do: 0.5  # Minimum: unverified phone (0.5x)
+  # Minimum: unverified phone (0.5x)
+  defp safe_get_user_multiplier("anonymous"), do: 0.5
+
   defp safe_get_user_multiplier(user_id) do
     UnifiedMultiplier.get_overall_multiplier(user_id)
   catch
-    :exit, _ -> 0.5  # Minimum multiplier for unverified users
+    # Minimum multiplier for unverified users
+    :exit, _ -> 0.5
   end
 
   defp safe_get_rewards("anonymous", _post_id), do: nil
+
   defp safe_get_rewards(user_id, post_id) do
     EngagementTracker.get_rewards_map(user_id, post_id)
   catch
@@ -512,6 +508,7 @@ defmodule BlocksterV2Web.PostLive.Show do
   """
   def author_initial(nil), do: "?"
   def author_initial(""), do: "?"
+
   def author_initial(username) when is_binary(username) do
     username |> String.first() |> String.upcase()
   end
@@ -521,6 +518,7 @@ defmodule BlocksterV2Web.PostLive.Show do
   on a stable hash of the username — Marcus is always the same color.
   """
   def author_colors(nil), do: List.first(@author_palette)
+
   def author_colors(username) when is_binary(username) do
     idx = :erlang.phash2(username, length(@author_palette))
     Enum.at(@author_palette, idx)
@@ -530,13 +528,16 @@ defmodule BlocksterV2Web.PostLive.Show do
   defp get_hub_token(_), do: "BUX"
 
   # Get the hub's logo URL (if any) for displaying alongside the token
-  defp get_hub_logo(%{hub: %{logo_url: logo_url}}) when is_binary(logo_url) and logo_url != "", do: logo_url
+  defp get_hub_logo(%{hub: %{logo_url: logo_url}}) when is_binary(logo_url) and logo_url != "",
+    do: logo_url
+
   defp get_hub_logo(_), do: nil
 
   defp load_offer_data(post_id) do
     case BlocksterV2.ContentAutomation.FeedStore.get_queue_entry_by_post_id(post_id) do
       %{content_type: "offer"} = entry ->
-        expired = entry.expires_at && DateTime.compare(entry.expires_at, DateTime.utc_now()) == :lt
+        expired =
+          entry.expires_at && DateTime.compare(entry.expires_at, DateTime.utc_now()) == :lt
 
         %{
           content_type: "offer",
@@ -568,23 +569,26 @@ defmodule BlocksterV2Web.PostLive.Show do
 
     # Time ratio score (0-6 points)
     time_ratio = if min_read_time > 0, do: time_spent / min_read_time, else: 0
-    time_score = cond do
-      time_ratio >= 1.0 -> 6.0
-      time_ratio >= 0.9 -> 5.0
-      time_ratio >= 0.8 -> 4.0
-      time_ratio >= 0.7 -> 3.0
-      time_ratio >= 0.5 -> 2.0
-      time_ratio >= 0.3 -> 1.0
-      true -> 0.0
-    end
+
+    time_score =
+      cond do
+        time_ratio >= 1.0 -> 6.0
+        time_ratio >= 0.9 -> 5.0
+        time_ratio >= 0.8 -> 4.0
+        time_ratio >= 0.7 -> 3.0
+        time_ratio >= 0.5 -> 2.0
+        time_ratio >= 0.3 -> 1.0
+        true -> 0.0
+      end
 
     # Scroll depth score (0-3 points)
-    depth_score = cond do
-      reached_end || scroll_depth >= 100 -> 3.0
-      scroll_depth >= 66 -> 2.0
-      scroll_depth >= 33 -> 1.0
-      true -> 0.0
-    end
+    depth_score =
+      cond do
+        reached_end || scroll_depth >= 100 -> 3.0
+        scroll_depth >= 66 -> 2.0
+        scroll_depth >= 33 -> 1.0
+        true -> 0.0
+      end
 
     # Calculate final score (min 1, max 10)
     final_score = base_score + time_score + depth_score
@@ -661,6 +665,7 @@ defmodule BlocksterV2Web.PostLive.Show do
       "#{minutes}:#{String.pad_leading(Integer.to_string(secs), 2, "0")}"
     end
   end
+
   defp format_video_time(_), do: "0:00"
 
   @impl true
@@ -694,7 +699,14 @@ defmodule BlocksterV2Web.PostLive.Show do
             base_bux_reward = socket.assigns.post.base_bux_reward || 1
             user_multiplier = socket.assigns.user_multiplier || 1
             geo_multiplier = socket.assigns.geo_multiplier || 0.5
-            current_bux = EngagementTracker.calculate_bux_earned(score, base_bux_reward, user_multiplier, geo_multiplier)
+
+            current_bux =
+              EngagementTracker.calculate_bux_earned(
+                score,
+                base_bux_reward,
+                user_multiplier,
+                geo_multiplier
+              )
 
             # Refresh engagement data
             engagement = safe_get_engagement(user_id, post_id)
@@ -730,7 +742,14 @@ defmodule BlocksterV2Web.PostLive.Show do
           base_bux_reward = socket.assigns.post.base_bux_reward || 1
           user_multiplier = socket.assigns.user_multiplier || 1
           geo_multiplier = socket.assigns.geo_multiplier || 0.5
-          desired_bux = EngagementTracker.calculate_bux_earned(score, base_bux_reward, user_multiplier, geo_multiplier)
+
+          desired_bux =
+            EngagementTracker.calculate_bux_earned(
+              score,
+              base_bux_reward,
+              user_multiplier,
+              geo_multiplier
+            )
 
           # GUARANTEED EARNINGS: No pool check at completion
           # Pool was checked when page loaded. If user started reading when pool was positive,
@@ -759,6 +778,7 @@ defmodule BlocksterV2Web.PostLive.Show do
                     hub_id: socket.assigns.post.hub_id,
                     score: score
                   })
+
                   if recorded_bux > 0 do
                     UserEvents.track(user_id, "bux_earned", %{
                       amount: recorded_bux,
@@ -777,15 +797,28 @@ defmodule BlocksterV2Web.PostLive.Show do
                   # Pool deduction happens AFTER successful mint
                   if socket.assigns[:current_user] do
                     wallet = socket.assigns.current_user.wallet_address
+
                     if wallet && wallet != "" && recorded_bux > 0 do
                       lv_pid = self()
                       post_id_capture = post_id
+
                       Task.start(fn ->
-                        case BuxMinter.mint_bux(wallet, recorded_bux, user_id, post_id_capture, :read) do
+                        case BuxMinter.mint_bux(
+                               wallet,
+                               recorded_bux,
+                               user_id,
+                               post_id_capture,
+                               :read
+                             ) do
                           {:ok, %{"signature" => tx_hash}} ->
                             # GUARANTEED EARNINGS: Deduct from pool (can go negative)
-                            EngagementTracker.deduct_from_pool_guaranteed(post_id_capture, recorded_bux)
+                            EngagementTracker.deduct_from_pool_guaranteed(
+                              post_id_capture,
+                              recorded_bux
+                            )
+
                             send(lv_pid, {:mint_completed, tx_hash})
+
                           _ ->
                             :ok
                         end
@@ -796,7 +829,8 @@ defmodule BlocksterV2Web.PostLive.Show do
                   # Get current pool balance for display (will be >= 0)
                   pool_balance_internal = EngagementTracker.get_post_bux_balance(post_id)
 
-                  socket = socket
+                  socket =
+                    socket
                     |> assign(:engagement, engagement)
                     |> assign(:rewards, rewards)
                     |> assign(:bux_earned, recorded_bux)
@@ -806,7 +840,10 @@ defmodule BlocksterV2Web.PostLive.Show do
                     |> assign(:current_bux, recorded_bux)
                     |> assign(:read_tx_id, nil)
                     |> assign(:pool_balance, display_pool_balance(pool_balance_internal))
-                    |> assign(:pool_available, pool_available_for_new_actions?(pool_balance_internal))
+                    |> assign(
+                      :pool_available,
+                      pool_available_for_new_actions?(pool_balance_internal)
+                    )
 
                   {:noreply, socket}
 
@@ -815,6 +852,7 @@ defmodule BlocksterV2Web.PostLive.Show do
                   engagement = safe_get_engagement(user_id, post_id)
                   rewards = safe_get_rewards(user_id, post_id)
                   tx_id = rewards && Map.get(rewards, :read_tx_id)
+
                   {:noreply,
                    socket
                    |> assign(:engagement, engagement)
@@ -935,6 +973,7 @@ defmodule BlocksterV2Web.PostLive.Show do
       internal_balance = EngagementTracker.get_post_bux_balance(post_id)
       display_balance = display_pool_balance(internal_balance)
       updated_post = Map.put(socket.assigns.post, :bux_balance, display_balance)
+
       {:noreply,
        socket
        |> assign(:post, updated_post)
@@ -951,6 +990,7 @@ defmodule BlocksterV2Web.PostLive.Show do
       internal_balance = EngagementTracker.get_post_bux_balance(post_id)
       display_balance = display_pool_balance(internal_balance)
       updated_post = Map.put(socket.assigns.post, :bux_balance, display_balance)
+
       {:noreply,
        socket
        |> assign(:post, updated_post)
@@ -1039,6 +1079,7 @@ defmodule BlocksterV2Web.PostLive.Show do
         if new_hwm > previous_hwm do
           EngagementTracker.update_video_high_water_mark(user_id, post.id, new_hwm)
         end
+
         {:noreply, assign(socket, :video_modal_open, false)}
 
       # Video fully watched already
@@ -1050,17 +1091,18 @@ defmodule BlocksterV2Web.PostLive.Show do
 
       # Validate and mint for NEW territory
       true ->
-        socket = mint_video_session_reward(socket, user_id, post, %{
-          session_earnable_time: session_earnable_time,
-          client_session_bux: client_session_bux,
-          session_max_position: session_max_position,
-          previous_high_water_mark: previous_hwm,
-          new_high_water_mark: new_hwm,
-          video_duration: video_duration,
-          completion_percentage: completion,
-          pause_count: pause_count,
-          tab_away_count: tab_away_count
-        })
+        socket =
+          mint_video_session_reward(socket, user_id, post, %{
+            session_earnable_time: session_earnable_time,
+            client_session_bux: client_session_bux,
+            session_max_position: session_max_position,
+            previous_high_water_mark: previous_hwm,
+            new_high_water_mark: new_hwm,
+            video_duration: video_duration,
+            completion_percentage: completion,
+            pause_count: pause_count,
+            tab_away_count: tab_away_count
+          })
 
         {:noreply, assign(socket, :video_modal_open, false)}
     end
@@ -1080,13 +1122,14 @@ defmodule BlocksterV2Web.PostLive.Show do
     # Server-side validation: Calculate BUX for NEW territory only
     # session_earnable_time = seconds spent BEYOND previous high water mark
     # Formula: (session_minutes × bux_per_minute × user_multiplier)
-    server_calculated_bux = calculate_session_video_bux(
-      metrics.session_earnable_time,
-      bux_per_minute,
-      max_total_reward,
-      previous_total_earned,
-      user_multiplier
-    )
+    server_calculated_bux =
+      calculate_session_video_bux(
+        metrics.session_earnable_time,
+        bux_per_minute,
+        max_total_reward,
+        previous_total_earned,
+        user_multiplier
+      )
 
     # Apply anti-gaming penalties
     final_session_bux = apply_video_penalties(server_calculated_bux, metrics)
@@ -1105,6 +1148,7 @@ defmodule BlocksterV2Web.PostLive.Show do
           pause_count: metrics.pause_count,
           tab_away_count: metrics.tab_away_count
         })
+
         put_flash(socket, :info, "Keep watching new content to earn BUX!")
 
       true ->
@@ -1120,6 +1164,7 @@ defmodule BlocksterV2Web.PostLive.Show do
 
         if wallet_address && wallet_address != "" && actual_bux > 0 do
           lv_pid = self()
+
           Task.start(fn ->
             case BuxMinter.mint_bux(wallet_address, actual_bux, user_id, post.id, :video_watch) do
               {:ok, %{"signature" => tx_hash}} ->
@@ -1166,7 +1211,13 @@ defmodule BlocksterV2Web.PostLive.Show do
 
   # Calculate BUX for SESSION (new territory only)
   # V2: Formula = session_minutes × bux_per_minute × user_multiplier
-  defp calculate_session_video_bux(session_earnable_time, bux_per_minute, max_total_reward, previous_total_earned, user_multiplier \\ 1.0) do
+  defp calculate_session_video_bux(
+         session_earnable_time,
+         bux_per_minute,
+         max_total_reward,
+         previous_total_earned,
+         user_multiplier \\ 1.0
+       ) do
     session_minutes = session_earnable_time / 60
     # V2: Apply unified multiplier to video rewards
     session_bux = session_minutes * bux_per_minute * user_multiplier
@@ -1185,18 +1236,22 @@ defmodule BlocksterV2Web.PostLive.Show do
     penalty_multiplier = 1.0
 
     # Penalty for excessive pausing (potential gaming)
-    penalty_multiplier = if metrics.pause_count > 10 do
-      penalty_multiplier * 0.8  # 20% reduction
-    else
-      penalty_multiplier
-    end
+    penalty_multiplier =
+      if metrics.pause_count > 10 do
+        # 20% reduction
+        penalty_multiplier * 0.8
+      else
+        penalty_multiplier
+      end
 
     # Penalty for excessive tab switching (potential gaming)
-    penalty_multiplier = if metrics.tab_away_count > 5 do
-      penalty_multiplier * 0.9  # 10% reduction
-    else
-      penalty_multiplier
-    end
+    penalty_multiplier =
+      if metrics.tab_away_count > 5 do
+        # 10% reduction
+        penalty_multiplier * 0.9
+      else
+        penalty_multiplier
+      end
 
     Float.round(bux * penalty_multiplier, 1)
   end
@@ -1341,7 +1396,8 @@ defmodule BlocksterV2Web.PostLive.Show do
         {:noreply,
          socket
          |> push_event("open_external_url", %{
-           url: "https://twitter.com/intent/tweet?url=#{URI.encode_www_form(share_url)}&text=#{share_text}"
+           url:
+             "https://twitter.com/intent/tweet?url=#{URI.encode_www_form(share_url)}&text=#{share_text}"
          })}
 
       socket.assigns.share_reward != nil ->
@@ -1374,27 +1430,32 @@ defmodule BlocksterV2Web.PostLive.Show do
          access_token when not is_nil(access_token) <- refreshed_connection.access_token,
          campaign_tweet_id = share_campaign.tweet_id,
          x_user_id = refreshed_connection.x_user_id,
-         {:ok, result} <- Social.XApiClient.retweet_and_like(access_token, x_user_id, campaign_tweet_id),
+         {:ok, result} <-
+           Social.XApiClient.retweet_and_like(access_token, x_user_id, campaign_tweet_id),
          true <- result[:retweeted] || :retweet_failed,
-         {:ok, _verified_reward} <- Social.verify_share_reward(user.id, post.id, campaign_tweet_id) do
-
+         {:ok, _verified_reward} <-
+           Social.verify_share_reward(user.id, post.id, campaign_tweet_id) do
       Social.increment_campaign_shares(share_campaign)
 
       # Mint BUX tokens
       wallet = user.wallet_address
+
       tx_hash =
         if wallet && wallet != "" && actual_bux > 0 do
           case BuxMinter.mint_bux(wallet, actual_bux, user.id, post.id, :x_share) do
             {:ok, response} ->
               EngagementTracker.deduct_from_pool_guaranteed(post.id, actual_bux)
               response["signature"]
-            {:error, _} -> nil
+
+            {:error, _} ->
+              nil
           end
         else
           nil
         end
 
-      {:ok, final_reward} = Social.mark_rewarded(user.id, post.id, actual_bux, tx_hash: tx_hash, post_id: post.id)
+      {:ok, final_reward} =
+        Social.mark_rewarded(user.id, post.id, actual_bux, tx_hash: tx_hash, post_id: post.id)
 
       UserEvents.track(user.id, "article_share", %{
         target_type: "post",
@@ -1431,12 +1492,17 @@ defmodule BlocksterV2Web.PostLive.Show do
   end
 
   @impl true
-  def handle_async(:share_to_x, {:ok, {:ok, %{reward: reward, liked: liked, bux: bux, pool: pool}}}, socket) do
-    success_msg = if liked do
-      "Retweeted & Liked! You earned #{bux} BUX!"
-    else
-      "Retweeted! You earned #{bux} BUX!"
-    end
+  def handle_async(
+        :share_to_x,
+        {:ok, {:ok, %{reward: reward, liked: liked, bux: bux, pool: pool}}},
+        socket
+      ) do
+    success_msg =
+      if liked do
+        "Retweeted & Liked! You earned #{bux} BUX!"
+      else
+        "Retweeted! You earned #{bux} BUX!"
+      end
 
     {:noreply,
      socket
@@ -1462,7 +1528,10 @@ defmodule BlocksterV2Web.PostLive.Show do
      |> assign(:x_connection, nil)
      |> assign(:share_reward, nil)
      |> assign(:needs_x_reconnect, true)
-     |> assign(:share_status, {:error, "Failed to authenticate with X. Please reconnect your account."})}
+     |> assign(
+       :share_status,
+       {:error, "Failed to authenticate with X. Please reconnect your account."}
+     )}
   end
 
   def handle_async(:share_to_x, {:ok, {:error, :retweet_failed}}, socket) do
@@ -1500,17 +1569,21 @@ defmodule BlocksterV2Web.PostLive.Show do
 
   defp format_time(seconds) when is_integer(seconds) do
     cond do
-      seconds < 60 -> "#{seconds}s"
+      seconds < 60 ->
+        "#{seconds}s"
+
       seconds < 3600 ->
         mins = div(seconds, 60)
         secs = rem(seconds, 60)
         "#{mins}m #{secs}s"
+
       true ->
         hours = div(seconds, 3600)
         mins = div(rem(seconds, 3600), 60)
         "#{hours}h #{mins}m"
     end
   end
+
   defp format_time(_), do: "0s"
 
   defp engagement_score_color(score) when is_integer(score) do
@@ -1521,6 +1594,7 @@ defmodule BlocksterV2Web.PostLive.Show do
       true -> "bg-red-100 text-red-800 border-2 border-red-300"
     end
   end
+
   defp engagement_score_color(_), do: "bg-gray-100 text-gray-800 border-2 border-gray-300"
 
   defp engagement_score_label(score) when is_integer(score) do
@@ -1532,5 +1606,6 @@ defmodule BlocksterV2Web.PostLive.Show do
       true -> "Quick Glance"
     end
   end
+
   defp engagement_score_label(_), do: "Not Rated"
 end
