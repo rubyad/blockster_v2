@@ -1901,9 +1901,9 @@ defmodule BlocksterV2Web.CoinFlipLive do
                                 type="button"
                                 phx-click="show_fairness_modal"
                                 phx-value-game-id={game.game_id}
-                                class="text-[10px] text-neutral-400 hover:text-[#141414] font-mono cursor-pointer"
+                                class="text-[10px] font-bold uppercase tracking-[0.1em] text-neutral-500 hover:text-[#141414] cursor-pointer"
                               >
-                                ✓
+                                Prove It
                               </button>
                             <% else %>
                               <span class="text-[10px] text-neutral-300">—</span>
@@ -3560,6 +3560,11 @@ defmodule BlocksterV2Web.CoinFlipLive do
     else
       chronological = Enum.sort_by(games, fn r -> elem(r, 19) end)
 
+      # Templates render `net = total_won - total_lost`, so total_won
+      # has to accumulate PROFIT on wins (payout - bet), not the gross
+      # payout. With gross payout you get net = payout_sum - bet_on_losses,
+      # which leaves the bet-on-wins floating; for 2 wins of 100→198 plus
+      # 7 losses of 100 the gross math gives -304 but true P/L is -504.
       {wins, losses, wagered, total_won, total_lost, biggest_win, biggest_loss} =
         Enum.reduce(games, {0, 0, 0, 0, 0, 0, 0}, fn r, {w, l, wag, won_t, lost_t, bw, bl} ->
           bet = elem(r, 9) || 0
@@ -3567,7 +3572,7 @@ defmodule BlocksterV2Web.CoinFlipLive do
 
           if elem(r, 13) == true do
             profit = payout - bet
-            {w + 1, l, wag + bet, won_t + payout, lost_t, max(bw, profit), bl}
+            {w + 1, l, wag + bet, won_t + profit, lost_t, max(bw, profit), bl}
           else
             {w, l + 1, wag + bet, won_t, lost_t + bet, bw, max(bl, bet)}
           end
