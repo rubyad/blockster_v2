@@ -98,6 +98,52 @@ Lessons:
 
 Related entry in `session_learnings.md`: "Mnesia transform_table can silently no-op during deploy — verify post-deploy".
 
+### Postscript (same day, late evening): SOL/USD secondary values across /play + /pool, plus another split-brain recovery
+
+A long polish round on `/play` and `/pool/:vault` to put live USD numbers next to every SOL value the user looks at while betting or providing liquidity. Single commit `9e34fa5`. One blockster-v2 deploy. Fourth confirmed Mnesia split-brain on `865d14f7225508` — recovered via the documented runbook, both nodes back in `running_db_nodes` within ~2 min.
+
+**`/play` (CoinFlipLive)**
+- Live SOL/USD rate piped into the LV via `BlocksterV2.PriceTracker.get_price("SOL")` on mount + a `Phoenix.PubSub.subscribe(BlocksterV2.PubSub, "token_prices")` so the rate stays current without a refresh. New `handle_info({:token_prices_updated, prices}, socket)` updates the assign.
+- USD secondary lines under SOL amounts whenever `@selected_token == "SOL"`: hero SOL Pool stat card, balance/house chips, bet input (inside the input box, below the typed number), potential profit + payout (inline-baseline next to the SOL number, not below — the green box would otherwise grow a full line on desktop), locked-bet header, settled + pre-settlement win banner, loss banner, sidebar Net + Best win, sidebar recent games (SOL-vault rows only), bankroll-received block on the loss recap, and the recent games table Bet + P/L columns. MAX button stays SOL-only per request.
+- Hero SOL Pool / BUX Pool / House Edge cards lost their "View pool ↗" / "verified" subtitle and the entire card is now a `<.link navigate=...>` (cursor-pointer + hover border `#141414`). SOL Pool → `/pool/sol`, BUX Pool → `/pool/bux`, House Edge → `/docs/security-audit`. Cards are visibly shorter, click target is the whole tile.
+- Sidebar "Your recent games" rows lost the trailing multiplier line — small-cell row height was the user complaint. The full Recent games table at the bottom of the page still shows the Mult column.
+
+**`/pool/:vault` (PoolDetailLive)**
+- The "Your wallet" card had been showing an inline green/lime gradient circle (`wallet_icon_bg(true) → linear-gradient(135deg, #00FFA3, #00DC82)` / `false → #CAFC00, #9ED600`) introduced in the redesign at commit `b51e2bd`. Replaced with the actual logo image (`solana-sol-logo.png` / `blockster-icon.png` for SOL/BUX, LP box uses the same image at `opacity-60`). Dropped the unused `wallet_icon_bg/1` helper. Per saved memory `feedback_token_logos.md`: never recreate token brand marks inline — always use the real asset.
+- USD secondaries gated on `@is_sol`: hero LP price (inline next to the SOL token label), TVL pills mobile + desktop (inline subtitle on the "TVL · SOL" line), Your-position card cost basis / unrealized P/L / realized P/L (small grey line below each — neutral colour to avoid clashing with win/loss colours), order-form wallet card (SOL balance + SOL-LP balance, where the LP USD is `lp × lp_price × SOL/USD`), the "1 SOL-LP = X SOL" line (inline), and the output preview when withdrawing (output is SOL).
+- `estimate_dollar_value/3` no longer multiplies by the hardcoded `* 160.0` SOL/USD or `* 0.01` BUX placeholder — derives from `PriceTracker` per saved memory `feedback_no_hardcoded_marketing_numbers.md`. SOL-LP path takes `lp_price` so the conversion is `amount × lp_price × SOL/USD` (was treating LP as 1:1 with SOL). BUX paths return `""` per the no-USD-for-BUX rule.
+- Deposit/withdraw input: USD value moved from the right side of the Balance strip to inside the input box, directly below the typed number (mirrors the /play treatment). On withdraw the typed amount is in SOL-LP, conversion uses the live LP price.
+
+**Activity table — iteration on the column-width lesson**
+
+First pass: appended ` · ≈ $X` inline to the `profit` and `bet` strings in `format_activity/1` and `load_pool_activities/1`. The column was 70px on mobile and 140px on desktop; the SOL+USD string overflowed and forced every row to wrap. User pushed back: "those USD values have totally distorted the rows in the activity table as I told you not to do." Reverted.
+
+Second pass after user said "make the column wider and try again": widened the activity row's grid track from `[110px_1fr_70px_50px] md:[180px_1fr_140px_60px]` to `[100px_1fr_140px_50px] md:[180px_1fr_220px_60px]`, added `whitespace-nowrap overflow-hidden text-ellipsis` on each line so the text clips clean if it ever exceeds the cell instead of wrapping the row. Re-added the USD suffix.
+
+Third pass after user said "USD amounts should be in grey": split `format_activity/1` output into separate `profit` / `profit_usd` and `bet` / `bet_usd` fields. The activity row template now renders the SOL number with the win/loss colour and the `· ≈ $X` suffix as a separate inline `<span class="text-neutral-500 font-normal">` so the dollar number reads as muted secondary. The 0.01-rate placeholder `* 0.01` for BUX was already gone from this pass (no USD on BUX vault rows).
+
+Saved a new feedback memory `feedback_check_grid_width_before_inlining.md` because the grid-column-width thing was a rule I already knew (the user had said "don't distort boxes" in the same conversation) but didn't apply — measure track width before inlining content into it.
+
+**Deploy + Mnesia split-brain recovery (fourth occurrence)**
+
+`flyctl deploy --app blockster-v2` from repo root. Pre-flight: `cat fly.toml | head -3` confirmed `app = 'blockster-v2'`, the `PreToolUse` hook emitted `DEPLOY VERIFIED: app=blockster-v2 dir=/Users/tenmerry/Projects/blockster_v2`. Release_command + rolling update + smoke checks all green.
+
+Post-deploy `:mnesia.system_info(:running_db_nodes)` on `865d14f7225508` returned `[self]` only — same split-brain pattern as 2026-04-29 + 2026-04-30 morning. Schema's `db_nodes` listed `[ghost (195:3603:63e:2), other (e770:82b0:7db3:2)]` and not the new self IP `c889:9afe:2`. Same coincidence as last occurrence — the ghost IP and live-other IP haven't changed across deploys (Fly seems to assign stable IPv6 per region/machine), so the runbook's hardcoded `ghost = ...:195:3603:63e:2` and `other = ...:e770:82b0:7db3:2` worked verbatim again.
+
+Recovery via the documented one-rpc sequence:
+- `:mnesia.del_table_copy(:schema, ghost)` returned `{:aborted, {:no_exists, :bot_daily_rewards}}` (cascade abort on a downstream table — runbook says this is fine, the schema entry for the ghost is removed regardless).
+- For-loop dropped 15 locally-diverged tables.
+- `:mnesia.change_config(:extra_db_nodes, [other])` returned `{:ok, [other]}`.
+- `:running_db_nodes` now `[other, self]` on both machines.
+
+Verified cross-node reads with `:mnesia.dirty_all_keys/1` (NOT `table_info(_, :size)` — that returns the *local* replica size, which is still 0 here because we have no local copies; the recovered node reads via `where_to_read: <other>`). `user_bux_balances` 1966 keys, `user_post_rewards` 66842 keys — match the source machine's counts.
+
+Updated `memory/project_mnesia_split_brain_open.md` to reflect the fourth confirmed occurrence. Permanent fix in `MnesiaInitializer.initialize_mnesia_for_joining_node/0` still TODO.
+
+**21 pre-existing test failures shipped, none caused by this commit**
+
+`mix test` reported 21 failures before the deploy. Spot-checked the failure list — all in footer / widget / phase5+7+8+9 shop / EmailOtpStore / WalletAuthEvents / BannersAdminWidget tests, none of which touch the three files modified by `9e34fa5`. CLAUDE.md's "ALL tests must pass before deploy" rule is technically violated but the user explicitly authorized the deploy with knowledge of the test state, and the failures are infrastructure / fixture issues (mostly Mnesia tables not initialized in the test setup for tests that need them) unrelated to the UI changes. Worth a separate cleanup pass.
+
 ---
 
 ## Post-Launch Firefight Day 2 (2026-04-29 PM) ✅ — bot mints, signin bugs, deploy guardrails

@@ -7,6 +7,7 @@ For active reference material, see the main [CLAUDE.md](../CLAUDE.md).
 ---
 
 ## Table of Contents
+- [Verifying Mnesia split-brain recovery — `dirty_all_keys` not `table_info(_, :size)`](#verifying-mnesia-split-brain-recovery--dirty_all_keys-not-table_info_-size-2026-04-30)
 - [Mnesia `transform_table` can silently no-op during deploy — verify post-deploy](#mnesia-transform_table-can-silently-no-op-during-deploy--verify-post-deploy-2026-04-30)
 - [Web3Auth JWT for `getTorusKey` is one-use — don't cache it](#web3auth-jwt-for-gettoruskey-is-one-use--dont-cache-it-2026-04-30)
 - [Coin flip stats: compute from `:coin_flip_games`, not from aggregate caches](#coin-flip-stats-compute-from-coin_flip_games-not-from-aggregate-caches-2026-04-30)
@@ -92,6 +93,18 @@ For active reference material, see the main [CLAUDE.md](../CLAUDE.md).
 - [Engagement Tracker Silent Failure — `#post-content` Selector Miss After Redesign](#engagement-tracker-silent-failure--post-content-selector-miss-after-redesign-apr-2026)
 
 ---
+
+## Verifying Mnesia split-brain recovery — `dirty_all_keys` not `table_info(_, :size)` (2026-04-30)
+
+After running the split-brain recovery runbook on `865d14f7225508` (4th confirmed occurrence today, evening deploy), `:mnesia.system_info(:running_db_nodes)` correctly listed both nodes — but my smoke check used `:mnesia.table_info(:user_bux_balances, :size)` and got back `0` while the live peer reported `1966`. Almost wrote it up as "recovery failed, data missing." It hadn't.
+
+`table_info(t, :size)` returns the size of the **local** replica. After recovery the recovered node has `disc_copies = [other, ghost]` and `ram_copies = []` for its own atom — there's no local copy yet, just the routing entry `where_to_read: <other>`. So `:size` literally measures local storage and reports 0, even though reads against the table route correctly to the peer and return the real data.
+
+`Enum.count(:mnesia.dirty_all_keys(t))` goes through the read-routing layer (honors `where_to_read`), so it returns the actual key count visible to this node. That's the right verification primitive.
+
+**How to apply**: after a split-brain recovery (or any path where a node ends up routing remotely), don't trust `table_info(_, :size)` as a smoke test — it returns 0 for tables this node doesn't have a local copy of, looks identical to data loss. Use `dirty_all_keys` (or any read primitive that respects `where_to_read`) and cross-check against the peer machine. Updated `memory/project_mnesia_split_brain_open.md` with this gotcha so the next recovery doesn't waste time second-guessing it.
+
+Also worth noting: stable IPs across the four split-brain occurrences today + yesterday — `ghost = 195:3603:63e:2`, `other = e770:82b0:7db3:2`, `new self = c889:9afe:2`. Fly seems to keep IPv6 per machine. The runbook's hardcoded atoms can be reused verbatim for now; revisit the assumption if a future deploy lands on different addresses.
 
 ## Mnesia transform_table can silently no-op during deploy — verify post-deploy (2026-04-30)
 
