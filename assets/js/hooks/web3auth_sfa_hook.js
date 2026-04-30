@@ -114,7 +114,12 @@ export const Web3AuthSfa = {
     this._clientId = this.el.dataset.clientId || ""
     this._rpcUrl = this.el.dataset.rpcUrl || ""
     this._chainId = this.el.dataset.chainId || "0x65"
-    this._network = this.el.dataset.network || "sapphire_mainnet"
+    // The data-network attribute carries the Web3Auth enum KEY (e.g.
+    // "SAPPHIRE_MAINNET") — the modal hook does an SDK enum lookup. Customauth /
+    // torus.js expect the lowercase string value ("sapphire_mainnet") directly,
+    // so lowercase the attr before handing it to the SFA SDK. Without this,
+    // torus.js throws "Invalid network" at the first getTorusKey call.
+    this._network = (this.el.dataset.network || "sapphire_mainnet").toLowerCase()
     this._telegramVerifierId = this.el.dataset.telegramVerifierId || ""
     this._telegramBotId = this.el.dataset.telegramBotId || ""
 
