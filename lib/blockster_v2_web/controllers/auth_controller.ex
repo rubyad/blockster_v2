@@ -573,6 +573,13 @@ defmodule BlocksterV2Web.AuthController do
   login (mirrors the email-OTP custom-JWT path).
   """
   def telegram_callback(conn, %{"id" => id, "hash" => hash, "auth_date" => auth_date} = params) do
+    require Logger
+
+    Logger.info(
+      "[Auth] telegram_callback id=#{id} username=#{Map.get(params, "username", "(none)")} " <>
+        "auth_date=#{auth_date} ua=#{inspect(Plug.Conn.get_req_header(conn, "user-agent"))}"
+    )
+
     bot_token =
       System.get_env("BLOCKSTER_V2_BOT_TOKEN") ||
         System.get_env("TELEGRAM_V2_BOT_TOKEN") ||

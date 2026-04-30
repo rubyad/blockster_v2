@@ -448,17 +448,28 @@ defmodule BlocksterV2Web.WalletAuthEvents do
       # return from their email app.
       def handle_event("restore_email_otp_state", %{"email" => email}, socket)
           when is_binary(email) do
+        require Logger
+        Logger.info(
+          "[Auth] restore_email_otp_state fired email=#{email} " <>
+            "current_stage=#{inspect(socket.assigns[:email_otp_stage])} " <>
+            "show_selector=#{inspect(socket.assigns[:show_wallet_selector])} " <>
+            "connecting=#{inspect(socket.assigns[:connecting])}"
+        )
+
         cond do
           not BlocksterV2Web.WalletAuthEvents.valid_email?(email) ->
             # Malformed email — wipe and let the user re-enter.
+            Logger.info("[Auth] restore: invalid email, clearing localStorage")
             {:noreply, push_event(socket, "clear_email_otp_state", %{})}
 
           socket.assigns[:connecting] == true ->
             # Mid-Web3Auth-connecting (popup just returned, MPC handshake
             # in flight) — don't disrupt with a stale OTP modal.
+            Logger.info("[Auth] restore: skipped, already connecting")
             {:noreply, socket}
 
           true ->
+            Logger.info("[Auth] restore: opening modal in :enter_code")
             {:noreply,
              socket
              |> assign(:show_wallet_selector, true)

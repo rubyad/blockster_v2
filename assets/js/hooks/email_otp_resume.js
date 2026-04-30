@@ -42,6 +42,10 @@ export const EmailOtpResume = {
       document.removeEventListener("visibilitychange", this._onVisibilityChange);
       this._onVisibilityChange = null;
     }
+    if (this._retryTimerId) {
+      clearTimeout(this._retryTimerId);
+      this._retryTimerId = null;
+    }
   },
 
   tryRestore() {
@@ -57,12 +61,29 @@ export const EmailOtpResume = {
         localStorage.removeItem(STORAGE_KEY);
         return;
       }
-      this.pushEvent("restore_email_otp_state", { email });
+      // Push the restore. iOS Safari quirk: when returning from a
+      // backgrounded tab, the LV websocket may take 100-500ms to
+      // reconnect. pushEvent during that window is dropped silently.
+      // Schedule three retries (250ms, 1s, 3s) so the restore lands
+      // even if the first push happened pre-reconnect.
+      this._restoreCount = 0;
+      this._scheduleRestore(email);
     } catch (err) {
       console.warn("[EmailOtpResume] restore failed:", err);
       try {
         localStorage.removeItem(STORAGE_KEY);
       } catch {}
     }
+  },
+
+  _scheduleRestore(email) {
+    this.pushEvent("restore_email_otp_state", { email });
+    this._restoreCount = (this._restoreCount || 0) + 1;
+    if (this._restoreCount >= 3) return;
+    if (this._retryTimerId) clearTimeout(this._retryTimerId);
+    const delay = this._restoreCount === 1 ? 250 : 1000 * this._restoreCount;
+    this._retryTimerId = setTimeout(() => {
+      this._scheduleRestore(email);
+    }, delay);
   },
 };
