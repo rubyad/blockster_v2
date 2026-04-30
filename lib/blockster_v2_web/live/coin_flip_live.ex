@@ -3181,9 +3181,14 @@ defmodule BlocksterV2Web.CoinFlipLive do
     user_id = socket.assigns[:current_user] && socket.assigns.current_user.id
 
     if user_id do
+      # Match the limit used at mount + load-more-games (line 129 + 2559).
+      # Without this explicit limit the call falls through to the defp's
+      # `limit: 10` default, and the assign(:recent_games, …) handler
+      # below replaces the panel wholesale → nonces beyond the most
+      # recent 10 silently disappear after every subsequent settlement.
       {:noreply,
        start_async(socket, :load_recent_games, fn ->
-         load_recent_games(user_id)
+         load_recent_games(user_id, limit: 30)
        end)}
     else
       {:noreply, socket}
@@ -3631,7 +3636,11 @@ defmodule BlocksterV2Web.CoinFlipLive do
   end
 
   defp load_recent_games(user_id, opts \\ []) do
-    limit = Keyword.get(opts, :limit, 10)
+    # Default limit raised from 10 to 30 on 2026-04-30 — every existing
+    # caller at the time was already passing limit: 30 explicitly, but a
+    # reload path (`{:game_settled, _}` handler) relied on the default
+    # and silently truncated the panel after each new bet.
+    limit = Keyword.get(opts, :limit, 30)
     offset = Keyword.get(opts, :offset, 0)
 
     # Query from coin_flip_games table
