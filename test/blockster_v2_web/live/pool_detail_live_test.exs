@@ -185,7 +185,10 @@ defmodule BlocksterV2Web.PoolDetailLiveTest do
       assert html =~ "Wins"
       assert html =~ "Losses"
       assert html =~ "Liquidity"
-      assert html =~ "Load more"
+      # The dead "Load more →" stub button was removed 2026-04-30; the
+      # activity rows are now in a scrollable container instead.
+      refute html =~ "Load more"
+      assert html =~ "Showing"
     end
 
     test "renders full-bleed pool banner hero", %{conn: conn} do

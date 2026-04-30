@@ -19,7 +19,8 @@ defmodule BlocksterV2Web.PoolDetailLive do
   @valid_vault_types ~w(sol bux)
 
   @impl true
-  def mount(%{"vault_type" => vault_type}, _session, socket) when vault_type in @valid_vault_types do
+  def mount(%{"vault_type" => vault_type}, _session, socket)
+      when vault_type in @valid_vault_types do
     current_user = socket.assigns[:current_user]
 
     socket =
@@ -73,16 +74,20 @@ defmodule BlocksterV2Web.PoolDetailLive do
         period_stats = CoinFlipGame.period_stats(vault_atom, timeframe_seconds("24H"))
         socket = assign(socket, period_stats: period_stats)
 
-        bet_activities = CoinFlipGame.get_recent_games_by_vault(vault_atom, 50)
-                         |> Enum.map(&format_activity/1)
+        bet_activities =
+          CoinFlipGame.get_recent_games_by_vault(vault_atom, 200)
+          |> Enum.map(&format_activity/1)
 
         # Fetch recent deposit/withdraw activity from Mnesia
         lp_activities = load_pool_activities(vault_type)
 
-        # Merge and sort by time (most recent first)
-        activities = (bet_activities ++ lp_activities)
-                     |> Enum.sort_by(& &1["_created_at"], :desc)
-                     |> Enum.take(50)
+        # Merge and sort by time (most recent first). Cap at 200 so the
+        # scrollable activity panel has plenty of history; per-source
+        # paginated infinite scroll is a follow-up if 200 isn't enough.
+        activities =
+          (bet_activities ++ lp_activities)
+          |> Enum.sort_by(& &1["_created_at"], :desc)
+          |> Enum.take(200)
 
         socket = assign(socket, activities: activities)
         socket = start_async(socket, :fetch_pool_stats, fn -> BuxMinter.get_pool_stats() end)
@@ -94,14 +99,18 @@ defmodule BlocksterV2Web.PoolDetailLive do
           start_async(socket, :sync_on_mount, fn ->
             BuxMinter.sync_user_balances(user_id, wallet)
 
-            bsol = case BuxMinter.get_lp_balance(wallet, "sol") do
-              {:ok, v} -> v
-              _ -> 0.0
-            end
-            bbux = case BuxMinter.get_lp_balance(wallet, "bux") do
-              {:ok, v} -> v
-              _ -> 0.0
-            end
+            bsol =
+              case BuxMinter.get_lp_balance(wallet, "sol") do
+                {:ok, v} -> v
+                _ -> 0.0
+              end
+
+            bbux =
+              case BuxMinter.get_lp_balance(wallet, "bux") do
+                {:ok, v} -> v
+                _ -> 0.0
+              end
+
             EngagementTracker.update_user_bsol_balance(user_id, wallet, bsol)
             EngagementTracker.update_user_bbux_balance(user_id, wallet, bbux)
 
@@ -150,7 +159,9 @@ defmodule BlocksterV2Web.PoolDetailLive do
   end
 
   def handle_info({:pool_activity, activity}, socket) do
-    activities = [activity | socket.assigns.activities] |> Enum.take(50)
+    # Cap matches the initial-load cap above (200) so PubSub-prepended
+    # events don't shrink the panel.
+    activities = [activity | socket.assigns.activities] |> Enum.take(200)
     {:noreply, assign(socket, activities: activities)}
   end
 
@@ -189,9 +200,15 @@ defmodule BlocksterV2Web.PoolDetailLive do
     case CoinFlipGame.get_game(game_id) do
       {:ok, game} when game.status == :settled ->
         predictions_str = game.predictions |> Enum.map(&Atom.to_string/1) |> Enum.join(",")
-        vault_type_str = if is_atom(game.vault_type), do: Atom.to_string(game.vault_type), else: to_string(game.vault_type)
 
-        client_seed_input = "#{game.user_id}:#{game.bet_amount}:#{vault_type_str}:#{game.difficulty}:#{predictions_str}"
+        vault_type_str =
+          if is_atom(game.vault_type),
+            do: Atom.to_string(game.vault_type),
+            else: to_string(game.vault_type)
+
+        client_seed_input =
+          "#{game.user_id}:#{game.bet_amount}:#{vault_type_str}:#{game.difficulty}:#{predictions_str}"
+
         client_seed = :crypto.hash(:sha256, client_seed_input) |> Base.encode16(case: :lower)
 
         combined_input = "#{game.server_seed}:#{client_seed}:#{game.nonce}"
@@ -248,6 +265,7 @@ defmodule BlocksterV2Web.PoolDetailLive do
 
   def handle_event("set_max", _params, socket) do
     vault_type = socket.assigns.vault_type
+
     max =
       case {socket.assigns.tab, vault_type} do
         {:deposit, "sol"} -> socket.assigns.balances["SOL"]
@@ -261,6 +279,7 @@ defmodule BlocksterV2Web.PoolDetailLive do
 
   def handle_event("set_half", _params, socket) do
     vault_type = socket.assigns.vault_type
+
     max =
       case {socket.assigns.tab, vault_type} do
         {:deposit, "sol"} -> socket.assigns.balances["SOL"]
@@ -285,7 +304,11 @@ defmodule BlocksterV2Web.PoolDetailLive do
 
   # ── Transaction Callbacks (from PoolHook JS) ──
 
-  def handle_event("tx_confirmed", %{"vault_type" => vault_type, "action" => action, "signature" => sig}, socket) do
+  def handle_event(
+        "tx_confirmed",
+        %{"vault_type" => vault_type, "action" => action, "signature" => sig},
+        socket
+      ) do
     Logger.info("[PoolDetailLive] #{action} #{vault_type} confirmed: #{sig}")
 
     action_label = if action == "deposit", do: "Deposit", else: "Withdrawal"
@@ -296,7 +319,10 @@ defmodule BlocksterV2Web.PoolDetailLive do
     wallet = socket.assigns[:wallet_address] || ""
     now = System.system_time(:second)
 
-    record = {:pool_activities, System.unique_integer([:monotonic, :positive]), action, vault_type, amount_raw, truncate_wallet(wallet), now}
+    record =
+      {:pool_activities, System.unique_integer([:monotonic, :positive]), action, vault_type,
+       amount_raw, truncate_wallet(wallet), now}
+
     :mnesia.dirty_write(record)
 
     # Update the user's cost-basis row. Uses pre-tx lp_price from socket
@@ -318,6 +344,7 @@ defmodule BlocksterV2Web.PoolDetailLive do
 
     decimals = if vault_type == "sol", do: 4, else: 2
     amount_formatted = format_amount(amount_raw, decimals)
+
     activity = %{
       "type" => action,
       "game" => nil,
@@ -330,7 +357,12 @@ defmodule BlocksterV2Web.PoolDetailLive do
       "time" => "just now",
       "_created_at" => now
     }
-    Phoenix.PubSub.broadcast(BlocksterV2.PubSub, "pool_activity:#{vault_type}", {:pool_activity, activity})
+
+    Phoenix.PubSub.broadcast(
+      BlocksterV2.PubSub,
+      "pool_activity:#{vault_type}",
+      {:pool_activity, activity}
+    )
 
     socket =
       socket
@@ -346,14 +378,18 @@ defmodule BlocksterV2Web.PoolDetailLive do
         start_async(socket, :sync_post_tx, fn ->
           BuxMinter.sync_user_balances(user_id, wallet)
 
-          bsol = case BuxMinter.get_lp_balance(wallet, "sol") do
-            {:ok, v} -> v
-            _ -> 0.0
-          end
-          bbux = case BuxMinter.get_lp_balance(wallet, "bux") do
-            {:ok, v} -> v
-            _ -> 0.0
-          end
+          bsol =
+            case BuxMinter.get_lp_balance(wallet, "sol") do
+              {:ok, v} -> v
+              _ -> 0.0
+            end
+
+          bbux =
+            case BuxMinter.get_lp_balance(wallet, "bux") do
+              {:ok, v} -> v
+              _ -> 0.0
+            end
+
           EngagementTracker.update_user_bsol_balance(user_id, wallet, bsol)
           EngagementTracker.update_user_bbux_balance(user_id, wallet, bbux)
 
@@ -440,13 +476,18 @@ defmodule BlocksterV2Web.PoolDetailLive do
     lp_price = get_vault_stat(assigns.pool_stats, assigns.vault_type, "lpPrice")
     lp_supply = get_vault_stat(assigns.pool_stats, assigns.vault_type, "lpSupply")
     tvl_val = get_vault_stat(assigns.pool_stats, assigns.vault_type, "netBalance")
-    tvl = if is_number(tvl_val) and tvl_val > 0, do: tvl_val, else: get_vault_stat(assigns.pool_stats, assigns.vault_type, "totalBalance")
+
+    tvl =
+      if is_number(tvl_val) and tvl_val > 0,
+        do: tvl_val,
+        else: get_vault_stat(assigns.pool_stats, assigns.vault_type, "totalBalance")
 
     token = if is_sol, do: "SOL", else: "BUX"
     lp_token = if is_sol, do: "SOL-LP", else: "BUX-LP"
     user_lp = if is_sol, do: assigns.lp_balances.bsol, else: assigns.lp_balances.bbux
 
     deposit_token = if assigns.tab == :deposit, do: token, else: lp_token
+
     deposit_balance =
       if assigns.tab == :deposit do
         assigns.balances[token]
@@ -458,7 +499,9 @@ defmodule BlocksterV2Web.PoolDetailLive do
     multiply = assigns.tab == :withdraw
 
     current_share_pct = compute_share_pct(user_lp, lp_supply)
-    new_share_pct = compute_new_share_pct(user_lp, lp_supply, lp_price, assigns.amount, assigns.tab)
+
+    new_share_pct =
+      compute_new_share_pct(user_lp, lp_supply, lp_price, assigns.amount, assigns.tab)
 
     display_token = if is_sol, do: "SOL", else: "BUX"
     bets_24h = assigns.period_stats.total
@@ -517,22 +560,32 @@ defmodule BlocksterV2Web.PoolDetailLive do
         show_search_modal={Map.get(assigns, :show_search_modal, false)}
         connecting={Map.get(assigns, :connecting, false)}
         show_why_earn_bux={true}
-  announcement_banner={assigns[:announcement_banner]}
+        announcement_banner={assigns[:announcement_banner]}
       />
 
       <%!-- ══════════════════════════════════════════════════════
            POOL BANNER — full-bleed gradient hero
       ══════════════════════════════════════════════════════ --%>
       <section class="relative text-white overflow-hidden" style={banner_bg_style(@is_sol)}>
-        <div class="absolute inset-0 opacity-[0.10] pointer-events-none" style="background-image: radial-gradient(circle at 30% 30%, white 1.5px, transparent 1.5px); background-size: 32px 32px;"></div>
-        <div class="absolute top-0 right-0 w-1/2 h-full pointer-events-none" style="background: radial-gradient(ellipse at top right, rgba(255,255,255,0.15), transparent 60%);"></div>
+        <div
+          class="absolute inset-0 opacity-[0.10] pointer-events-none"
+          style="background-image: radial-gradient(circle at 30% 30%, white 1.5px, transparent 1.5px); background-size: 32px 32px;"
+        >
+        </div>
+        <div
+          class="absolute top-0 right-0 w-1/2 h-full pointer-events-none"
+          style="background: radial-gradient(ellipse at top right, rgba(255,255,255,0.15), transparent 60%);"
+        >
+        </div>
 
         <div class="max-w-[1280px] mx-auto px-4 py-5 md:px-6 md:py-12 relative">
           <%!-- Breadcrumb --%>
           <div class="mb-4 md:mb-8 flex items-center gap-2 text-[11px] text-white/75">
-            <.link navigate={~p"/pool"} class="hover:text-white transition-colors cursor-pointer">Pool</.link>
+            <.link navigate={~p"/pool"} class="hover:text-white transition-colors cursor-pointer">
+              Pool
+            </.link>
             <span>/</span>
-            <span class="text-white"><%= @token %> Pool</span>
+            <span class="text-white">{@token} Pool</span>
           </div>
 
           <div class="grid grid-cols-12 gap-4 md:gap-8 items-start">
@@ -541,38 +594,51 @@ defmodule BlocksterV2Web.PoolDetailLive do
               <div class="flex items-center gap-3 md:gap-5 mb-4 md:mb-6">
                 <div class="w-12 h-12 md:w-20 md:h-20 rounded-xl md:rounded-2xl bg-black grid place-items-center ring-1 ring-white/25 shadow-2xl overflow-hidden shrink-0">
                   <img
-                    src={if @token == "SOL", do: "https://ik.imagekit.io/blockster/solana-sol-logo.png", else: "https://ik.imagekit.io/blockster/blockster-icon.png"}
+                    src={
+                      if @token == "SOL",
+                        do: "https://ik.imagekit.io/blockster/solana-sol-logo.png",
+                        else: "https://ik.imagekit.io/blockster/blockster-icon.png"
+                    }
                     alt={@token}
                     class="w-7 h-7 md:w-12 md:h-12 rounded-full"
                   />
                 </div>
                 <div>
                   <div class="flex items-center gap-2 mb-0.5 md:mb-1">
-                    <span class="text-[9px] md:text-[10px] uppercase tracking-[0.16em] text-white font-bold">Bankroll Vault</span>
+                    <span class="text-[9px] md:text-[10px] uppercase tracking-[0.16em] text-white font-bold">
+                      Bankroll Vault
+                    </span>
                     <span class="inline-flex items-center gap-1 bg-[#CAFC00] text-black px-2 py-0.5 rounded-full text-[9px] md:text-[10px] font-bold">
-                      <span class="w-1.5 h-1.5 rounded-full bg-black animate-pulse"></span>
-                      Live
+                      <span class="w-1.5 h-1.5 rounded-full bg-black animate-pulse"></span> Live
                     </span>
                   </div>
-                  <h1 class="font-bold text-[32px] md:text-[68px] tracking-[-0.025em] leading-[0.95]"><%= @token %> Pool</h1>
+                  <h1 class="font-bold text-[32px] md:text-[68px] tracking-[-0.025em] leading-[0.95]">
+                    {@token} Pool
+                  </h1>
                 </div>
               </div>
 
               <%!-- LP price hero --%>
               <div class="mb-4 md:mb-7">
-                <div class="text-[9px] md:text-[10px] uppercase tracking-[0.14em] text-white font-bold mb-1 md:mb-2">Current LP price</div>
+                <div class="text-[9px] md:text-[10px] uppercase tracking-[0.14em] text-white font-bold mb-1 md:mb-2">
+                  Current LP price
+                </div>
                 <div class="flex items-baseline gap-2 md:gap-3 flex-wrap">
                   <span class="font-mono font-bold text-[38px] md:text-[64px] text-white leading-none tracking-tight tabular-nums">
-                    <%= if @pool_loading, do: "—", else: format_lp_price(@lp_price) %>
+                    {if @pool_loading, do: "—", else: format_lp_price(@lp_price)}
                   </span>
-                  <span class="text-[14px] md:text-[18px] text-white/90"><%= @token %></span>
+                  <span class="text-[14px] md:text-[18px] text-white/90">{@token}</span>
                   <span
                     :if={@chart_price_stats && @chart_price_stats.change_pct}
                     class={"ml-1 md:ml-2 inline-flex items-center gap-1 text-[12px] md:text-[14px] font-mono font-bold " <> if(@chart_price_stats.change_pct >= 0, do: "text-[#CAFC00]", else: "text-red-200")}
                   >
-                    <%= change_arrow(@chart_price_stats.change_pct) %> <%= format_change_pct(@chart_price_stats.change_pct) %>
+                    {change_arrow(@chart_price_stats.change_pct)} {format_change_pct(
+                      @chart_price_stats.change_pct
+                    )}
                   </span>
-                  <span class="text-[10px] md:text-[11px] text-white/85 font-mono"><%= String.downcase(@timeframe) %></span>
+                  <span class="text-[10px] md:text-[11px] text-white/85 font-mono">
+                    {String.downcase(@timeframe)}
+                  </span>
                 </div>
               </div>
 
@@ -581,32 +647,56 @@ defmodule BlocksterV2Web.PoolDetailLive do
                    Desktop keeps the airy divider layout. --%>
               <div class="md:hidden grid grid-cols-2 gap-2">
                 <div class="bg-black/25 backdrop-blur ring-1 ring-white/15 rounded-xl px-3 py-2">
-                  <div class="font-mono font-bold text-[18px] text-white leading-none tabular-nums"><%= format_tvl(@tvl) %></div>
-                  <div class="text-[9px] uppercase tracking-[0.14em] text-white/80 mt-1">TVL · <%= @token %></div>
+                  <div class="font-mono font-bold text-[18px] text-white leading-none tabular-nums">
+                    {format_tvl(@tvl)}
+                  </div>
+                  <div class="text-[9px] uppercase tracking-[0.14em] text-white/80 mt-1">
+                    TVL · {@token}
+                  </div>
                 </div>
                 <div class="bg-black/25 backdrop-blur ring-1 ring-white/15 rounded-xl px-3 py-2">
-                  <div class="font-mono font-bold text-[18px] text-white leading-none tabular-nums"><%= format_number(@lp_supply) %></div>
-                  <div class="text-[9px] uppercase tracking-[0.14em] text-white/80 mt-1"><%= @lp_token %> supply</div>
+                  <div class="font-mono font-bold text-[18px] text-white leading-none tabular-nums">
+                    {format_number(@lp_supply)}
+                  </div>
+                  <div class="text-[9px] uppercase tracking-[0.14em] text-white/80 mt-1">
+                    {@lp_token} supply
+                  </div>
                 </div>
                 <div class="bg-black/25 backdrop-blur ring-1 ring-white/15 rounded-xl px-3 py-2">
-                  <div class="font-mono font-bold text-[18px] text-white leading-none tabular-nums"><%= @bets_24h %></div>
-                  <div class="text-[9px] uppercase tracking-[0.14em] text-white/80 mt-1">Bets · <%= String.downcase(@timeframe) %></div>
+                  <div class="font-mono font-bold text-[18px] text-white leading-none tabular-nums">
+                    {@bets_24h}
+                  </div>
+                  <div class="text-[9px] uppercase tracking-[0.14em] text-white/80 mt-1">
+                    Bets · {String.downcase(@timeframe)}
+                  </div>
                 </div>
               </div>
               <div class="hidden md:flex items-center flex-wrap gap-x-8 gap-y-3">
                 <div>
-                  <div class="font-mono font-bold text-[24px] text-white leading-none tabular-nums"><%= format_tvl(@tvl) %></div>
-                  <div class="text-[10px] uppercase tracking-[0.14em] text-white/90 mt-1.5">TVL · <%= @token %></div>
+                  <div class="font-mono font-bold text-[24px] text-white leading-none tabular-nums">
+                    {format_tvl(@tvl)}
+                  </div>
+                  <div class="text-[10px] uppercase tracking-[0.14em] text-white/90 mt-1.5">
+                    TVL · {@token}
+                  </div>
                 </div>
                 <div class="w-px h-10 bg-white/30"></div>
                 <div>
-                  <div class="font-mono font-bold text-[24px] text-white leading-none tabular-nums"><%= format_number(@lp_supply) %></div>
-                  <div class="text-[10px] uppercase tracking-[0.14em] text-white/90 mt-1.5"><%= @lp_token %> supply</div>
+                  <div class="font-mono font-bold text-[24px] text-white leading-none tabular-nums">
+                    {format_number(@lp_supply)}
+                  </div>
+                  <div class="text-[10px] uppercase tracking-[0.14em] text-white/90 mt-1.5">
+                    {@lp_token} supply
+                  </div>
                 </div>
                 <div class="w-px h-10 bg-white/30"></div>
                 <div>
-                  <div class="font-mono font-bold text-[24px] text-white leading-none tabular-nums"><%= @bets_24h %></div>
-                  <div class="text-[10px] uppercase tracking-[0.14em] text-white/90 mt-1.5">Bets · <%= String.downcase(@timeframe) %></div>
+                  <div class="font-mono font-bold text-[24px] text-white leading-none tabular-nums">
+                    {@bets_24h}
+                  </div>
+                  <div class="text-[10px] uppercase tracking-[0.14em] text-white/90 mt-1.5">
+                    Bets · {String.downcase(@timeframe)}
+                  </div>
                 </div>
               </div>
             </div>
@@ -615,35 +705,47 @@ defmodule BlocksterV2Web.PoolDetailLive do
             <div class="col-span-12 md:col-span-5 mt-3 md:mt-2">
               <div class="bg-white/95 backdrop-blur rounded-2xl p-3.5 md:p-5 ring-1 ring-black/5 shadow-2xl">
                 <div class="flex items-center justify-between mb-2 md:mb-3">
-                  <div class="text-[10px] font-bold uppercase tracking-[0.14em] text-neutral-500">Your position</div>
+                  <div class="text-[10px] font-bold uppercase tracking-[0.14em] text-neutral-500">
+                    Your position
+                  </div>
                   <span class="text-[9px] font-mono text-neutral-500">
-                    <%= if @current_share_pct > 0, do: :erlang.float_to_binary(@current_share_pct, decimals: 2) <> "% pool share", else: "— pool share" %>
+                    {if @current_share_pct > 0,
+                      do: :erlang.float_to_binary(@current_share_pct, decimals: 2) <> "% pool share",
+                      else: "— pool share"}
                   </span>
                 </div>
                 <div class="flex items-baseline gap-2 mb-0.5 md:mb-1">
-                  <span class="font-mono font-bold text-[26px] md:text-[36px] text-[#141414] leading-none tabular-nums"><%= format_lp(@user_lp) %></span>
-                  <span class="text-[11px] md:text-[12px] text-neutral-500"><%= @lp_token %></span>
+                  <span class="font-mono font-bold text-[26px] md:text-[36px] text-[#141414] leading-none tabular-nums">
+                    {format_lp(@user_lp)}
+                  </span>
+                  <span class="text-[11px] md:text-[12px] text-neutral-500">{@lp_token}</span>
                 </div>
                 <div class="text-[10px] md:text-[11px] text-neutral-500 font-mono mb-3 md:mb-4">
-                  <%= position_value_line(@user_lp, @lp_price, @token) %>
+                  {position_value_line(@user_lp, @lp_price, @token)}
                 </div>
                 <div class="grid grid-cols-3 gap-2 pt-2.5 md:pt-3 border-t border-neutral-200">
                   <div>
-                    <div class="text-[9px] uppercase tracking-[0.12em] text-neutral-500">Cost basis</div>
+                    <div class="text-[9px] uppercase tracking-[0.12em] text-neutral-500">
+                      Cost basis
+                    </div>
                     <div class="font-mono font-bold text-[13px] md:text-[14px] text-[#141414] whitespace-nowrap overflow-hidden text-ellipsis">
-                      <%= format_cost_basis(@position_summary, @token) %>
+                      {format_cost_basis(@position_summary, @token)}
                     </div>
                   </div>
                   <div>
-                    <div class="text-[9px] uppercase tracking-[0.12em] text-neutral-500">Unrealized P/L</div>
+                    <div class="text-[9px] uppercase tracking-[0.12em] text-neutral-500">
+                      Unrealized P/L
+                    </div>
                     <div class={"font-mono font-bold text-[13px] md:text-[14px] whitespace-nowrap overflow-hidden text-ellipsis " <> pnl_color(@position_summary)}>
-                      <%= format_pnl(@position_summary, @token) %>
+                      {format_pnl(@position_summary, @token)}
                     </div>
                   </div>
                   <div>
-                    <div class="text-[9px] uppercase tracking-[0.12em] text-neutral-500">Realized P/L</div>
+                    <div class="text-[9px] uppercase tracking-[0.12em] text-neutral-500">
+                      Realized P/L
+                    </div>
                     <div class={"font-mono font-bold text-[13px] md:text-[14px] whitespace-nowrap overflow-hidden text-ellipsis " <> realized_color(@position_summary)}>
-                      <%= format_realized_gain(@position_summary, @token) %>
+                      {format_realized_gain(@position_summary, @token)}
                     </div>
                   </div>
                 </div>
@@ -659,15 +761,20 @@ defmodule BlocksterV2Web.PoolDetailLive do
       <main class="max-w-[1280px] mx-auto px-6">
         <section class="pt-10 pb-12">
           <div class="grid grid-cols-12 gap-6 items-start">
-
             <%!-- LEFT: sticky order form --%>
             <div class="col-span-12 lg:col-span-4 lg:sticky lg:top-[84px] self-start">
               <div class="bg-white rounded-2xl border border-neutral-200/70 shadow-[0_1px_3px_rgba(0,0,0,0.04)] overflow-hidden">
                 <%!-- Deposit / Withdraw tabs --%>
                 <div class="p-2">
                   <div class="flex bg-neutral-100 rounded-full p-1 gap-1">
-                    <% deposit_tab_class = if @tab == :deposit, do: "bg-white text-[#141414] shadow-[0_2px_8px_rgba(0,0,0,0.06)]", else: "text-neutral-500 hover:text-[#141414]" %>
-                    <% withdraw_tab_class = if @tab == :withdraw, do: "bg-white text-[#141414] shadow-[0_2px_8px_rgba(0,0,0,0.06)]", else: "text-neutral-500 hover:text-[#141414]" %>
+                    <% deposit_tab_class =
+                      if @tab == :deposit,
+                        do: "bg-white text-[#141414] shadow-[0_2px_8px_rgba(0,0,0,0.06)]",
+                        else: "text-neutral-500 hover:text-[#141414]" %>
+                    <% withdraw_tab_class =
+                      if @tab == :withdraw,
+                        do: "bg-white text-[#141414] shadow-[0_2px_8px_rgba(0,0,0,0.06)]",
+                        else: "text-neutral-500 hover:text-[#141414]" %>
                     <button
                       type="button"
                       phx-click="switch_tab"
@@ -689,40 +796,57 @@ defmodule BlocksterV2Web.PoolDetailLive do
 
                 <%!-- Your wallet balances --%>
                 <div class="px-5 pt-2 pb-4 border-b border-neutral-100">
-                  <div class="text-[10px] font-bold uppercase tracking-[0.14em] text-neutral-500 mb-3">Your wallet</div>
+                  <div class="text-[10px] font-bold uppercase tracking-[0.14em] text-neutral-500 mb-3">
+                    Your wallet
+                  </div>
                   <div class="grid grid-cols-2 gap-3">
                     <div class="bg-neutral-50 border border-neutral-200/70 rounded-xl p-3">
                       <div class="flex items-center gap-2 mb-1">
-                        <div class="w-4 h-4 rounded-full grid place-items-center" style={wallet_icon_bg(@is_sol)}>
-                          <span class="font-bold text-[6px] text-black"><%= @token %></span>
+                        <div
+                          class="w-4 h-4 rounded-full grid place-items-center"
+                          style={wallet_icon_bg(@is_sol)}
+                        >
+                          <span class="font-bold text-[6px] text-black">{@token}</span>
                         </div>
-                        <span class="text-[10px] text-neutral-500"><%= @token %></span>
+                        <span class="text-[10px] text-neutral-500">{@token}</span>
                       </div>
-                      <div class="font-mono font-bold text-[16px] text-[#141414] tabular-nums"><%= format_balance(@balances[@token]) %></div>
+                      <div class="font-mono font-bold text-[16px] text-[#141414] tabular-nums">
+                        {format_balance(@balances[@token])}
+                      </div>
                     </div>
                     <div class="bg-neutral-50 border border-neutral-200/70 rounded-xl p-3">
                       <div class="flex items-center gap-2 mb-1">
-                        <div class="w-4 h-4 rounded-full grid place-items-center opacity-60" style={wallet_icon_bg(@is_sol)}>
-                          <span class="font-bold text-[6px] text-black"><%= @token %></span>
+                        <div
+                          class="w-4 h-4 rounded-full grid place-items-center opacity-60"
+                          style={wallet_icon_bg(@is_sol)}
+                        >
+                          <span class="font-bold text-[6px] text-black">{@token}</span>
                         </div>
-                        <span class="text-[10px] text-neutral-500"><%= @lp_token %></span>
+                        <span class="text-[10px] text-neutral-500">{@lp_token}</span>
                       </div>
-                      <div class="font-mono font-bold text-[16px] text-[#141414] tabular-nums"><%= format_lp(@user_lp) %></div>
+                      <div class="font-mono font-bold text-[16px] text-[#141414] tabular-nums">
+                        {format_lp(@user_lp)}
+                      </div>
                     </div>
                   </div>
                 </div>
 
                 <%!-- LP Price line --%>
                 <div class="px-5 pt-4 pb-2 flex items-center justify-between">
-                  <div class="text-[10px] font-bold uppercase tracking-[0.14em] text-neutral-500"><%= @lp_token %> Price</div>
-                  <div class="font-mono text-[12px] text-[#141414]">1 <%= @lp_token %> = <span class="font-bold"><%= format_lp_price(@lp_price) %> <%= @token %></span></div>
+                  <div class="text-[10px] font-bold uppercase tracking-[0.14em] text-neutral-500">
+                    {@lp_token} Price
+                  </div>
+                  <div class="font-mono text-[12px] text-[#141414]">
+                    1 {@lp_token} =
+                    <span class="font-bold">{format_lp_price(@lp_price)} {@token}</span>
+                  </div>
                 </div>
 
                 <%!-- Amount input --%>
                 <div class="px-5 pt-3">
                   <div class="flex items-center justify-between mb-2">
                     <div class="text-[10px] font-bold uppercase tracking-[0.14em] text-neutral-500">
-                      <%= if @tab == :deposit, do: "Deposit amount", else: "Withdraw amount" %>
+                      {if @tab == :deposit, do: "Deposit amount", else: "Withdraw amount"}
                     </div>
                     <div class="flex items-center gap-1.5">
                       <button
@@ -737,7 +861,7 @@ defmodule BlocksterV2Web.PoolDetailLive do
                         phx-click="set_max"
                         class="px-2.5 py-1 rounded-full bg-[#064e3b] border border-[#064e3b] font-mono text-[10px] font-bold text-white hover:opacity-90 transition-opacity cursor-pointer"
                       >
-                        MAX <%= format_max_display(@deposit_balance) %>
+                        MAX {format_max_display(@deposit_balance)}
                       </button>
                     </div>
                   </div>
@@ -745,7 +869,10 @@ defmodule BlocksterV2Web.PoolDetailLive do
                        LiveView event in LV 1.x without a form wrapper. Wrap so the
                        phx-change on the form is the primary binding and phx-keyup
                        stays as the instant-feedback secondary. --%>
-                  <form phx-change="update_amount" class="bg-neutral-50 border border-neutral-200 rounded-2xl px-5 py-4 flex items-center gap-3">
+                  <form
+                    phx-change="update_amount"
+                    class="bg-neutral-50 border border-neutral-200 rounded-2xl px-5 py-4 flex items-center gap-3"
+                  >
                     <input
                       type="text"
                       inputmode="decimal"
@@ -757,32 +884,48 @@ defmodule BlocksterV2Web.PoolDetailLive do
                       autocomplete="off"
                       class="flex-1 bg-transparent border-0 outline-none font-mono font-bold text-[28px] text-[#141414] tracking-tight w-full focus:outline-none"
                     />
-                    <div class="text-[14px] text-neutral-500 shrink-0"><%= @deposit_token %></div>
+                    <div class="text-[14px] text-neutral-500 shrink-0">{@deposit_token}</div>
                   </form>
                   <div class="flex items-center justify-between mt-2 text-[10px] font-mono text-neutral-400">
-                    <span>Balance · <%= format_balance(@deposit_balance) %> <%= @deposit_token %></span>
-                    <span><%= estimate_dollar_value(@amount, @deposit_token) %></span>
+                    <span>Balance · {format_balance(@deposit_balance)} {@deposit_token}</span>
+                    <span>{estimate_dollar_value(@amount, @deposit_token)}</span>
                   </div>
                 </div>
 
                 <%!-- Output preview --%>
                 <div class="px-5 pt-5">
-                  <% preview_bg = if @is_sol, do: "bg-[#00DC82]/8 border-[#00DC82]/25", else: "bg-[#CAFC00]/10 border-[#CAFC00]/40" %>
+                  <% preview_bg =
+                    if @is_sol,
+                      do: "bg-[#00DC82]/8 border-[#00DC82]/25",
+                      else: "bg-[#CAFC00]/10 border-[#CAFC00]/40" %>
                   <% preview_label = if @is_sol, do: "text-[#064e3b]", else: "text-[#4d6800]" %>
                   <% preview_muted = if @is_sol, do: "text-[#064e3b]/70", else: "text-[#4d6800]/70" %>
-                  <% preview_border = if @is_sol, do: "border-[#00DC82]/20", else: "border-[#CAFC00]/30" %>
+                  <% preview_border =
+                    if @is_sol, do: "border-[#00DC82]/20", else: "border-[#CAFC00]/30" %>
                   <div class={"rounded-2xl p-4 border " <> preview_bg}>
                     <div class="flex items-center justify-between mb-1.5">
-                      <div class={"text-[10px] font-bold uppercase tracking-[0.14em] " <> preview_label}>You receive ≈</div>
+                      <div class={"text-[10px] font-bold uppercase tracking-[0.14em] " <> preview_label}>
+                        You receive ≈
+                      </div>
                       <div class={"text-[10px] font-mono " <> preview_muted}>est.</div>
                     </div>
                     <div class="flex items-baseline gap-2">
-                      <span class={"font-mono font-bold text-[28px] leading-none tabular-nums " <> preview_label}><%= estimate_output(@amount, @lp_price, @multiply) %></span>
-                      <span class={"text-[12px] " <> preview_muted}><%= @output_token %></span>
+                      <span class={"font-mono font-bold text-[28px] leading-none tabular-nums " <> preview_label}>
+                        {estimate_output(@amount, @lp_price, @multiply)}
+                      </span>
+                      <span class={"text-[12px] " <> preview_muted}>{@output_token}</span>
                     </div>
-                    <div :if={@tab == :deposit} class={"mt-2 pt-2 border-t flex items-center justify-between text-[10px] font-mono " <> preview_border <> " " <> preview_muted}>
+                    <div
+                      :if={@tab == :deposit}
+                      class={"mt-2 pt-2 border-t flex items-center justify-between text-[10px] font-mono " <> preview_border <> " " <> preview_muted}
+                    >
                       <span>New pool share</span>
-                      <span class={"font-bold " <> preview_label}><%= format_pool_share(@new_share_pct) %> <%= share_delta_label(@current_share_pct, @new_share_pct) %></span>
+                      <span class={"font-bold " <> preview_label}>
+                        {format_pool_share(@new_share_pct)} {share_delta_label(
+                          @current_share_pct,
+                          @new_share_pct
+                        )}
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -800,11 +943,27 @@ defmodule BlocksterV2Web.PoolDetailLive do
                         <% @processing -> %>
                           Processing...
                         <% @tab == :deposit -> %>
-                          <%= "Deposit " <> format_submit_amount(@amount) <> " " <> @token %>
-                          <svg class="w-4 h-4" viewBox="0 0 20 20" fill="none"><path d="M3 10h12m0 0l-4-4m4 4l-4 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                          {"Deposit " <> format_submit_amount(@amount) <> " " <> @token}
+                          <svg class="w-4 h-4" viewBox="0 0 20 20" fill="none">
+                            <path
+                              d="M3 10h12m0 0l-4-4m4 4l-4 4"
+                              stroke="currentColor"
+                              stroke-width="2"
+                              stroke-linecap="round"
+                              stroke-linejoin="round"
+                            />
+                          </svg>
                         <% true -> %>
-                          <%= "Withdraw " <> format_submit_amount(@amount) <> " " <> @lp_token %>
-                          <svg class="w-4 h-4" viewBox="0 0 20 20" fill="none"><path d="M3 10h12m0 0l-4-4m4 4l-4 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                          {"Withdraw " <> format_submit_amount(@amount) <> " " <> @lp_token}
+                          <svg class="w-4 h-4" viewBox="0 0 20 20" fill="none">
+                            <path
+                              d="M3 10h12m0 0l-4-4m4 4l-4 4"
+                              stroke="currentColor"
+                              stroke-width="2"
+                              stroke-linecap="round"
+                              stroke-linejoin="round"
+                            />
+                          </svg>
                       <% end %>
                     </button>
                   <% else %>
@@ -816,20 +975,39 @@ defmodule BlocksterV2Web.PoolDetailLive do
                       Connect Wallet
                     </button>
                   <% end %>
-                  <div class="mt-2.5 text-[10px] text-neutral-500 text-center">No lockup · Instant withdraw · Solana fee ~0.0001 SOL</div>
+                  <div class="mt-2.5 text-[10px] text-neutral-500 text-center">
+                    No lockup · Instant withdraw · Solana fee ~0.0001 SOL
+                  </div>
                 </div>
               </div>
 
               <%!-- Helpful info card --%>
               <div class="mt-4 bg-neutral-50 border border-neutral-200/70 rounded-2xl p-5">
-                <div class="text-[10px] font-bold uppercase tracking-[0.14em] text-neutral-500 mb-2">How earnings work</div>
+                <div class="text-[10px] font-bold uppercase tracking-[0.14em] text-neutral-500 mb-2">
+                  How earnings work
+                </div>
                 <p class="text-[11px] text-neutral-600 leading-[1.55] mb-3">
-                  Every losing bet adds to the <%= @token %> vault. Every winning bet pays out from it. Over time, the sub-1% house edge grows the LP price.
+                  Every losing bet adds to the {@token} vault. Every winning bet pays out from it. Over time, the sub-1% house edge grows the LP price.
                 </p>
                 <div class="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] font-mono">
-                  <.link navigate={~p"/docs/pools"} class="text-neutral-600 hover:text-[#141414] transition-colors cursor-pointer">How pools work ↗</.link>
-                  <.link navigate={~p"/docs/smart-contracts"} class="text-neutral-600 hover:text-[#141414] transition-colors cursor-pointer">Smart contracts ↗</.link>
-                  <.link navigate={~p"/docs/security-audit"} class="text-neutral-600 hover:text-[#141414] transition-colors cursor-pointer">Security audit ↗</.link>
+                  <.link
+                    navigate={~p"/docs/pools"}
+                    class="text-neutral-600 hover:text-[#141414] transition-colors cursor-pointer"
+                  >
+                    How pools work ↗
+                  </.link>
+                  <.link
+                    navigate={~p"/docs/smart-contracts"}
+                    class="text-neutral-600 hover:text-[#141414] transition-colors cursor-pointer"
+                  >
+                    Smart contracts ↗
+                  </.link>
+                  <.link
+                    navigate={~p"/docs/security-audit"}
+                    class="text-neutral-600 hover:text-[#141414] transition-colors cursor-pointer"
+                  >
+                    Security audit ↗
+                  </.link>
                 </div>
               </div>
 
@@ -837,7 +1015,9 @@ defmodule BlocksterV2Web.PoolDetailLive do
                 <div class="mt-4 bg-white border border-neutral-200/70 rounded-2xl p-4">
                   <div class="flex items-center justify-between text-[11px] text-neutral-500">
                     <span>Pool share</span>
-                    <span class="font-bold text-[#141414]"><%= format_pool_share(@current_share_pct) %></span>
+                    <span class="font-bold text-[#141414]">
+                      {format_pool_share(@current_share_pct)}
+                    </span>
                   </div>
                 </div>
               <% end %>
@@ -931,6 +1111,7 @@ defmodule BlocksterV2Web.PoolDetailLive do
       :error -> false
     end
   end
+
   defp valid_amount?(_), do: false
 
   defp parse_amount(amount) when is_binary(amount) do
@@ -939,6 +1120,7 @@ defmodule BlocksterV2Web.PoolDetailLive do
       :error -> 0.0
     end
   end
+
   defp parse_amount(_), do: 0.0
 
   # Format helpers accept both integer and float. PubSub payloads
@@ -970,7 +1152,9 @@ defmodule BlocksterV2Web.PoolDetailLive do
 
   defp format_lp(_), do: "0"
 
-  defp format_lp_price(val) when is_number(val) and val > 0, do: :erlang.float_to_binary(val / 1.0, decimals: 6)
+  defp format_lp_price(val) when is_number(val) and val > 0,
+    do: :erlang.float_to_binary(val / 1.0, decimals: 6)
+
   defp format_lp_price(_), do: "1.000000"
 
   defp estimate_output(amount, lp_price, multiply) do
@@ -978,25 +1162,48 @@ defmodule BlocksterV2Web.PoolDetailLive do
       {a, p} when a > 0 and is_number(p) and p > 0 ->
         result = if multiply, do: a * p, else: a / p
         :erlang.float_to_binary(result, decimals: 4)
+
       _ ->
         "0"
     end
   end
 
-  defp format_activity(%{type: type, game: game, game_id: game_id, bet_amount: bet_amount, payout: payout, wallet: wallet, vault_type: vault_type, difficulty: difficulty, predictions: predictions, results: results, commitment_sig: commitment_sig, bet_sig: bet_sig, settlement_sig: settlement_sig, status: status, created_at: created_at}) do
+  defp format_activity(%{
+         type: type,
+         game: game,
+         game_id: game_id,
+         bet_amount: bet_amount,
+         payout: payout,
+         wallet: wallet,
+         vault_type: vault_type,
+         difficulty: difficulty,
+         predictions: predictions,
+         results: results,
+         commitment_sig: commitment_sig,
+         bet_sig: bet_sig,
+         settlement_sig: settlement_sig,
+         status: status,
+         created_at: created_at
+       }) do
     token = String.upcase(vault_type)
     decimals = if vault_type == "sol", do: 4, else: 2
 
     bet_str = format_amount(bet_amount, decimals)
-    payout_str = if type == "win" and is_number(payout), do: format_amount(payout, decimals), else: nil
 
-    profit = cond do
-      type == "win" and is_number(bet_amount) and is_number(payout) ->
-        "+#{format_amount(payout - bet_amount, decimals)} #{token}"
-      type == "loss" and is_number(bet_amount) ->
-        "-#{format_amount(bet_amount, decimals)} #{token}"
-      true -> ""
-    end
+    payout_str =
+      if type == "win" and is_number(payout), do: format_amount(payout, decimals), else: nil
+
+    profit =
+      cond do
+        type == "win" and is_number(bet_amount) and is_number(payout) ->
+          "+#{format_amount(payout - bet_amount, decimals)} #{token}"
+
+        type == "loss" and is_number(bet_amount) ->
+          "-#{format_amount(bet_amount, decimals)} #{token}"
+
+        true ->
+          ""
+      end
 
     %{
       "type" => type,
@@ -1022,7 +1229,7 @@ defmodule BlocksterV2Web.PoolDetailLive do
   defp load_pool_activities(vault_type) do
     :mnesia.dirty_index_read(:pool_activities, vault_type, :vault_type)
     |> Enum.sort_by(fn record -> elem(record, 1) end, :desc)
-    |> Enum.take(50)
+    |> Enum.take(200)
     |> Enum.map(fn {:pool_activities, _id, type, _vt, amount, wallet, created_at} ->
       token = String.upcase(vault_type)
       decimals = if vault_type == "sol", do: 4, else: 2
@@ -1048,35 +1255,54 @@ defmodule BlocksterV2Web.PoolDetailLive do
   end
 
   defp format_amount(nil, _), do: "0"
+
   defp format_amount(amount, decimals) when is_number(amount) do
     abs_val = abs(amount / 1.0)
-    d = cond do
-      abs_val >= 1.0 -> decimals
-      abs_val >= 0.01 -> max(decimals, 4)
-      abs_val >= 0.0001 -> max(decimals, 6)
-      abs_val > 0 -> max(decimals, 8)
-      true -> decimals
-    end
-    :erlang.float_to_binary(amount / 1.0, decimals: d) |> String.trim_trailing("0") |> String.trim_trailing(".")
+
+    d =
+      cond do
+        abs_val >= 1.0 -> decimals
+        abs_val >= 0.01 -> max(decimals, 4)
+        abs_val >= 0.0001 -> max(decimals, 6)
+        abs_val > 0 -> max(decimals, 8)
+        true -> decimals
+      end
+
+    :erlang.float_to_binary(amount / 1.0, decimals: d)
+    |> String.trim_trailing("0")
+    |> String.trim_trailing(".")
   end
+
   defp format_amount(_, _), do: "0"
 
   @multiplier_map %{
-    -4 => "1.02x", -3 => "1.05x", -2 => "1.13x", -1 => "1.32x",
-    1 => "1.98x", 2 => "3.96x", 3 => "7.92x", 4 => "15.84x", 5 => "31.68x"
+    -4 => "1.02x",
+    -3 => "1.05x",
+    -2 => "1.13x",
+    -1 => "1.32x",
+    1 => "1.98x",
+    2 => "3.96x",
+    3 => "7.92x",
+    4 => "15.84x",
+    5 => "31.68x"
   }
 
-  defp format_multiplier(difficulty) when is_integer(difficulty), do: Map.get(@multiplier_map, difficulty)
+  defp format_multiplier(difficulty) when is_integer(difficulty),
+    do: Map.get(@multiplier_map, difficulty)
+
   defp format_multiplier(_), do: nil
 
   defp truncate_wallet(wallet) when byte_size(wallet) > 8 do
     "#{String.slice(wallet, 0, 4)}..#{String.slice(wallet, -4, 4)}"
   end
+
   defp truncate_wallet(wallet), do: wallet
 
   defp time_ago(nil), do: ""
+
   defp time_ago(unix) when is_integer(unix) do
     diff = System.system_time(:second) - unix
+
     cond do
       diff < 60 -> "just now"
       diff < 3600 -> "#{div(diff, 60)}m ago"
@@ -1111,8 +1337,12 @@ defmodule BlocksterV2Web.PoolDetailLive do
 
   defp filter_activities(activities, :all), do: activities
   defp filter_activities(activities, :wins), do: Enum.filter(activities, &(&1["type"] == "win"))
-  defp filter_activities(activities, :losses), do: Enum.filter(activities, &(&1["type"] == "loss"))
-  defp filter_activities(activities, :liquidity), do: Enum.filter(activities, &(&1["type"] in ["deposit", "withdraw"]))
+
+  defp filter_activities(activities, :losses),
+    do: Enum.filter(activities, &(&1["type"] == "loss"))
+
+  defp filter_activities(activities, :liquidity),
+    do: Enum.filter(activities, &(&1["type"] in ["deposit", "withdraw"]))
 
   # ── Render helpers for redesigned template ──
 
@@ -1177,11 +1407,12 @@ defmodule BlocksterV2Web.PoolDetailLive do
   defp format_cost_basis(_, _), do: "—"
 
   defp format_pnl(%{unrealized_pnl: pnl}, token) when is_number(pnl) do
-    sign = cond do
-      pnl > 0.0001 -> "+ "
-      pnl < -0.0001 -> "− "
-      true -> ""
-    end
+    sign =
+      cond do
+        pnl > 0.0001 -> "+ "
+        pnl < -0.0001 -> "− "
+        true -> ""
+      end
 
     "#{sign}#{format_position_amount(abs(pnl), token)} #{token}"
   end
@@ -1189,11 +1420,12 @@ defmodule BlocksterV2Web.PoolDetailLive do
   defp format_pnl(_, _), do: "—"
 
   defp format_realized_gain(%{realized_gain: gain}, token) when is_number(gain) do
-    sign = cond do
-      gain > 0.0001 -> "+ "
-      gain < -0.0001 -> "− "
-      true -> ""
-    end
+    sign =
+      cond do
+        gain > 0.0001 -> "+ "
+        gain < -0.0001 -> "− "
+        true -> ""
+      end
 
     "#{sign}#{format_position_amount(abs(gain), token)} #{token}"
   end
@@ -1224,7 +1456,8 @@ defmodule BlocksterV2Web.PoolDetailLive do
   defp format_position_amount(val, "BUX"), do: :erlang.float_to_binary(val / 1.0, decimals: 2)
   defp format_position_amount(val, _), do: :erlang.float_to_binary(val / 1.0, decimals: 4)
 
-  defp position_value_line(user_lp, lp_price, token) when is_number(user_lp) and user_lp > 0 and is_number(lp_price) and lp_price > 0 do
+  defp position_value_line(user_lp, lp_price, token)
+       when is_number(user_lp) and user_lp > 0 and is_number(lp_price) and lp_price > 0 do
     worth = user_lp * lp_price
 
     # SHOP/POOL: coerce to float before `:erlang.float_to_binary` — `worth`
@@ -1270,13 +1503,15 @@ defmodule BlocksterV2Web.PoolDetailLive do
     _ -> 0.0
   end
 
-  defp compute_share_pct(user_lp, supply) when is_number(user_lp) and user_lp > 0 and is_number(supply) and supply > 0 do
+  defp compute_share_pct(user_lp, supply)
+       when is_number(user_lp) and user_lp > 0 and is_number(supply) and supply > 0 do
     user_lp / supply * 100
   end
 
   defp compute_share_pct(_, _), do: 0.0
 
-  defp compute_new_share_pct(user_lp, supply, lp_price, amount, :deposit) when is_number(supply) and supply > 0 and is_number(lp_price) and lp_price > 0 do
+  defp compute_new_share_pct(user_lp, supply, lp_price, amount, :deposit)
+       when is_number(supply) and supply > 0 and is_number(lp_price) and lp_price > 0 do
     a = parse_amount(amount)
 
     if a > 0 do
@@ -1289,7 +1524,8 @@ defmodule BlocksterV2Web.PoolDetailLive do
     end
   end
 
-  defp compute_new_share_pct(user_lp, supply, _lp_price, amount, :withdraw) when is_number(supply) and supply > 0 do
+  defp compute_new_share_pct(user_lp, supply, _lp_price, amount, :withdraw)
+       when is_number(supply) and supply > 0 do
     a = parse_amount(amount)
 
     if a > 0 do
@@ -1302,7 +1538,8 @@ defmodule BlocksterV2Web.PoolDetailLive do
     end
   end
 
-  defp compute_new_share_pct(user_lp, supply, _lp_price, _amount, _tab), do: compute_share_pct(user_lp, supply)
+  defp compute_new_share_pct(user_lp, supply, _lp_price, _amount, _tab),
+    do: compute_share_pct(user_lp, supply)
 
   defp format_pool_share(pct) when is_number(pct) and pct >= 1,
     do: "#{:erlang.float_to_binary(pct / 1.0, decimals: 2)}%"

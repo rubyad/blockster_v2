@@ -52,7 +52,11 @@ defmodule BlocksterV2Web.PoolComponents do
             )
           ]}>
             <img
-              src={if @is_sol, do: "https://ik.imagekit.io/blockster/solana-sol-logo.png", else: "https://ik.imagekit.io/blockster/blockster-icon.png"}
+              src={
+                if @is_sol,
+                  do: "https://ik.imagekit.io/blockster/solana-sol-logo.png",
+                  else: "https://ik.imagekit.io/blockster/blockster-icon.png"
+              }
               alt={if @is_sol, do: "SOL", else: "BUX"}
               class="w-6 h-6 rounded-full"
             />
@@ -60,10 +64,10 @@ defmodule BlocksterV2Web.PoolComponents do
 
           <div class="flex-1 min-w-0">
             <h2 class="text-lg font-haas_medium_65 text-gray-900 tracking-tight">
-              <%= if @is_sol, do: "SOL Pool", else: "BUX Pool" %>
+              {if @is_sol, do: "SOL Pool", else: "BUX Pool"}
             </h2>
             <p class="text-xs text-gray-400 font-haas_roman_55 mt-0.5">
-              <%= if @is_sol, do: "Earn from SOL wagers", else: "Earn from BUX wagers" %>
+              {if @is_sol, do: "Earn from SOL wagers", else: "Earn from BUX wagers"}
             </p>
           </div>
 
@@ -73,7 +77,9 @@ defmodule BlocksterV2Web.PoolComponents do
               <span class={"absolute inline-flex h-full w-full rounded-full opacity-75 animate-ping #{if @is_sol, do: "bg-violet-400", else: "bg-amber-400"}"} />
               <span class={"relative inline-flex rounded-full h-2 w-2 #{if @is_sol, do: "bg-violet-500", else: "bg-amber-500"}"} />
             </span>
-            <span class="text-[10px] text-gray-400 font-haas_roman_55 uppercase tracking-wider">Live</span>
+            <span class="text-[10px] text-gray-400 font-haas_roman_55 uppercase tracking-wider">
+              Live
+            </span>
           </div>
         </div>
       </div>
@@ -126,7 +132,13 @@ defmodule BlocksterV2Web.PoolComponents do
           ]}
         >
           <span>Enter Pool</span>
-          <svg class="w-4 h-4 transition-transform duration-200 group-hover:translate-x-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <svg
+            class="w-4 h-4 transition-transform duration-200 group-hover:translate-x-0.5"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            stroke-width="2"
+          >
             <path stroke-linecap="round" stroke-linejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
           </svg>
         </.link>
@@ -151,18 +163,20 @@ defmodule BlocksterV2Web.PoolComponents do
       <%!-- Chart Header --%>
       <div class="px-6 py-4 border-b border-neutral-100 flex items-center justify-between flex-wrap gap-3">
         <div class="min-w-0">
-          <div class="text-[10px] uppercase tracking-[0.14em] text-neutral-500 font-bold mb-1"><%= @lp_token %> price</div>
+          <div class="text-[10px] uppercase tracking-[0.14em] text-neutral-500 font-bold mb-1">
+            {@lp_token} price
+          </div>
           <div class="flex items-baseline gap-2 flex-wrap">
             <span class="font-mono font-bold text-[28px] text-[#141414] leading-none tracking-tight tabular-nums">
-              <%= if @loading, do: "...", else: format_price(@lp_price) %>
+              {if @loading, do: "...", else: format_price(@lp_price)}
             </span>
-            <span class="text-[12px] text-neutral-500"><%= @token %></span>
+            <span class="text-[12px] text-neutral-500">{@token}</span>
             <span
               :if={@chart_price_stats && @chart_price_stats.change_pct}
               class={"text-[12px] font-mono font-bold ml-2 tabular-nums " <>
                 if(@chart_price_stats.change_pct >= 0, do: "text-[#22C55E]", else: "text-[#EF4444]")}
             >
-              <%= format_change_pct(@chart_price_stats.change_pct) %>
+              {format_change_pct(@chart_price_stats.change_pct)}
             </span>
             <span class="text-[10px] text-neutral-400 font-mono">24h</span>
           </div>
@@ -176,7 +190,7 @@ defmodule BlocksterV2Web.PoolComponents do
               phx-value-timeframe={tf}
               class={"px-3 py-1.5 rounded-full font-mono text-[10px] font-bold tracking-[0.04em] transition-colors cursor-pointer " <> if(@timeframe == tf, do: "bg-[#141414] text-white", else: "text-neutral-500 hover:text-[#141414]")}
             >
-              <%= tf %>
+              {tf}
             </button>
           <% end %>
         </div>
@@ -204,16 +218,16 @@ defmodule BlocksterV2Web.PoolComponents do
     ~H"""
     <div class="bg-gray-50/80 rounded-lg px-3.5 py-3 border border-gray-100/80">
       <div class="text-[10px] text-gray-400 font-haas_roman_55 uppercase tracking-wider mb-1.5">
-        <%= @label %>
+        {@label}
       </div>
       <div class="flex items-baseline gap-1">
         <span class={[
           "text-base font-haas_medium_65 tabular-nums tracking-tight",
           @color || "text-gray-900"
         ]}>
-          <%= @value %>
+          {@value}
         </span>
-        <span class="text-[10px] text-gray-400 font-haas_roman_55"><%= @suffix %></span>
+        <span class="text-[10px] text-gray-400 font-haas_roman_55">{@suffix}</span>
       </div>
     </div>
     """
@@ -248,15 +262,19 @@ defmodule BlocksterV2Web.PoolComponents do
 
     lp_price_val = get_vault_stat(assigns.pool_stats, vault, "lpPrice")
     lp_supply_val = get_vault_stat(assigns.pool_stats, vault, "lpSupply")
+
     bankroll_val =
       get_vault_stat(assigns.pool_stats, vault, "netBalance") ||
         get_vault_stat(assigns.pool_stats, vault, "totalBalance")
+
     vol = assigns.period_stats.volume
     total = assigns.period_stats.total
     wins = assigns.period_stats.wins
     profit = assigns.period_stats.profit
     payout = assigns.period_stats.payout
-    house_edge_pct = if is_number(vol) and vol > 0 and is_number(profit), do: profit / vol * 100, else: 0.0
+
+    house_edge_pct =
+      if is_number(vol) and vol > 0 and is_number(profit), do: profit / vol * 100, else: 0.0
 
     assigns =
       assigns
@@ -350,7 +368,9 @@ defmodule BlocksterV2Web.PoolComponents do
   def stat_card(assigns) do
     ~H"""
     <div class="bg-white rounded-2xl border border-neutral-200/70 p-4 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
-      <div class="text-[9px] uppercase tracking-[0.12em] text-neutral-500 font-medium mb-1.5"><%= @label %></div>
+      <div class="text-[9px] uppercase tracking-[0.12em] text-neutral-500 font-medium mb-1.5">
+        {@label}
+      </div>
       <%= if @loading do %>
         <div class="h-5 w-20 bg-gray-200/70 rounded animate-pulse" />
       <% else %>
@@ -358,10 +378,15 @@ defmodule BlocksterV2Web.PoolComponents do
           "font-mono font-bold text-[18px] leading-none tabular-nums",
           @color || "text-[#141414]"
         ]}>
-          <%= @value %><span :if={@value_suffix != ""} class="text-[12px]"><%= @value_suffix %></span><span :if={@unit != ""} class="ml-1 text-[11px] font-normal text-neutral-400"><%= @unit %></span>
+          {@value}<span :if={@value_suffix != ""} class="text-[12px]"><%= @value_suffix %></span><span
+            :if={@unit != ""}
+            class="ml-1 text-[11px] font-normal text-neutral-400"
+          >
+            {@unit}
+          </span>
         </div>
       <% end %>
-      <div :if={@sub_line != ""} class="text-[10px] text-neutral-500 font-mono mt-1"><%= @sub_line %></div>
+      <div :if={@sub_line != ""} class="text-[10px] text-neutral-500 font-mono mt-1">{@sub_line}</div>
     </div>
     """
   end
@@ -385,7 +410,9 @@ defmodule BlocksterV2Web.PoolComponents do
       <div class="px-5 py-3 border-b border-neutral-100 flex items-center justify-between flex-wrap gap-3">
         <div class="flex items-center gap-2">
           <span class="w-1.5 h-1.5 rounded-full bg-[#22C55E] animate-pulse"></span>
-          <span class="text-[10px] uppercase tracking-[0.14em] text-neutral-500 font-bold">Activity · Live</span>
+          <span class="text-[10px] uppercase tracking-[0.14em] text-neutral-500 font-bold">
+            Activity · Live
+          </span>
         </div>
         <div class="flex items-center gap-1.5">
           <%= for {tab, label} <- [{:all, "All"}, {:wins, "Wins"}, {:losses, "Losses"}, {:liquidity, "Liquidity"}] do %>
@@ -395,7 +422,7 @@ defmodule BlocksterV2Web.PoolComponents do
               phx-value-tab={Atom.to_string(tab)}
               class={"px-3 py-1.5 rounded-full font-mono text-[10px] font-bold tracking-[0.04em] transition-colors cursor-pointer " <> if(@activity_tab == tab, do: "bg-[#141414] text-white", else: "text-neutral-500 hover:text-[#141414]")}
             >
-              <%= label %>
+              {label}
             </button>
           <% end %>
         </div>
@@ -405,25 +432,40 @@ defmodule BlocksterV2Web.PoolComponents do
       <%= if @activities == [] do %>
         <div class="text-center py-10 px-5">
           <div class="w-10 h-10 mx-auto mb-3 rounded-full bg-neutral-100 flex items-center justify-center">
-            <svg class="w-5 h-5 text-neutral-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+            <svg
+              class="w-5 h-5 text-neutral-400"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              stroke-width="1.5"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"
+              />
             </svg>
           </div>
           <div class="text-neutral-500 text-sm">No activity yet</div>
           <div class="text-neutral-400 text-xs mt-1">Bets and liquidity events will appear here</div>
         </div>
       <% else %>
-        <div class="divide-y divide-neutral-100">
+        <%!-- Scrollable container; up to 200 events loaded so users
+             with active pools can scroll back through plenty of
+             history. Real offset-paginated infinite scroll is a
+             follow-up if 200 isn't enough. --%>
+        <div class="divide-y divide-neutral-100 max-h-[600px] overflow-y-auto">
           <%= for activity <- @activities do %>
             <.activity_row activity={activity} vault_type={@vault_type} />
           <% end %>
         </div>
       <% end %>
 
-      <%!-- Footer --%>
-      <div class="px-5 py-3 border-t border-neutral-100 flex items-center justify-between">
-        <div class="text-[11px] text-neutral-500">Showing <%= @shown %> of <%= @total %> events</div>
-        <button type="button" class="text-[12px] font-bold text-[#141414] hover:text-[#7D00FF] transition-colors cursor-pointer">Load more →</button>
+      <%!-- Footer count. The old "Load more →" button was a styled-only
+           stub with no phx-click handler — clicking it did nothing.
+           Removed 2026-04-30; scrollable content above replaces it. --%>
+      <div class="px-5 py-3 border-t border-neutral-100">
+        <div class="text-[11px] text-neutral-500">Showing {@shown} events</div>
       </div>
     </div>
     """
@@ -441,22 +483,35 @@ defmodule BlocksterV2Web.PoolComponents do
           "w-7 h-7 rounded-lg border grid place-items-center",
           row_icon_wrapper_class(@activity["type"])
         ]}>
-          <svg class={["w-3.5 h-3.5", row_icon_color(@activity["type"])]} fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-            <%= row_icon_path(@activity["type"]) %>
+          <svg
+            class={["w-3.5 h-3.5", row_icon_color(@activity["type"])]}
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            stroke-width="2.5"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            {row_icon_path(@activity["type"])}
           </svg>
         </div>
         <div class="min-w-0">
           <%= if @activity["game"] && valid_sig?(@activity["commitment_sig"]) do %>
-            <a href={BlocksterV2Web.Solscan.tx_url(@activity["commitment_sig"])} target="_blank" class="text-[12px] font-bold text-[#141414] leading-tight hover:underline cursor-pointer block truncate" title="View commitment tx">
-              <%= row_primary_label(@activity) %>
+            <a
+              href={BlocksterV2Web.Solscan.tx_url(@activity["commitment_sig"])}
+              target="_blank"
+              class="text-[12px] font-bold text-[#141414] leading-tight hover:underline cursor-pointer block truncate"
+              title="View commitment tx"
+            >
+              {row_primary_label(@activity)}
             </a>
           <% else %>
             <div class="text-[12px] font-bold text-[#141414] leading-tight truncate">
-              <%= row_primary_label(@activity) %>
+              {row_primary_label(@activity)}
             </div>
           <% end %>
           <div class="text-[10px] text-neutral-500 truncate">
-            <%= row_secondary_label(@activity) %>
+            {row_secondary_label(@activity)}
           </div>
         </div>
       </div>
@@ -464,18 +519,28 @@ defmodule BlocksterV2Web.PoolComponents do
       <%!-- Col 2: wallet avatar + short wallet --%>
       <div class="flex items-center gap-2 min-w-0">
         <%= if @activity["full_wallet"] do %>
-          <a href={BlocksterV2Web.Solscan.account_url(@activity["full_wallet"])} target="_blank" class="flex items-center gap-2 hover:opacity-80 cursor-pointer min-w-0">
-            <div class="w-6 h-6 rounded-full grid place-items-center text-[8px] font-bold text-[#E8E4DD] shrink-0" style="background: linear-gradient(135deg, #1a1a22 0%, #2a2a35 100%);">
-              <%= row_avatar_initials(@activity["wallet"]) %>
+          <a
+            href={BlocksterV2Web.Solscan.account_url(@activity["full_wallet"])}
+            target="_blank"
+            class="flex items-center gap-2 hover:opacity-80 cursor-pointer min-w-0"
+          >
+            <div
+              class="w-6 h-6 rounded-full grid place-items-center text-[8px] font-bold text-[#E8E4DD] shrink-0"
+              style="background: linear-gradient(135deg, #1a1a22 0%, #2a2a35 100%);"
+            >
+              {row_avatar_initials(@activity["wallet"])}
             </div>
-            <span class="text-[11px] font-mono text-neutral-500 truncate"><%= @activity["wallet"] %></span>
+            <span class="text-[11px] font-mono text-neutral-500 truncate">{@activity["wallet"]}</span>
           </a>
         <% else %>
           <div class="flex items-center gap-2 min-w-0">
-            <div class="w-6 h-6 rounded-full grid place-items-center text-[8px] font-bold text-[#E8E4DD] shrink-0" style="background: linear-gradient(135deg, #1a1a22 0%, #2a2a35 100%);">
-              <%= row_avatar_initials(@activity["wallet"]) %>
+            <div
+              class="w-6 h-6 rounded-full grid place-items-center text-[8px] font-bold text-[#E8E4DD] shrink-0"
+              style="background: linear-gradient(135deg, #1a1a22 0%, #2a2a35 100%);"
+            >
+              {row_avatar_initials(@activity["wallet"])}
             </div>
-            <span class="text-[11px] font-mono text-neutral-500 truncate"><%= @activity["wallet"] %></span>
+            <span class="text-[11px] font-mono text-neutral-500 truncate">{@activity["wallet"]}</span>
           </div>
         <% end %>
       </div>
@@ -483,34 +548,44 @@ defmodule BlocksterV2Web.PoolComponents do
       <%!-- Col 3: profit + bet sub-line --%>
       <div class="text-right">
         <%= if @activity["game_id"] && valid_sig?(@activity["settlement_sig"]) do %>
-          <a href={BlocksterV2Web.Solscan.tx_url(@activity["settlement_sig"])} target="_blank" title="View settlement tx" class={[
-            "font-mono font-bold text-[13px] tabular-nums hover:underline cursor-pointer",
-            profit_text_color(@activity["type"])
-          ]}>
-            <%= @activity["profit"] %>
+          <a
+            href={BlocksterV2Web.Solscan.tx_url(@activity["settlement_sig"])}
+            target="_blank"
+            title="View settlement tx"
+            class={[
+              "font-mono font-bold text-[13px] tabular-nums hover:underline cursor-pointer",
+              profit_text_color(@activity["type"])
+            ]}
+          >
+            {@activity["profit"]}
           </a>
         <% else %>
           <div class={[
             "font-mono font-bold text-[13px] tabular-nums",
             profit_text_color(@activity["type"])
           ]}>
-            <%= @activity["profit"] %>
+            {@activity["profit"]}
           </div>
         <% end %>
         <%= cond do %>
           <% @activity["bet"] && valid_sig?(@activity["bet_sig"]) -> %>
-            <a href={BlocksterV2Web.Solscan.tx_url(@activity["bet_sig"])} target="_blank" title="View bet tx" class="text-[10px] text-neutral-500 font-mono hover:underline cursor-pointer block mt-0.5">
-              bet <%= @activity["bet"] %>
+            <a
+              href={BlocksterV2Web.Solscan.tx_url(@activity["bet_sig"])}
+              target="_blank"
+              title="View bet tx"
+              class="text-[10px] text-neutral-500 font-mono hover:underline cursor-pointer block mt-0.5"
+            >
+              bet {@activity["bet"]}
             </a>
           <% @activity["bet"] -> %>
-            <div class="text-[10px] text-neutral-500 font-mono mt-0.5">bet <%= @activity["bet"] %></div>
+            <div class="text-[10px] text-neutral-500 font-mono mt-0.5">bet {@activity["bet"]}</div>
           <% @activity["type"] == "deposit" -> %>
             <div class="text-[10px] text-neutral-500 font-mono mt-0.5">to vault</div>
           <% @activity["type"] == "withdraw" -> %>
             <div class="text-[10px] text-neutral-500 font-mono mt-0.5">to wallet</div>
           <% true -> %>
             <%= if @activity["time"] do %>
-              <div class="text-[10px] text-neutral-500 font-mono mt-0.5"><%= @activity["time"] %></div>
+              <div class="text-[10px] text-neutral-500 font-mono mt-0.5">{@activity["time"]}</div>
             <% end %>
         <% end %>
       </div>
@@ -518,13 +593,21 @@ defmodule BlocksterV2Web.PoolComponents do
       <%!-- Col 4: tx short link + optional fairness verify --%>
       <div class="text-right">
         <%= if @activity["tx_sig"] && !@activity["game_id"] do %>
-          <a href={BlocksterV2Web.Solscan.tx_url(@activity["tx_sig"])} target="_blank" class="text-[10px] font-mono text-neutral-400 hover:text-[#141414] cursor-pointer">
-            <%= row_short_sig(@activity["tx_sig"]) %>
+          <a
+            href={BlocksterV2Web.Solscan.tx_url(@activity["tx_sig"])}
+            target="_blank"
+            class="text-[10px] font-mono text-neutral-400 hover:text-[#141414] cursor-pointer"
+          >
+            {row_short_sig(@activity["tx_sig"])}
           </a>
         <% end %>
         <%= if @activity["game_id"] && valid_sig?(@activity["settlement_sig"]) do %>
-          <a href={BlocksterV2Web.Solscan.tx_url(@activity["settlement_sig"])} target="_blank" class="text-[10px] font-mono text-neutral-400 hover:text-[#141414] cursor-pointer block">
-            <%= row_short_sig(@activity["settlement_sig"]) %>
+          <a
+            href={BlocksterV2Web.Solscan.tx_url(@activity["settlement_sig"])}
+            target="_blank"
+            class="text-[10px] font-mono text-neutral-400 hover:text-[#141414] cursor-pointer block"
+          >
+            {row_short_sig(@activity["settlement_sig"])}
           </a>
         <% end %>
         <%= if @activity["game_id"] && @activity["settled"] do %>
@@ -543,24 +626,35 @@ defmodule BlocksterV2Web.PoolComponents do
     """
   end
 
-  defp row_primary_label(%{"type" => "win", "multiplier" => mult}) when is_binary(mult), do: "Win #{mult}"
-  defp row_primary_label(%{"type" => "loss", "multiplier" => mult}) when is_binary(mult), do: "Loss #{mult}"
+  defp row_primary_label(%{"type" => "win", "multiplier" => mult}) when is_binary(mult),
+    do: "Win #{mult}"
+
+  defp row_primary_label(%{"type" => "loss", "multiplier" => mult}) when is_binary(mult),
+    do: "Loss #{mult}"
+
   defp row_primary_label(%{"type" => "deposit"}), do: "Deposit"
   defp row_primary_label(%{"type" => "withdraw"}), do: "Withdraw"
   defp row_primary_label(%{"game" => game}) when is_binary(game), do: game
   defp row_primary_label(_), do: "Activity"
 
-  defp row_secondary_label(%{"type" => type, "predictions" => preds, "results" => results}) when type in ["win", "loss"] and is_list(preds) and is_list(results) do
+  defp row_secondary_label(%{"type" => type, "predictions" => preds, "results" => results})
+       when type in ["win", "loss"] and is_list(preds) and is_list(results) do
     wins = Enum.zip(preds, results) |> Enum.count(fn {p, r} -> p == r end)
     "Coin flip · #{wins} of #{length(preds)}"
   end
-  defp row_secondary_label(%{"type" => "deposit", "profit" => p}) when is_binary(p), do: "#{p} minted"
-  defp row_secondary_label(%{"type" => "withdraw", "profit" => p}) when is_binary(p), do: "#{p} burned"
+
+  defp row_secondary_label(%{"type" => "deposit", "profit" => p}) when is_binary(p),
+    do: "#{p} minted"
+
+  defp row_secondary_label(%{"type" => "withdraw", "profit" => p}) when is_binary(p),
+    do: "#{p} burned"
+
   defp row_secondary_label(%{"time" => time}) when is_binary(time), do: time
   defp row_secondary_label(_), do: ""
 
   defp row_avatar_initials(nil), do: "—"
   defp row_avatar_initials(""), do: "—"
+
   defp row_avatar_initials(wallet) when is_binary(wallet) do
     wallet
     |> String.replace(~r/[^a-zA-Z0-9]/, "")
@@ -568,7 +662,10 @@ defmodule BlocksterV2Web.PoolComponents do
   end
 
   defp row_short_sig(nil), do: ""
-  defp row_short_sig(sig) when is_binary(sig) and byte_size(sig) >= 4, do: "#{String.slice(sig, 0, 4)}…"
+
+  defp row_short_sig(sig) when is_binary(sig) and byte_size(sig) >= 4,
+    do: "#{String.slice(sig, 0, 4)}…"
+
   defp row_short_sig(sig), do: sig
 
   defp row_icon_wrapper_class("win"), do: "bg-[#22C55E]/12 border-[#22C55E]/25"
@@ -585,32 +682,41 @@ defmodule BlocksterV2Web.PoolComponents do
 
   defp row_icon_path("win") do
     assigns = %{}
+
     ~H"""
     <polyline points="18 15 12 9 6 15" />
     """
   end
+
   defp row_icon_path("loss") do
     assigns = %{}
+
     ~H"""
     <polyline points="6 9 12 15 18 9" />
     """
   end
+
   defp row_icon_path("deposit") do
     assigns = %{}
+
     ~H"""
     <line x1="12" y1="5" x2="12" y2="19" />
     <line x1="5" y1="12" x2="19" y2="12" />
     """
   end
+
   defp row_icon_path("withdraw") do
     assigns = %{}
+
     ~H"""
     <line x1="12" y1="5" x2="12" y2="19" />
     <polyline points="19 12 12 19 5 12" />
     """
   end
+
   defp row_icon_path(_) do
     assigns = %{}
+
     ~H"""
     <circle cx="12" cy="12" r="9" />
     """
@@ -645,7 +751,8 @@ defmodule BlocksterV2Web.PoolComponents do
 
   def format_tvl(_), do: "0.00"
 
-  defp token_amount_sub_line(amount, "sol", sol_usd, _fallback) when is_number(amount) and amount > 0 and is_number(sol_usd) and sol_usd > 0 do
+  defp token_amount_sub_line(amount, "sol", sol_usd, _fallback)
+       when is_number(amount) and amount > 0 and is_number(sol_usd) and sol_usd > 0 do
     "≈ " <> format_usd(amount * sol_usd)
   end
 
@@ -749,7 +856,8 @@ defmodule BlocksterV2Web.PoolComponents do
   def format_integer(_), do: "0"
 
   @doc false
-  def format_win_rate(total_bets, total_wins) when is_number(total_bets) and total_bets > 0 and is_number(total_wins) do
+  def format_win_rate(total_bets, total_wins)
+      when is_number(total_bets) and total_bets > 0 and is_number(total_wins) do
     pct = total_wins / total_bets * 100
     "#{:erlang.float_to_binary(pct / 1.0, decimals: 1)}%"
   end
@@ -757,7 +865,8 @@ defmodule BlocksterV2Web.PoolComponents do
   def format_win_rate(_, _), do: "0.0%"
 
   @doc false
-  def format_win_rate_value(total_bets, total_wins) when is_number(total_bets) and total_bets > 0 and is_number(total_wins) do
+  def format_win_rate_value(total_bets, total_wins)
+      when is_number(total_bets) and total_bets > 0 and is_number(total_wins) do
     pct = total_wins / total_bets * 100
     :erlang.float_to_binary(pct / 1.0, decimals: 1)
   end
@@ -800,45 +909,81 @@ defmodule BlocksterV2Web.PoolComponents do
   def coin_flip_fairness_modal(assigns) do
     ~H"""
     <%= if @show and @fairness_game do %>
-      <div class="fixed inset-0 bg-black/60 flex items-end sm:items-center justify-center z-50 p-0 sm:p-4" phx-click="hide_fairness_modal">
-        <div class="bg-white rounded-none sm:rounded-2xl w-full sm:max-w-xl max-h-[100vh] sm:max-h-[90vh] overflow-y-auto shadow-2xl" phx-click="stop_propagation">
-
+      <div
+        class="fixed inset-0 bg-black/60 flex items-end sm:items-center justify-center z-50 p-0 sm:p-4"
+        phx-click="hide_fairness_modal"
+      >
+        <div
+          class="bg-white rounded-none sm:rounded-2xl w-full sm:max-w-xl max-h-[100vh] sm:max-h-[90vh] overflow-y-auto shadow-2xl"
+          phx-click="stop_propagation"
+        >
           <%!-- Header --%>
           <div class="p-3 sm:p-4 border-b border-gray-200 flex items-center justify-between bg-gray-50 sm:rounded-t-2xl sticky top-0 z-10">
             <div class="flex items-center gap-2">
               <div class="w-7 h-7 rounded-lg bg-emerald-100 flex items-center justify-center">
-                <svg class="w-4 h-4 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                <svg
+                  class="w-4 h-4 text-emerald-600"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  stroke-width="2"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"
+                  />
                 </svg>
               </div>
               <h2 class="text-base sm:text-lg font-bold text-gray-900">Provably Fair Verification</h2>
             </div>
-            <button type="button" phx-click="hide_fairness_modal" class="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-200 text-gray-400 hover:text-gray-600 cursor-pointer transition-colors">
-              <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <button
+              type="button"
+              phx-click="hide_fairness_modal"
+              class="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-200 text-gray-400 hover:text-gray-600 cursor-pointer transition-colors"
+            >
+              <svg
+                class="w-5 h-5"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                stroke-width="2"
+              >
                 <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
               </svg>
             </button>
           </div>
 
           <div class="p-3 sm:p-4 space-y-3 sm:space-y-4">
-
             <%!-- Bet Details --%>
             <div class="bg-blue-50 rounded-xl p-3 sm:p-4 border border-blue-200">
               <p class="text-xs sm:text-sm font-semibold text-blue-900 mb-1">Your Bet Details</p>
-              <p class="text-[10px] sm:text-xs text-blue-600 mb-2.5">These player-controlled values derive your client seed:</p>
+              <p class="text-[10px] sm:text-xs text-blue-600 mb-2.5">
+                These player-controlled values derive your client seed:
+              </p>
               <div class="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1.5 text-xs sm:text-sm">
                 <span class="text-blue-500">User ID:</span>
-                <span class="font-mono text-[10px] sm:text-xs text-blue-800"><%= @fairness_game.user_id %></span>
+                <span class="font-mono text-[10px] sm:text-xs text-blue-800">
+                  {@fairness_game.user_id}
+                </span>
                 <span class="text-blue-500">Bet:</span>
-                <span class="font-semibold text-blue-800"><%= format_fairness_amount(@fairness_game.bet_amount) %> <%= String.upcase(@fairness_game.vault_type) %></span>
+                <span class="font-semibold text-blue-800">
+                  {format_fairness_amount(@fairness_game.bet_amount)} {String.upcase(
+                    @fairness_game.vault_type
+                  )}
+                </span>
                 <span class="text-blue-500">Difficulty:</span>
-                <span class="text-blue-800"><%= fairness_difficulty_label(@fairness_game.difficulty) %></span>
+                <span class="text-blue-800">
+                  {fairness_difficulty_label(@fairness_game.difficulty)}
+                </span>
                 <span class="text-blue-500">Predictions:</span>
                 <span class="text-blue-800">
                   <%= for pred <- (@fairness_game.predictions || []) do %>
-                    <span class="inline-block"><%= if pred == :heads, do: "🚀", else: "💩" %></span>
+                    <span class="inline-block">{if pred == :heads, do: "🚀", else: "💩"}</span>
                   <% end %>
-                  <span class="text-[10px] text-blue-500 ml-1">(<%= @fairness_game.predictions_str %>)</span>
+                  <span class="text-[10px] text-blue-500 ml-1">
+                    ({@fairness_game.predictions_str})
+                  </span>
                 </span>
               </div>
             </div>
@@ -847,7 +992,9 @@ defmodule BlocksterV2Web.PoolComponents do
             <div class="bg-gray-50 rounded-xl p-3 sm:p-4">
               <div class="flex justify-between items-center">
                 <span class="text-xs sm:text-sm text-gray-600">Game Nonce:</span>
-                <span class="font-mono text-sm sm:text-base font-semibold text-gray-900"><%= @fairness_game.nonce %></span>
+                <span class="font-mono text-sm sm:text-base font-semibold text-gray-900">
+                  {@fairness_game.nonce}
+                </span>
               </div>
               <p class="text-[10px] sm:text-xs text-gray-400 mt-1">
                 Sequential counter — ensures unique results even for identical bets
@@ -857,23 +1004,38 @@ defmodule BlocksterV2Web.PoolComponents do
             <%!-- Seeds --%>
             <div class="space-y-2.5 sm:space-y-3">
               <div>
-                <label class="text-xs sm:text-sm font-semibold text-gray-700">Server Seed <span class="font-normal text-gray-400">(revealed after settlement)</span></label>
-                <code class="mt-1 text-[10px] sm:text-xs font-mono bg-gray-100 px-2.5 py-2 rounded-lg break-all block border border-gray-200"><%= @fairness_game.server_seed %></code>
+                <label class="text-xs sm:text-sm font-semibold text-gray-700">
+                  Server Seed
+                  <span class="font-normal text-gray-400">(revealed after settlement)</span>
+                </label>
+                <code class="mt-1 text-[10px] sm:text-xs font-mono bg-gray-100 px-2.5 py-2 rounded-lg break-all block border border-gray-200">
+                  {@fairness_game.server_seed}
+                </code>
               </div>
               <div>
-                <label class="text-xs sm:text-sm font-semibold text-gray-700">Server Commitment <span class="font-normal text-gray-400">(shown before bet)</span></label>
-                <code class="mt-1 text-[10px] sm:text-xs font-mono bg-gray-100 px-2.5 py-2 rounded-lg break-all block border border-gray-200"><%= @fairness_game.server_seed_hash %></code>
+                <label class="text-xs sm:text-sm font-semibold text-gray-700">
+                  Server Commitment <span class="font-normal text-gray-400">(shown before bet)</span>
+                </label>
+                <code class="mt-1 text-[10px] sm:text-xs font-mono bg-gray-100 px-2.5 py-2 rounded-lg break-all block border border-gray-200">
+                  {@fairness_game.server_seed_hash}
+                </code>
               </div>
               <div>
-                <label class="text-xs sm:text-sm font-semibold text-gray-700">Client Seed <span class="font-normal text-gray-400">(derived from your bet)</span></label>
-                <code class="mt-1 text-[10px] sm:text-xs font-mono bg-gray-100 px-2.5 py-2 rounded-lg break-all block border border-gray-200"><%= @fairness_game.client_seed %></code>
+                <label class="text-xs sm:text-sm font-semibold text-gray-700">
+                  Client Seed <span class="font-normal text-gray-400">(derived from your bet)</span>
+                </label>
+                <code class="mt-1 text-[10px] sm:text-xs font-mono bg-gray-100 px-2.5 py-2 rounded-lg break-all block border border-gray-200">
+                  {@fairness_game.client_seed}
+                </code>
                 <p class="text-[10px] sm:text-xs text-gray-400 mt-1 font-mono break-all">
-                  = SHA256("<%= @fairness_game.client_seed_input %>")
+                  = SHA256("{@fairness_game.client_seed_input}")
                 </p>
               </div>
               <div>
                 <label class="text-xs sm:text-sm font-semibold text-gray-700">Combined Seed</label>
-                <code class="mt-1 text-[10px] sm:text-xs font-mono bg-gray-100 px-2.5 py-2 rounded-lg break-all block border border-gray-200"><%= @fairness_game.combined_seed %></code>
+                <code class="mt-1 text-[10px] sm:text-xs font-mono bg-gray-100 px-2.5 py-2 rounded-lg break-all block border border-gray-200">
+                  {@fairness_game.combined_seed}
+                </code>
                 <p class="text-[10px] sm:text-xs text-gray-400 mt-1">
                   = SHA256(server_seed + ":" + client_seed + ":" + nonce)
                 </p>
@@ -882,13 +1044,31 @@ defmodule BlocksterV2Web.PoolComponents do
 
             <%!-- How It Works --%>
             <div class="bg-emerald-50 rounded-xl p-3 sm:p-4 border border-emerald-200">
-              <p class="text-xs sm:text-sm font-semibold text-emerald-900 mb-2">How the Result is Determined</p>
+              <p class="text-xs sm:text-sm font-semibold text-emerald-900 mb-2">
+                How the Result is Determined
+              </p>
               <ol class="text-[10px] sm:text-xs text-emerald-700 space-y-1 list-decimal ml-4">
-                <li><span class="font-mono">SHA256(server_seed)</span> = commitment hash (locked before you bet)</li>
-                <li><span class="font-mono">client_seed = SHA256(user_id:bet_amount:token:difficulty:predictions)</span></li>
-                <li><span class="font-mono">combined_seed = SHA256(server_seed:client_seed:nonce)</span></li>
-                <li>First <strong><%= length(@fairness_game.results) %></strong> bytes of combined seed determine the coin flips</li>
-                <li>Each byte <strong>&lt; 128</strong> = 🚀 HEADS &nbsp;|&nbsp; <strong>&ge; 128</strong> = 💩 TAILS</li>
+                <li>
+                  <span class="font-mono">SHA256(server_seed)</span>
+                  = commitment hash (locked before you bet)
+                </li>
+                <li>
+                  <span class="font-mono">
+                    client_seed = SHA256(user_id:bet_amount:token:difficulty:predictions)
+                  </span>
+                </li>
+                <li>
+                  <span class="font-mono">combined_seed = SHA256(server_seed:client_seed:nonce)</span>
+                </li>
+                <li>
+                  First <strong>{length(@fairness_game.results)}</strong>
+                  bytes of combined seed determine the coin flips
+                </li>
+                <li>
+                  Each byte <strong>&lt; 128</strong>
+                  = 🚀 HEADS &nbsp;|&nbsp; <strong>&ge; 128</strong>
+                  = 💩 TAILS
+                </li>
                 <li>
                   <%= if @fairness_game.difficulty < 0 do %>
                     <strong>Win One</strong> mode: any flip matching your prediction = WIN
@@ -901,7 +1081,9 @@ defmodule BlocksterV2Web.PoolComponents do
 
             <%!-- Flip-by-Flip Breakdown --%>
             <div>
-              <p class="text-xs sm:text-sm font-semibold text-gray-700 mb-2">Flip Results (<%= length(@fairness_game.results) %> flips)</p>
+              <p class="text-xs sm:text-sm font-semibold text-gray-700 mb-2">
+                Flip Results ({length(@fairness_game.results)} flips)
+              </p>
               <div class="space-y-1.5">
                 <%= for i <- 0..(length(@fairness_game.results) - 1) do %>
                   <% byte = Enum.at(@fairness_game.bytes, i) %>
@@ -910,16 +1092,18 @@ defmodule BlocksterV2Web.PoolComponents do
                   <% matched = result == prediction %>
                   <div class={"flex items-center justify-between text-xs sm:text-sm p-2 sm:p-2.5 rounded-lg border #{if matched, do: "bg-emerald-50/60 border-emerald-200", else: "bg-red-50/60 border-red-200"}"}>
                     <div class="flex items-center gap-2">
-                      <span class="text-gray-500 text-[10px] sm:text-xs w-12">Flip <%= i + 1 %></span>
-                      <span class="font-mono text-[10px] sm:text-xs text-gray-500">byte[<%= i %>]=<%= byte %></span>
+                      <span class="text-gray-500 text-[10px] sm:text-xs w-12">Flip {i + 1}</span>
+                      <span class="font-mono text-[10px] sm:text-xs text-gray-500">
+                        byte[{i}]={byte}
+                      </span>
                     </div>
                     <div class="flex items-center gap-2 sm:gap-3">
                       <span class={"text-[10px] sm:text-xs px-1.5 py-0.5 rounded font-mono #{if byte < 128, do: "bg-blue-100 text-blue-700", else: "bg-amber-100 text-amber-700"}"}>
-                        <%= if byte < 128, do: "< 128", else: ">= 128" %>
+                        {if byte < 128, do: "< 128", else: ">= 128"}
                       </span>
-                      <span class="text-base"><%= if result == :heads, do: "🚀", else: "💩" %></span>
+                      <span class="text-base">{if result == :heads, do: "🚀", else: "💩"}</span>
                       <span class={"text-[10px] sm:text-xs font-semibold #{if matched, do: "text-emerald-600", else: "text-red-500"}"}>
-                        <%= if matched, do: "MATCH", else: "MISS" %>
+                        {if matched, do: "MATCH", else: "MISS"}
                       </span>
                     </div>
                   </div>
@@ -931,13 +1115,15 @@ defmodule BlocksterV2Web.PoolComponents do
                 <div class="flex justify-between items-center text-sm">
                   <span class="text-gray-600 font-medium">Result:</span>
                   <span class={"text-lg font-bold #{if @fairness_game.won, do: "text-emerald-600", else: "text-red-600"}"}>
-                    <%= if @fairness_game.won, do: "WIN", else: "LOSS" %>
+                    {if @fairness_game.won, do: "WIN", else: "LOSS"}
                   </span>
                 </div>
                 <div class="flex justify-between items-center text-xs sm:text-sm mt-1.5">
                   <span class="text-gray-500">Payout:</span>
                   <span class="font-semibold text-gray-900">
-                    <%= format_fairness_amount(@fairness_game.payout) %> <%= String.upcase(@fairness_game.vault_type) %>
+                    {format_fairness_amount(@fairness_game.payout)} {String.upcase(
+                      @fairness_game.vault_type
+                    )}
                   </span>
                 </div>
               </div>
@@ -952,36 +1138,62 @@ defmodule BlocksterV2Web.PoolComponents do
               <div class="space-y-2.5">
                 <%!-- Step 1: Verify commitment --%>
                 <div class="bg-gray-50 rounded-lg p-2.5 sm:p-3 border border-gray-100">
-                  <p class="text-[10px] sm:text-xs text-gray-600 font-medium mb-1">1. Verify server commitment</p>
-                  <a href={"https://md5calc.com/hash/sha256/#{@fairness_game.server_seed}"} target="_blank" class="text-blue-500 hover:underline text-[10px] sm:text-xs cursor-pointer">
+                  <p class="text-[10px] sm:text-xs text-gray-600 font-medium mb-1">
+                    1. Verify server commitment
+                  </p>
+                  <a
+                    href={"https://md5calc.com/hash/sha256/#{@fairness_game.server_seed}"}
+                    target="_blank"
+                    class="text-blue-500 hover:underline text-[10px] sm:text-xs cursor-pointer"
+                  >
                     SHA256(server_seed) &rarr; Click to verify
                   </a>
-                  <p class="text-[10px] text-gray-400 mt-1 font-mono break-all">Expected: <%= @fairness_game.server_seed_hash %></p>
+                  <p class="text-[10px] text-gray-400 mt-1 font-mono break-all">
+                    Expected: {@fairness_game.server_seed_hash}
+                  </p>
                 </div>
 
                 <%!-- Step 2: Derive client seed --%>
                 <div class="bg-gray-50 rounded-lg p-2.5 sm:p-3 border border-gray-100">
-                  <p class="text-[10px] sm:text-xs text-gray-600 font-medium mb-1">2. Derive client seed from bet details</p>
-                  <a href={"https://md5calc.com/hash/sha256/#{@fairness_game.client_seed_input}"} target="_blank" class="text-blue-500 hover:underline text-[10px] sm:text-xs cursor-pointer">
+                  <p class="text-[10px] sm:text-xs text-gray-600 font-medium mb-1">
+                    2. Derive client seed from bet details
+                  </p>
+                  <a
+                    href={"https://md5calc.com/hash/sha256/#{@fairness_game.client_seed_input}"}
+                    target="_blank"
+                    class="text-blue-500 hover:underline text-[10px] sm:text-xs cursor-pointer"
+                  >
                     SHA256(bet_details) &rarr; Click to verify
                   </a>
-                  <p class="text-[10px] text-gray-400 mt-1 font-mono break-all">Expected: <%= @fairness_game.client_seed %></p>
+                  <p class="text-[10px] text-gray-400 mt-1 font-mono break-all">
+                    Expected: {@fairness_game.client_seed}
+                  </p>
                 </div>
 
                 <%!-- Step 3: Generate combined seed --%>
                 <div class="bg-gray-50 rounded-lg p-2.5 sm:p-3 border border-gray-100">
-                  <p class="text-[10px] sm:text-xs text-gray-600 font-medium mb-1">3. Generate combined seed</p>
-                  <a href={"https://md5calc.com/hash/sha256/#{@fairness_game.server_seed}:#{@fairness_game.client_seed}:#{@fairness_game.nonce}"} target="_blank" class="text-blue-500 hover:underline text-[10px] sm:text-xs cursor-pointer">
+                  <p class="text-[10px] sm:text-xs text-gray-600 font-medium mb-1">
+                    3. Generate combined seed
+                  </p>
+                  <a
+                    href={"https://md5calc.com/hash/sha256/#{@fairness_game.server_seed}:#{@fairness_game.client_seed}:#{@fairness_game.nonce}"}
+                    target="_blank"
+                    class="text-blue-500 hover:underline text-[10px] sm:text-xs cursor-pointer"
+                  >
                     SHA256(server:client:nonce) &rarr; Click to verify
                   </a>
-                  <p class="text-[10px] text-gray-400 mt-1 font-mono break-all">Expected: <%= @fairness_game.combined_seed %></p>
+                  <p class="text-[10px] text-gray-400 mt-1 font-mono break-all">
+                    Expected: {@fairness_game.combined_seed}
+                  </p>
                 </div>
 
                 <%!-- Step 4: Hex bytes visualization --%>
                 <div class="bg-gray-50 rounded-lg p-2.5 sm:p-3 border border-gray-100">
-                  <p class="text-[10px] sm:text-xs text-gray-600 font-medium mb-1">4. Convert hex bytes to flip results</p>
+                  <p class="text-[10px] sm:text-xs text-gray-600 font-medium mb-1">
+                    4. Convert hex bytes to flip results
+                  </p>
                   <p class="text-[10px] text-gray-400 mb-2">
-                    First <%= length(@fairness_game.results) %> byte pairs from combined seed:
+                    First {length(@fairness_game.results)} byte pairs from combined seed:
                   </p>
                   <%!-- Hex pairs with highlighting --%>
                   <div class="bg-white rounded-lg p-2 border border-gray-200 font-mono text-[10px] sm:text-xs leading-relaxed break-all">
@@ -989,9 +1201,14 @@ defmodule BlocksterV2Web.PoolComponents do
                       <% pair = String.slice(@fairness_game.combined_seed, i * 2, 2) %>
                       <%= if i < length(@fairness_game.bytes) do %>
                         <% byte = Enum.at(@fairness_game.bytes, i) %>
-                        <span class={"inline-block px-0.5 rounded #{if byte < 128, do: "bg-blue-100 text-blue-700", else: "bg-amber-200 text-amber-700"}"} title={"Flip #{i + 1}: #{pair} = #{byte} → #{if byte < 128, do: "HEADS 🚀", else: "TAILS 💩"}"}><%= pair %></span>
+                        <span
+                          class={"inline-block px-0.5 rounded #{if byte < 128, do: "bg-blue-100 text-blue-700", else: "bg-amber-200 text-amber-700"}"}
+                          title={"Flip #{i + 1}: #{pair} = #{byte} → #{if byte < 128, do: "HEADS 🚀", else: "TAILS 💩"}"}
+                        >
+                          {pair}
+                        </span>
                       <% else %>
-                        <span class="text-gray-300"><%= pair %></span>
+                        <span class="text-gray-300">{pair}</span>
                       <% end %>
                     <% end %>
                   </div>
@@ -1000,32 +1217,42 @@ defmodule BlocksterV2Web.PoolComponents do
                     <%= for {byte, i} <- Enum.with_index(@fairness_game.bytes) do %>
                       <div class="flex items-center gap-1.5 text-[10px] sm:text-xs">
                         <span class={"inline-block font-mono px-1 py-0.5 rounded #{if byte < 128, do: "bg-blue-100 text-blue-700", else: "bg-amber-200 text-amber-700"}"}>
-                          <%= String.slice(@fairness_game.combined_seed, i * 2, 2) %>
+                          {String.slice(@fairness_game.combined_seed, i * 2, 2)}
                         </span>
                         <span class="text-gray-400">=</span>
-                        <span class="font-mono text-gray-600"><%= byte %></span>
+                        <span class="font-mono text-gray-600">{byte}</span>
                         <span class={"font-mono px-1 py-0.5 rounded #{if byte < 128, do: "bg-blue-50 text-blue-500", else: "bg-amber-50 text-amber-500"}"}>
-                          <%= if byte < 128, do: "< 128", else: ">= 128" %>
+                          {if byte < 128, do: "< 128", else: ">= 128"}
                         </span>
                         <span class="text-gray-400">&rarr;</span>
                         <span class={"font-bold #{if byte < 128, do: "text-blue-600", else: "text-amber-600"}"}>
-                          <%= if byte < 128, do: "🚀 HEADS", else: "💩 TAILS" %>
+                          {if byte < 128, do: "🚀 HEADS", else: "💩 TAILS"}
                         </span>
                       </div>
                     <% end %>
                   </div>
                   <p class="text-[10px] text-gray-400 mt-2">
-                    Verify: <a href="https://www.rapidtables.com/convert/number/hex-to-decimal.html" target="_blank" class="text-blue-500 hover:underline cursor-pointer">Hex to Decimal converter</a>
+                    Verify:
+                    <a
+                      href="https://www.rapidtables.com/convert/number/hex-to-decimal.html"
+                      target="_blank"
+                      class="text-blue-500 hover:underline cursor-pointer"
+                    >
+                      Hex to Decimal converter
+                    </a>
                   </p>
                 </div>
               </div>
             </div>
-
           </div>
 
           <%!-- Footer --%>
           <div class="p-3 sm:p-4 border-t border-gray-200 bg-gray-50 sm:rounded-b-2xl sticky bottom-0">
-            <button type="button" phx-click="hide_fairness_modal" class="w-full py-2.5 bg-gray-900 text-white rounded-xl hover:bg-gray-800 transition-all cursor-pointer text-sm font-medium">
+            <button
+              type="button"
+              phx-click="hide_fairness_modal"
+              class="w-full py-2.5 bg-gray-900 text-white rounded-xl hover:bg-gray-800 transition-all cursor-pointer text-sm font-medium"
+            >
               Close
             </button>
           </div>
@@ -1037,15 +1264,20 @@ defmodule BlocksterV2Web.PoolComponents do
 
   defp format_fairness_amount(nil), do: "0"
   defp format_fairness_amount(amount) when is_number(amount) and amount == 0, do: "0"
+
   defp format_fairness_amount(amount) when is_number(amount) and amount < 1.0 do
     :erlang.float_to_binary(amount / 1.0, decimals: 4) |> String.trim_trailing("0")
   end
+
   defp format_fairness_amount(amount) when is_number(amount) do
     :erlang.float_to_binary(amount / 1.0, decimals: 2)
   end
+
   defp format_fairness_amount(_), do: "0"
 
-  defp fairness_difficulty_label(d) when d < 0, do: "Win One (#{abs(d) + 1} flips, any match wins)"
+  defp fairness_difficulty_label(d) when d < 0,
+    do: "Win One (#{abs(d) + 1} flips, any match wins)"
+
   defp fairness_difficulty_label(1), do: "Classic (1 flip)"
   defp fairness_difficulty_label(d) when d > 1, do: "Win All (#{d} flips, all must match)"
   defp fairness_difficulty_label(_), do: "Unknown"
