@@ -68,6 +68,13 @@ defmodule BlocksterV2Web.CoinFlipLive do
 
       error_msg = if wallet_address, do: nil, else: "No wallet connected"
 
+      # Default token must match the load_user_stats call below so the
+      # initial render's stats panel reflects the same token its label
+      # will say. Previously the panel showed BUX numbers under a SOL
+      # label because mount defaulted selected_token="SOL" but called
+      # load_user_stats/1 (which defaulted to "BUX").
+      initial_token = "SOL"
+
       socket =
         socket
         |> assign(page_title: "Coin Flip")
@@ -75,12 +82,12 @@ defmodule BlocksterV2Web.CoinFlipLive do
         |> assign(balances: balances)
         |> assign(tokens: tokens)
         |> assign(difficulty_options: @difficulty_options)
-        |> assign(selected_token: "SOL")
-        |> assign(header_token: "SOL")
+        |> assign(selected_token: initial_token)
+        |> assign(header_token: initial_token)
         |> assign(selected_difficulty: 1)
-        |> assign(bet_amount: default_bet_amount(balances, "SOL"))
-        |> assign(current_bet: default_bet_amount(balances, "SOL"))
-        |> assign(placed_stake: default_bet_amount(balances, "SOL"))
+        |> assign(bet_amount: default_bet_amount(balances, initial_token))
+        |> assign(current_bet: default_bet_amount(balances, initial_token))
+        |> assign(placed_stake: default_bet_amount(balances, initial_token))
         |> assign(house_balance: 0.0)
         |> assign(sol_house_balance: 0.0)
         |> assign(bux_house_balance: 0.0)
@@ -102,7 +109,7 @@ defmodule BlocksterV2Web.CoinFlipLive do
         |> assign(recent_games: [])
         |> assign(games_offset: 0)
         |> assign(games_loading: connected?(socket))
-        |> assign(user_stats: load_user_stats(current_user.id))
+        |> assign(user_stats: load_user_stats(current_user.id, initial_token))
         |> assign(server_seed: nil)
         |> assign(server_seed_hash: nil)
         |> assign(nonce: 0)
@@ -1704,15 +1711,10 @@ defmodule BlocksterV2Web.CoinFlipLive do
                         </div>
                       </div>
                     <% end %>
-                    <div class="mt-4 pt-4 border-t border-neutral-100">
-                      <div class="text-[10px] uppercase tracking-[0.14em] text-neutral-500 mb-2">
-                        House contributed
-                      </div>
-                      <div class="font-mono font-bold text-[14px] text-[#141414]">
-                        + {format_balance(@payout - @placed_stake)} {@selected_token}
-                        <span class="text-[10px] text-neutral-500">to your balance</span>
-                      </div>
-                    </div>
+                    <%!-- "House contributed +X BUX to your balance" block
+                         removed 2026-04-30 — duplicates the bet payout
+                         that's already shown in the row above and adds no
+                         new info. --%>
                   <% else %>
                     <% lp_token = "#{@selected_token}-LP" %>
                     <% pool_path = if @selected_token == "SOL", do: ~p"/pool/sol", else: ~p"/pool/bux" %>
@@ -3533,70 +3535,94 @@ defmodule BlocksterV2Web.CoinFlipLive do
     end
   end
 
-  # Reads the user's coin-flip stats from the `:user_betting_stats` Mnesia
-  # table — the source of truth for the Solana flow (written by
-  # CoinFlipGame.update_user_betting_stats/5 on every settlement). The
-  # legacy `:bux_booster_user_stats` table is EVM-era only and is no
-  # longer written by the active code path; reading from there left the
-  # stats panel stuck on "No stats yet" while the Recent Games panel
-  # showed actual settled bets (different table).
+  # Compute the user's coin-flip stats from `:coin_flip_games` — the
+  # same table the Recent Games panel reads, so the two panels can't
+  # disagree. Filtered to the requested token (`"BUX"` / `"SOL"`):
+  # SOL view shows only SOL stats, BUX view only BUX. Returns nil
+  # when the user has no settled bets in the requested token, so the
+  # "No stats yet" empty state still renders for fresh tokens.
   #
-  # Schema in :user_betting_stats (one row per user, both tokens combined):
-  #   3-9: BUX  (bets, wins, losses, wagered, winnings, losses_amt, pnl)
-  #   10-16: SOL (bets, wins, losses, wagered, winnings, losses_amt, pnl)
-  # All amounts are in base units (display × 10^9) per to_base_units/2.
+  # bet_amount + payout in `:coin_flip_games` are stored in display
+  # units (e.g. 100 BUX, 1.5 SOL — verified by reading prod records),
+  # so no /10^9 conversion is needed here.
   defp load_user_stats(user_id, token_type \\ "BUX") do
-    case :mnesia.dirty_read(:user_betting_stats, user_id) do
-      [] ->
-        nil
+    target_vault = String.downcase(token_type)
 
-      [record] ->
-        {bets, wins, losses, wagered_base, _winnings_base, losses_amt_base, pnl_base} =
-          case token_type do
-            "SOL" ->
-              {elem(record, 10), elem(record, 11), elem(record, 12), elem(record, 13),
-               elem(record, 14), elem(record, 15), elem(record, 16)}
+    games =
+      :coin_flip_games
+      |> :mnesia.dirty_index_read(user_id, :user_id)
+      |> Enum.filter(fn r ->
+        elem(r, 7) == :settled and vault_type_matches?(elem(r, 8), target_vault)
+      end)
 
-            _ ->
-              {elem(record, 3), elem(record, 4), elem(record, 5), elem(record, 6),
-               elem(record, 7), elem(record, 8), elem(record, 9)}
+    if games == [] do
+      nil
+    else
+      chronological = Enum.sort_by(games, fn r -> elem(r, 19) end)
+
+      {wins, losses, wagered, total_won, total_lost, biggest_win, biggest_loss} =
+        Enum.reduce(games, {0, 0, 0, 0, 0, 0, 0}, fn r, {w, l, wag, won_t, lost_t, bw, bl} ->
+          bet = elem(r, 9) || 0
+          payout = elem(r, 14) || 0
+
+          if elem(r, 13) == true do
+            profit = payout - bet
+            {w + 1, l, wag + bet, won_t + payout, lost_t, max(bw, profit), bl}
+          else
+            {w, l + 1, wag + bet, won_t, lost_t + bet, bw, max(bl, bet)}
           end
+        end)
 
-        if bets == 0 do
-          nil
-        else
-          # /10^9 for display — both BUX and SOL are stored in base units.
-          divisor = 1_000_000_000
-          wagered = wagered_base / divisor
-          losses_amt = losses_amt_base / divisor
-          pnl = pnl_base / divisor
+      {current_streak, best_streak, worst_streak} = compute_streaks(chronological)
 
-          # Template renders `net = total_won - total_lost`, so represent
-          # the signed pnl by splitting positive into total_won, negative
-          # into total_lost. biggest_win + streak fields aren't tracked
-          # in the new table — leave at 0 until/unless we decide to.
-          {total_won, total_lost} =
-            if pnl >= 0, do: {pnl, 0.0}, else: {0.0, -pnl}
-
-          %{
-            total_games: bets,
-            total_wins: wins,
-            total_losses: losses,
-            total_wagered: wagered,
-            total_won: total_won,
-            total_lost: total_lost,
-            biggest_win: 0,
-            biggest_loss: losses_amt,
-            current_streak: 0,
-            best_streak: 0,
-            worst_streak: 0
-          }
-        end
+      %{
+        total_games: wins + losses,
+        total_wins: wins,
+        total_losses: losses,
+        total_wagered: wagered,
+        total_won: total_won,
+        total_lost: total_lost,
+        biggest_win: biggest_win,
+        biggest_loss: biggest_loss,
+        current_streak: current_streak,
+        best_streak: best_streak,
+        worst_streak: worst_streak
+      }
     end
   rescue
     _ -> nil
   catch
     :exit, _ -> nil
+  end
+
+  # vault_type in :coin_flip_games is sometimes the atom :bux/:sol
+  # (the path that goes through CoinFlipGame.mark_game_settled writes
+  # the atom verbatim from the bet payload), and sometimes a string
+  # ("bux" / "sol"). Normalize both to lowercase string for compare.
+  defp vault_type_matches?(vt, target_str) when is_atom(vt),
+    do: Atom.to_string(vt) == target_str
+
+  defp vault_type_matches?(vt, target_str) when is_binary(vt),
+    do: String.downcase(vt) == target_str
+
+  defp vault_type_matches?(_, _), do: false
+
+  # Walk games oldest → newest, tallying current/best/worst streak.
+  # Positive = winning streak, negative = losing streak.
+  defp compute_streaks(games_chronological) do
+    Enum.reduce(games_chronological, {0, 0, 0}, fn record, {current, best, worst} ->
+      won = elem(record, 13) == true
+
+      new_current =
+        cond do
+          won and current >= 0 -> current + 1
+          won -> 1
+          not won and current <= 0 -> current - 1
+          true -> -1
+        end
+
+      {new_current, max(best, new_current), min(worst, new_current)}
+    end)
   end
 
   defp load_recent_games(user_id, opts \\ []) do
