@@ -121,13 +121,23 @@ defmodule BlocksterV2Web.WalletAuthEvents do
         # Confirmed bug 2026-04-29: user couldn't dismiss a hung email-OTP
         # sign-in modal because hide_wallet_selector only reset the wallet
         # branch, not the provider branch.
+        #
+        # ALSO push clear_email_otp_state so the EmailOtpResume hook's
+        # localStorage entry is wiped — without this, every subsequent
+        # page refresh re-opens the modal in :enter_code stage because
+        # the saved-OTP entry is still within the 10-min TTL.
         {:noreply,
-         assign(socket,
+         socket
+         |> assign(
            show_wallet_selector: false,
            connecting_wallet_name: nil,
            connecting: false,
-           connecting_provider: nil
-         )}
+           connecting_provider: nil,
+           email_otp_stage: nil,
+           email_prefill: nil,
+           email_otp_error: nil
+         )
+         |> push_event("clear_email_otp_state", %{})}
       end
 
       # Pushed by the Web3Auth JS hook when a returning user's Web3Auth session
@@ -462,6 +472,13 @@ defmodule BlocksterV2Web.WalletAuthEvents do
             Logger.info("[Auth] restore: invalid email, clearing localStorage")
             {:noreply, push_event(socket, "clear_email_otp_state", %{})}
 
+          not is_nil(socket.assigns[:current_user]) ->
+            # User is already logged in. The OTP entry is from an earlier
+            # abandoned attempt — wipe it instead of popping a modal at
+            # them on every page load.
+            Logger.info("[Auth] restore: skipped, user already authenticated, clearing")
+            {:noreply, push_event(socket, "clear_email_otp_state", %{})}
+
           socket.assigns[:connecting] == true ->
             # Mid-Web3Auth-connecting (popup just returned, MPC handshake
             # in flight) — don't disrupt with a stale OTP modal.
@@ -678,6 +695,10 @@ defmodule BlocksterV2Web.WalletAuthEvents do
           |> assign(:auth_challenge, nil)
           |> push_event("request_disconnect", %{})
           |> push_event("clear_session", %{})
+          # Wipe any in-flight email-OTP localStorage so the next page
+          # load doesn't auto-open the OTP modal for an old attempt that
+          # was abandoned.
+          |> push_event("clear_email_otp_state", %{})
 
         # Hard reload so the cleared session cookie is re-read and all
         # per-user LiveView assigns (rewards, multipliers, balances) don't
