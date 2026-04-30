@@ -95,6 +95,9 @@ import { Web3Auth } from "./hooks/web3auth_hook.js";
 // /wallet self-custody panel — social-login users only.
 import { Web3AuthWithdraw } from "./hooks/web3auth_withdraw.js";
 import { Web3AuthExport } from "./hooks/web3auth_export.js";
+// Phase 0 parity test for the SFA mobile migration. Admin-only — see
+// docs/web3auth_sfa_migration.md.
+import { Web3AuthSfaTest } from "./hooks/web3auth_sfa_test_hook.js";
 import { PasteFromClipboard } from "./hooks/paste_from_clipboard.js";
 import { EmailOtpResume } from "./hooks/email_otp_resume.js";
 
@@ -728,7 +731,7 @@ const liveSocket = new LiveSocket("/live", Socket, {
       wallet_address: walletAddress
     };
   },
-  hooks: { TipTapEditor, FeaturedImageUpload, ContentFeaturedImageUpload, HubLogoUpload, HubLogoFormUpload, TwitterWidgets, TagInput, Autocomplete, CopyToClipboard, AutoFocus, ClaimCleanup, InfiniteScroll, TimeTracker, EngagementTracker, PhoneNumberFormatter, BannerUpload, BannerAdminUpload, BannerDrag, TextBlockDrag, TextBlockDragResize, ButtonDrag, AdminControlsDrag, ProductImageUpload, TokenInput, ProductDescriptionEditor, ArtistImageUpload, CoinFlip, BuxBoosterOnchain, CoinFlipSolana, PoolHook, RtSkyscraperWidget, FsSkyscraperWidget, RtChartWidget, RtSquareCompactWidget, RtTickerWidget, FsTickerWidget, RtLeaderboardWidget, FsHeroWidget, CfDemoCycle, CfLiveCycle, DepositBuxInput, VideoWatchTracker, FingerprintHook, ConnectWalletHook, BalanceFetcherHook, WalletTransferHook, BuxPaymentHook, SolanaBuxBurn, RoguePaymentHook, SolPaymentHook, NotificationToastHook, EventTracker, AirdropDepositHook, AirdropSolanaHook, PriceChart, FsA2CombinedAd, FsKineticAd, MobileNavHighlight, DsMobileNavHighlight, OpenInWallet, DesktopNavHighlight, CategoryNavHighlight, ScrollToBottom, ScrollToCenter, TaglineRotator, SolanaWallet, Web3Auth, Web3AuthWithdraw, Web3AuthExport, PasteFromClipboard, EmailOtpResume, ScrollIntoView: { mounted() { this.el.scrollIntoView({ behavior: "smooth", block: "start" }); } } },
+  hooks: { TipTapEditor, FeaturedImageUpload, ContentFeaturedImageUpload, HubLogoUpload, HubLogoFormUpload, TwitterWidgets, TagInput, Autocomplete, CopyToClipboard, AutoFocus, ClaimCleanup, InfiniteScroll, TimeTracker, EngagementTracker, PhoneNumberFormatter, BannerUpload, BannerAdminUpload, BannerDrag, TextBlockDrag, TextBlockDragResize, ButtonDrag, AdminControlsDrag, ProductImageUpload, TokenInput, ProductDescriptionEditor, ArtistImageUpload, CoinFlip, BuxBoosterOnchain, CoinFlipSolana, PoolHook, RtSkyscraperWidget, FsSkyscraperWidget, RtChartWidget, RtSquareCompactWidget, RtTickerWidget, FsTickerWidget, RtLeaderboardWidget, FsHeroWidget, CfDemoCycle, CfLiveCycle, DepositBuxInput, VideoWatchTracker, FingerprintHook, ConnectWalletHook, BalanceFetcherHook, WalletTransferHook, BuxPaymentHook, SolanaBuxBurn, RoguePaymentHook, SolPaymentHook, NotificationToastHook, EventTracker, AirdropDepositHook, AirdropSolanaHook, PriceChart, FsA2CombinedAd, FsKineticAd, MobileNavHighlight, DsMobileNavHighlight, OpenInWallet, DesktopNavHighlight, CategoryNavHighlight, ScrollToBottom, ScrollToCenter, TaglineRotator, SolanaWallet, Web3Auth, Web3AuthWithdraw, Web3AuthExport, Web3AuthSfaTest, PasteFromClipboard, EmailOtpResume, ScrollIntoView: { mounted() { this.el.scrollIntoView({ behavior: "smooth", block: "start" }); } } },
 });
 
 // connect if there are any LiveViews on the page
