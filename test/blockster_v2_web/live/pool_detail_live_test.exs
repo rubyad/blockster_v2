@@ -49,7 +49,7 @@ defmodule BlocksterV2Web.PoolDetailLiveTest do
         :email_multiplier, :overall_multiplier, :last_updated, :created_at],
        [type: :set, index: [:overall_multiplier]]},
       {:pool_activities,
-       [:id, :type, :vault_type, :amount, :wallet, :created_at],
+       [:id, :type, :vault_type, :amount, :wallet, :created_at, :tx_sig],
        [type: :set, index: [:vault_type]]},
       {:coin_flip_games,
        [:game_id, :user_id, :wallet_address, :server_seed, :commitment_hash,

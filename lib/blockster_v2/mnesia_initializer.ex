@@ -643,7 +643,8 @@ defmodule BlocksterV2.MnesiaInitializer do
         :vault_type,                  # "sol" | "bux"
         :amount,                      # Float amount
         :wallet,                      # Truncated wallet "abc..xyz"
-        :created_at                   # Unix timestamp
+        :created_at,                  # Unix timestamp
+        :tx_sig                       # Solana tx signature (base58) — nil for rows written before the field was added
       ],
       index: [:vault_type]
     },
