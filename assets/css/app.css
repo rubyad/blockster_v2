@@ -1967,3 +1967,23 @@ html, body {
   font-size: 11px; font-weight: 900; letter-spacing: 0.12em; text-transform: uppercase;
   text-decoration: none; line-height: 1;
 }
+
+/* ── Email OTP resume overlay ───────────────────────────────────
+ * Bridges the brief LV-reconnect gap when a user returns from
+ * their email app on iOS Safari with an OTP code. Without this,
+ * the wallet-selector modal flashes closed → reopens at the OTP
+ * stage, which looks broken. The overlay covers the underlying
+ * page until the restore_email_otp_state handler lands. Toggled
+ * by assets/js/hooks/email_otp_resume.js.
+ */
+body.email-otp-resuming {
+  overflow: hidden;
+}
+body.email-otp-resuming::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 9998;
+  background: rgb(255, 255, 255);
+  pointer-events: auto;
+}

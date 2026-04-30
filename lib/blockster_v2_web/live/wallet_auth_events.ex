@@ -32,13 +32,18 @@ defmodule BlocksterV2Web.WalletAuthEvents do
 
                 user ->
                   is_new = is_new_from_auth == true
-                  BlocksterV2.BuxMinter.sync_user_balances_async(user.id, wallet_address, force: true)
+
+                  BlocksterV2.BuxMinter.sync_user_balances_async(user.id, wallet_address,
+                    force: true
+                  )
+
                   token_balances = BlocksterV2.EngagementTracker.get_user_token_balances(user.id)
 
-                  prev_user_id = case socket.assigns[:current_user] do
-                    %{id: id} -> id
-                    _ -> nil
-                  end
+                  prev_user_id =
+                    case socket.assigns[:current_user] do
+                      %{id: id} -> id
+                      _ -> nil
+                    end
 
                   already_signed_in_here? = prev_user_id != nil
                   user_changed? = already_signed_in_here? and prev_user_id != user.id
@@ -105,11 +110,21 @@ defmodule BlocksterV2Web.WalletAuthEvents do
       # ── Wallet Selector Modal ──
 
       def handle_event("show_wallet_selector", _, socket) do
-        {:noreply, assign(socket, show_wallet_selector: true, connecting: false, connecting_wallet_name: nil)}
+        {:noreply,
+         assign(socket,
+           show_wallet_selector: true,
+           connecting: false,
+           connecting_wallet_name: nil
+         )}
       end
 
       def handle_event("open_wallet_modal", _, socket) do
-        {:noreply, assign(socket, show_wallet_selector: true, connecting: false, connecting_wallet_name: nil)}
+        {:noreply,
+         assign(socket,
+           show_wallet_selector: true,
+           connecting: false,
+           connecting_wallet_name: nil
+         )}
       end
 
       def handle_event("hide_wallet_selector", _, socket) do
@@ -210,7 +225,11 @@ defmodule BlocksterV2Web.WalletAuthEvents do
 
             socket =
               socket
-              |> assign(:auth_challenge, %{pubkey: pubkey, message: challenge.message, nonce: challenge.nonce})
+              |> assign(:auth_challenge, %{
+                pubkey: pubkey,
+                message: challenge.message,
+                nonce: challenge.nonce
+              })
               |> push_event("request_sign", %{message: challenge.message, nonce: challenge.nonce})
 
             {:noreply, socket}
@@ -218,7 +237,8 @@ defmodule BlocksterV2Web.WalletAuthEvents do
             {:noreply, socket}
           end
         else
-          {:noreply, assign(socket, connecting: false) |> put_flash(:error, "Invalid wallet address")}
+          {:noreply,
+           assign(socket, connecting: false) |> put_flash(:error, "Invalid wallet address")}
         end
       end
 
@@ -232,7 +252,11 @@ defmodule BlocksterV2Web.WalletAuthEvents do
         challenge = socket.assigns.auth_challenge
 
         if challenge do
-          case BlocksterV2.Auth.SolanaAuth.verify_signature(challenge.pubkey, challenge.message, signature) do
+          case BlocksterV2.Auth.SolanaAuth.verify_signature(
+                 challenge.pubkey,
+                 challenge.message,
+                 signature
+               ) do
             {:ok, wallet_address} ->
               socket =
                 socket
@@ -266,7 +290,11 @@ defmodule BlocksterV2Web.WalletAuthEvents do
       # user and (if needed) push_navigate. `is_new_user` was returned by
       # AuthController.create_session and forwarded here by JS so we can
       # authoritatively decide whether to redirect to /onboarding.
-      def handle_event("session_persisted", %{"wallet_address" => wallet_address} = params, socket) do
+      def handle_event(
+            "session_persisted",
+            %{"wallet_address" => wallet_address} = params,
+            socket
+          ) do
         is_new_user = Map.get(params, "is_new_user", false) == true
 
         case socket.assigns[:pending_wallet_auth] do
@@ -322,7 +350,11 @@ defmodule BlocksterV2Web.WalletAuthEvents do
       # ── Wallet Error ──
 
       def handle_event("wallet_error", %{"error" => error}, socket) do
-        {:noreply, socket |> assign(:connecting, false) |> assign(:connecting_wallet_name, nil) |> put_flash(:error, error)}
+        {:noreply,
+         socket
+         |> assign(:connecting, false)
+         |> assign(:connecting_wallet_name, nil)
+         |> put_flash(:error, error)}
       end
 
       # ── Web3Auth Social Login ──
@@ -364,7 +396,10 @@ defmodule BlocksterV2Web.WalletAuthEvents do
                   |> assign(:email_prefill, email)
                   |> assign(:email_otp_stage, :enter_code)
                   |> assign(:email_otp_resend_cooldown, seconds)
-                  |> assign(:email_otp_error, "Please wait #{seconds}s before requesting another code.")
+                  |> assign(
+                    :email_otp_error,
+                    "Please wait #{seconds}s before requesting another code."
+                  )
                   |> Phoenix.LiveView.push_event("save_email_otp_state", %{email: email})
 
                 Process.send_after(self(), :email_otp_cooldown_tick, 1000)
@@ -388,7 +423,8 @@ defmodule BlocksterV2Web.WalletAuthEvents do
             {:noreply, assign(socket, :email_otp_error, "Enter your email first.")}
 
           String.length(code) < 4 ->
-            {:noreply, assign(socket, :email_otp_error, "Enter the 6-digit code from your email.")}
+            {:noreply,
+             assign(socket, :email_otp_error, "Enter the 6-digit code from your email.")}
 
           true ->
             case BlocksterV2.Auth.EmailOtpStore.verify_otp(email, code) do
@@ -459,6 +495,7 @@ defmodule BlocksterV2Web.WalletAuthEvents do
       def handle_event("restore_email_otp_state", %{"email" => email}, socket)
           when is_binary(email) do
         require Logger
+
         Logger.info(
           "[Auth] restore_email_otp_state fired email=#{email} " <>
             "current_stage=#{inspect(socket.assigns[:email_otp_stage])} " <>
@@ -487,13 +524,16 @@ defmodule BlocksterV2Web.WalletAuthEvents do
 
           true ->
             Logger.info("[Auth] restore: opening modal in :enter_code")
+            # Tell the EmailOtpResume JS hook that the modal is back —
+            # it drops the resume overlay (see assets/js/hooks/email_otp_resume.js).
             {:noreply,
              socket
              |> assign(:show_wallet_selector, true)
              |> assign(:email_prefill, email)
              |> assign(:email_otp_stage, :enter_code)
              |> assign(:email_otp_error, nil)
-             |> assign(:email_otp_resend_cooldown, 0)}
+             |> assign(:email_otp_resend_cooldown, 0)
+             |> push_event("email_otp_restored", %{})}
         end
       end
 
@@ -580,12 +620,14 @@ defmodule BlocksterV2Web.WalletAuthEvents do
 
         cond do
           not is_binary(wallet_address) or wallet_address == "" ->
-            {:noreply, assign(socket, connecting: false, connecting_provider: nil)
-              |> put_flash(:error, "Web3Auth did not return a wallet address.")}
+            {:noreply,
+             assign(socket, connecting: false, connecting_provider: nil)
+             |> put_flash(:error, "Web3Auth did not return a wallet address.")}
 
           not is_binary(id_token) or id_token == "" ->
-            {:noreply, assign(socket, connecting: false, connecting_provider: nil)
-              |> put_flash(:error, "Web3Auth did not return an ID token.")}
+            {:noreply,
+             assign(socket, connecting: false, connecting_provider: nil)
+             |> put_flash(:error, "Web3Auth did not return an ID token.")}
 
           true ->
             # Stash for server-side session mint via persist_web3auth_session
@@ -616,7 +658,11 @@ defmodule BlocksterV2Web.WalletAuthEvents do
       # matched the user by email into an existing account — in that case
       # the derived pubkey is orphaned and we route the session through the
       # canonical one.
-      def handle_event("web3auth_session_persisted", %{"wallet_address" => wallet_address} = params, socket) do
+      def handle_event(
+            "web3auth_session_persisted",
+            %{"wallet_address" => wallet_address} = params,
+            socket
+          ) do
         is_new_user = Map.get(params, "is_new_user", false) == true
         derived_pubkey = Map.get(params, "derived_pubkey", wallet_address)
 

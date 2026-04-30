@@ -661,38 +661,14 @@ defmodule BlocksterV2Web.WalletComponents do
                   </div>
                 <% end %>
 
-                <%!-- Social tiles: 3 providers, flat row on all breakpoints --%>
-                <div class="px-6 pb-4">
-                  <div class="grid grid-cols-3 gap-2">
-                    <button
-                      type="button"
-                      phx-click="start_x_login"
-                      class="flex flex-col items-center justify-center gap-1.5 px-2 py-3 rounded-2xl border border-neutral-200 bg-white hover:border-[#141414] hover:bg-neutral-50 active:scale-[0.98] transition-all cursor-pointer"
-                      aria-label="Continue with X"
-                    >
-                      <.provider_icon_small provider="twitter" />
-                      <span class="text-[11px] font-bold text-[#141414]">X</span>
-                    </button>
-                    <button
-                      type="button"
-                      phx-click="start_google_login"
-                      class="flex flex-col items-center justify-center gap-1.5 px-2 py-3 rounded-2xl border border-neutral-200 bg-white hover:border-[#141414] hover:bg-neutral-50 active:scale-[0.98] transition-all cursor-pointer"
-                      aria-label="Continue with Google"
-                    >
-                      <.provider_icon_small provider="google" />
-                      <span class="text-[11px] font-bold text-[#141414]">Google</span>
-                    </button>
-                    <button
-                      type="button"
-                      phx-click="start_telegram_login"
-                      class="flex flex-col items-center justify-center gap-1.5 px-2 py-3 rounded-2xl border border-neutral-200 bg-white hover:border-[#141414] hover:bg-neutral-50 active:scale-[0.98] transition-all cursor-pointer"
-                      aria-label="Continue with Telegram"
-                    >
-                      <.provider_icon_small provider="telegram" />
-                      <span class="text-[11px] font-bold text-[#141414]">Telegram</span>
-                    </button>
-                  </div>
-                </div>
+                <%!-- OAuth (X / Google / Telegram) tiles removed 2026-04-30:
+                     mobile redirect flow was unreliable on iOS Safari and the
+                     desktop popup variant added complexity for low usage.
+                     Email + Wallet Standard cover the supported sign-in paths.
+                     If we revive any OAuth provider, restore the start_*_login
+                     phx-click button(s) here and the corresponding LV handler
+                     in wallet_auth_events.ex (the handlers are still defined
+                     but no longer have a UI trigger). --%>
 
                 <%!-- Divider --%>
                 <div class="px-6 pb-3">

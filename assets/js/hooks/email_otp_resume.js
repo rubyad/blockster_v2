@@ -25,6 +25,7 @@
 
 const STORAGE_KEY = "blockster:email_otp_pending";
 const TTL_MS = 10 * 60 * 1000;
+const OVERLAY_TIMEOUT_MS = 2_500;
 
 export const EmailOtpResume = {
   mounted() {
@@ -34,6 +35,13 @@ export const EmailOtpResume = {
       }
     };
     document.addEventListener("visibilitychange", this._onVisibilityChange);
+
+    // Server pushes this once the restore handler has reopened the
+    // modal in :enter_code stage — that's our signal that the LV is
+    // back in sync, so the overlay can come down.
+    this.handleEvent("email_otp_restored", () => this._hideOverlay());
+    this.handleEvent("clear_email_otp_state", () => this._hideOverlay());
+
     this.tryRestore();
   },
 
@@ -46,6 +54,7 @@ export const EmailOtpResume = {
       clearTimeout(this._retryTimerId);
       this._retryTimerId = null;
     }
+    this._hideOverlay();
   },
 
   tryRestore() {
@@ -61,11 +70,14 @@ export const EmailOtpResume = {
         localStorage.removeItem(STORAGE_KEY);
         return;
       }
-      // Push the restore. iOS Safari quirk: when returning from a
-      // backgrounded tab, the LV websocket may take 100-500ms to
-      // reconnect. pushEvent during that window is dropped silently.
-      // Schedule three retries (250ms, 1s, 3s) so the restore lands
-      // even if the first push happened pre-reconnect.
+      // Bridge the LV-reconnect gap: a fresh LV process renders the
+      // default-assigns version of the page (modal closed) before our
+      // restore_email_otp_state event lands and reopens it. The
+      // overlay sits on top of everything so the user sees a calm
+      // continuation instead of a "modal disappears + reappears" flash
+      // when they return from their email app on iOS Safari.
+      this._showOverlay();
+
       this._restoreCount = 0;
       this._scheduleRestore(email);
     } catch (err) {
@@ -85,5 +97,29 @@ export const EmailOtpResume = {
     this._retryTimerId = setTimeout(() => {
       this._scheduleRestore(email);
     }, delay);
+  },
+
+  _showOverlay() {
+    if (this._overlayShown) return;
+    document.body.classList.add("email-otp-resuming");
+    this._overlayShown = true;
+    // Hard cap: if the LV restore never lands (network drop, LV
+    // process gone), don't strand the user behind a frozen white
+    // screen. Drop the overlay regardless after 2.5s — better to
+    // briefly see the closed-modal state than a stuck loading panel.
+    if (this._overlayTimeout) clearTimeout(this._overlayTimeout);
+    this._overlayTimeout = setTimeout(() => {
+      this._hideOverlay();
+    }, OVERLAY_TIMEOUT_MS);
+  },
+
+  _hideOverlay() {
+    if (!this._overlayShown) return;
+    document.body.classList.remove("email-otp-resuming");
+    this._overlayShown = false;
+    if (this._overlayTimeout) {
+      clearTimeout(this._overlayTimeout);
+      this._overlayTimeout = null;
+    }
   },
 };

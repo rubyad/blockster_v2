@@ -219,7 +219,7 @@ defmodule BlocksterV2Web.WalletComponentsTest do
       assert html =~ "Continue"
     end
 
-    test "renders social tile buttons when social login is enabled" do
+    test "OAuth social tiles are hidden (removed 2026-04-30)" do
       assigns = %{}
 
       html =
@@ -233,10 +233,18 @@ defmodule BlocksterV2Web.WalletComponentsTest do
         />
         """)
 
-      assert html =~ ~s(phx-click="start_x_login")
-      assert html =~ ~s(phx-click="start_google_login")
-      assert html =~ ~s(phx-click="start_telegram_login")
+      # Tiles for X / Google / Telegram were retired on 2026-04-30 — the
+      # supported sign-in paths are email OTP + Wallet Standard. The
+      # underlying handlers (start_x_login etc.) remain in
+      # wallet_auth_events.ex but no UI button triggers them.
+      refute html =~ ~s(phx-click="start_x_login")
+      refute html =~ ~s(phx-click="start_google_login")
+      refute html =~ ~s(phx-click="start_telegram_login")
       refute html =~ ~s(phx-click="start_apple_login")
+
+      # Email entry + the "or connect a wallet" divider should still be present.
+      assert html =~ ~s(phx-submit="start_email_login")
+      assert html =~ "or connect a wallet"
     end
 
     test "hides email + social section when social_login_enabled is false" do
