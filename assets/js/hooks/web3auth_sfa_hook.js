@@ -37,6 +37,15 @@ const PROVIDER_KEY = "blockster_web3auth_sfa_provider"
 // every sign. Bound by the JWT's own 10-minute TTL — refresh on demand.
 const JWT_TTL_BUFFER_MS = 30_000 // refresh 30s before expiry
 
+// Phase 1.1 soft cache for the derived ed25519 seed. SFA's getTorusKey
+// is a ~1s HTTPS round-trip to the Torus DKG cluster — too slow per
+// sign for fast-paced flows like coin flip. The cache lets consecutive
+// signs reuse the seed without hitting the network. CLAUDE.md was
+// updated to allow short-lived in-memory key cache as long as we never
+// write to persistent storage. Default 60s, configurable via
+// data-key-cache-ttl-ms attribute on the hook root.
+const DEFAULT_KEY_CACHE_TTL_MS = 60_000
+
 let _customAuthCtor = null
 
 async function loadCustomAuth() {
@@ -108,8 +117,13 @@ function jwtIsFresh(jwt) {
 
 export const Web3AuthSfa = {
   async mounted() {
-    // Desktop continues to use the modal hook. SFA is mobile-only in v1.
-    if (!isMobileUA()) return
+    // Phase 2 (2026-04-30): SFA owns ALL UAs (desktop + mobile). The
+    // modal hook is now inert on every device — Chrome's third-party
+    // cookie restrictions broke its iframe MPC handshake the same way
+    // iOS Safari ITP did, and rather than maintain two SDK paths we
+    // unify on customauth's pure-HTTPS getTorusKey. Existing modal
+    // users get new pubkeys on next sign-in via the email reclaim
+    // flow (Accounts.reclaim_legacy_via_web3auth/3).
 
     this._clientId = this.el.dataset.clientId || ""
     this._rpcUrl = this.el.dataset.rpcUrl || ""
@@ -122,12 +136,16 @@ export const Web3AuthSfa = {
     this._network = (this.el.dataset.network || "sapphire_mainnet").toLowerCase()
     this._telegramVerifierId = this.el.dataset.telegramVerifierId || ""
     this._telegramBotId = this.el.dataset.telegramBotId || ""
+    this._keyCacheTtlMs =
+      parseInt(this.el.dataset.keyCacheTtlMs, 10) || DEFAULT_KEY_CACHE_TTL_MS
 
     this._customAuth = null
     this._pubkey = null
     this._cachedJwt = null
     this._cachedVerifier = null
     this._cachedVerifierId = null
+    this._cachedSeed = null
+    this._cachedSeedExpiresAt = 0
 
     if (!this._clientId) {
       // Social login disabled or env not configured. Stay quiet.
@@ -400,13 +418,17 @@ export const Web3AuthSfa = {
     try {
       kp.secretKey.fill(0)
     } catch (_) {}
-    seedBytes.fill(0)
 
     // Cache the JWT + verifier params so per-sign re-derivation skips the
     // /refresh_jwt round-trip while the JWT is still fresh.
     this._cachedJwt = id_token
     this._cachedVerifier = verifier
     this._cachedVerifierId = sub
+
+    // Cache the seed bytes for fast subsequent signs (Phase 1.1). We
+    // keep our own copy because seedBytes is a local that other callers
+    // may zero out. Zeroed on TTL expiry, on sign-out, and on logout.
+    this._cacheSeed(seedBytes)
 
     this._installSigner()
 
@@ -476,6 +498,18 @@ export const Web3AuthSfa = {
   // ── Per-sign keypair fetch ────────────────────────────────────
 
   async _fetchKeypair() {
+    // Phase 1.1 fast path: if we have a fresh cached seed, derive the
+    // Keypair locally. The Torus DKG round-trip (~1s) is skipped for up
+    // to TTL_MS after the last derive — long enough to make consecutive
+    // signs (coin flip bursts, multi-step pool flows) feel native.
+    if (this._cachedSeed && Date.now() < this._cachedSeedExpiresAt) {
+      return this._keypairFromBytes(this._cachedSeed)
+    }
+    if (this._cachedSeed) {
+      // Past TTL — zero the stale copy before re-deriving.
+      this._zeroCachedSeed()
+    }
+
     let jwt = this._cachedJwt
     if (!jwt || !jwtIsFresh(jwt)) {
       jwt = await this._refreshCachedJwt()
@@ -509,6 +543,11 @@ export const Web3AuthSfa = {
     }
 
     const bytes = hexToBytes(privKeyHex)
+    this._cacheSeed(bytes)
+    return this._keypairFromBytes(bytes)
+  },
+
+  _keypairFromBytes(bytes) {
     try {
       return bytes.length === 64
         ? Keypair.fromSecretKey(bytes)
@@ -519,6 +558,23 @@ export const Web3AuthSfa = {
       })
       return null
     }
+  },
+
+  _cacheSeed(bytes) {
+    // Defensive copy — bytes may be zeroed by the caller after the
+    // current sign completes. Our cache must outlive that.
+    this._cachedSeed = new Uint8Array(bytes)
+    this._cachedSeedExpiresAt = Date.now() + this._keyCacheTtlMs
+  },
+
+  _zeroCachedSeed() {
+    if (this._cachedSeed) {
+      try {
+        this._cachedSeed.fill(0)
+      } catch (_) {}
+      this._cachedSeed = null
+    }
+    this._cachedSeedExpiresAt = 0
   },
 
   async _refreshCachedJwt() {
@@ -616,6 +672,7 @@ export const Web3AuthSfa = {
     this._cachedJwt = null
     this._cachedVerifier = null
     this._cachedVerifierId = null
+    this._zeroCachedSeed()
     try {
       localStorage.removeItem(STORAGE_KEY)
       localStorage.removeItem(PROVIDER_KEY)

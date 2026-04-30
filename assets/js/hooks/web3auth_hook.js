@@ -96,15 +96,22 @@ function decodeSecret(raw) {
 
 export const Web3Auth = {
   async mounted() {
-    // Phase 1 of the SFA migration: mobile users go through the SFA hook
-    // (assets/js/hooks/web3auth_sfa_hook.js), which uses customauth's
-    // pure-HTTPS getTorusKey path and avoids the iOS Safari ITP iframe
-    // block. Modal stays the desktop SDK. Skip the entire modal mount on
-    // mobile so the two hooks don't race on email/Telegram or fight over
-    // window.__signer. OAuth (X / Google / Apple) is also currently
-    // skipped on mobile — the SFA hook surfaces a clear error for those
-    // until Phase 1.1 wires customauth.triggerLogin.
-    if (isMobileUA()) return
+    // Phase 2 of the SFA migration (2026-04-30): the modal hook is
+    // permanently inert. Both desktop and mobile go through the SFA
+    // hook (assets/js/hooks/web3auth_sfa_hook.js), which uses
+    // customauth's pure-HTTPS getTorusKey path and avoids the iframe
+    // MPC handshake entirely. Triggered by Chrome's third-party-cookie
+    // restrictions hanging the iframe MPC on desktop the same way iOS
+    // Safari ITP did on mobile. Existing modal-registered users get
+    // new pubkeys on next sign-in via Accounts.reclaim_legacy_via_web3auth/3.
+    //
+    // The hook + element + data attrs are kept around so we can roll
+    // back by reverting this single early-return if Phase 2 reveals
+    // an unexpected regression. Once Phase 2 has soaked, the hook
+    // file + the data-* div in wallet_components.ex can be deleted
+    // and @web3auth/modal dropped from package.json (~3-4 MB bundle
+    // win). See docs/web3auth_sfa_migration.md §3.7.
+    return
 
     this._clientId = this.el.dataset.clientId || ""
     this._rpcUrl = this.el.dataset.rpcUrl || ""

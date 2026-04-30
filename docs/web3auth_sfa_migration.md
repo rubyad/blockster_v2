@@ -1,10 +1,10 @@
 # Web3Auth SFA Mobile Migration Plan
 
-**Status:** Draft — pending Phase 0 results
-**Date:** 2026-04-29
+**Status:** Phases 0 / 1 / 1.1 / 2 shipped 2026-04-29 → 2026-04-30. Soaking.
+**Date:** 2026-04-29 (started); 2026-04-30 (Phase 2 cutover, Phase 1.1 cache)
 **Author:** Claude + Adam
-**SDK swap:** `@web3auth/modal@10.15` (current, iframe-based) → `@web3auth/single-factor-auth` / `@toruslabs/customauth` (target, pure HTTPS, no iframe)
-**Scope:** mobile login first, desktop conditional on Phase 0 outcome
+**SDK swap:** `@web3auth/modal@10.15` (former, iframe-based) → `@toruslabs/customauth` (current, pure HTTPS, no iframe). All UAs now route through SFA — modal hook is inert.
+**Scope:** initially mobile-only, expanded to desktop in Phase 2 after Chrome's third-party-cookie restrictions hung the modal SDK's iframe MPC the same way iOS Safari ITP did.
 
 ---
 
@@ -166,49 +166,53 @@ Flip `WEB3AUTH_USE_SFA=false` Fly secret (`flyctl secrets set WEB3AUTH_USE_SFA=f
 
 Not applicable if Phase 0 reported parity mismatch and Phase 2 has migrated desktop too — at that point modal is gone from the bundle.
 
-### 3.7 Performance: soft cache for fast signing (Phase 1.1, deferred)
+### 3.7 Performance: soft cache for fast signing (Phase 1.1, SHIPPED 2026-04-30)
 
-Phase 1 (current) re-derives the keypair on every sign — `customauth.getTorusKey(...)` HTTPS round-trip to ~5 Torus DKG nodes per call, ~800–1500ms latency. Acceptable for one-shot flows (shop checkout, pool deposit/withdraw, airdrop claim, BUX burn) where the user is already in a "submitting…" UI. **Felt for coin flip betting**, where every bet is a sign and a 1s pause-per-bet hurts UX.
+Phase 1 baseline re-derived the keypair on every sign — `customauth.getTorusKey(...)` HTTPS round-trip to ~5 Torus DKG nodes per call, ~800–1500ms latency. Acceptable for one-shot flows (shop checkout, pool deposit/withdraw, airdrop claim, BUX burn) where the user is already in a "submitting…" UI. Felt for coin flip betting and any rapid sign sequence.
 
-Phase 1.1 layers a short-lived in-memory seed cache on top of the per-sign fetch. Sketch:
+Implementation in `assets/js/hooks/web3auth_sfa_hook.js`:
 
-- After a successful `_fetchKeypair`, store the 32-byte ed25519 seed in a closure-scoped variable (NOT in localStorage / sessionStorage / IndexedDB).
-- TTL: 30–60 seconds, default 60_000 ms (configurable via `data-key-cache-ttl-ms` attribute on the hook root).
-- Subsequent signs within the window: derive `Keypair.fromSeed(cached)` locally, sign, zero the keypair's secretKey. The cached seed itself stays.
-- On TTL expiry: zero the cached seed, next sign re-derives via Torus.
-- On logout / hook destroyed: zero the cached seed immediately.
-- Modal hook is unaffected — `provider.request({method: "solana_privateKey"})` is already fast, no caching layer needed there.
+- After a successful `_fetchKeypair`, the raw seed bytes are copied into `this._cachedSeed` (`Uint8Array` defensive copy — original may be zeroed by caller).
+- TTL: `DEFAULT_KEY_CACHE_TTL_MS = 60_000` ms, configurable via `data-key-cache-ttl-ms` attribute on the hook root.
+- Subsequent signs within the window: take the fast path — `_keypairFromBytes(this._cachedSeed)` returns a fresh Keypair from the cached seed, no Torus call. Caller continues to zero the keypair's secretKey in `finally`.
+- On TTL expiry: `_zeroCachedSeed()` runs at the top of `_fetchKeypair`, fills the buffer with zeros, drops the reference. Next sign re-derives via Torus.
+- On logout (`_logout()` runs on `request_disconnect` event): zero immediately.
+- Modal hook is now inert (Phase 2) — caching only lives in the SFA hook.
 
 **Security trade-off.** The previous strict-per-sign rule was XSS defense in depth — limit the window an attacker with code execution can exfiltrate the secret. With a 60s cache, an XSS attacker can grab the cached seed during the window, but they could already have waited one user-initiated sign cycle to exfiltrate via the per-sign path. The protection delta is modest. The load-bearing rule remains: **never write keys to persistent storage.** That's where XSS damage compounds (key survives reload, attacker has unlimited time).
 
 CLAUDE.md updated 2026-04-29 to reflect this — the strict "never cache" bullet is replaced with "never write to localStorage/sessionStorage; short-lived in-memory cache OK".
 
-Effort: ~15 LOC in `web3auth_sfa_hook.js`. Zero server-side. Implement when (a) we get user feedback that mobile coin flip feels slow, OR (b) before any other latency-sensitive feature ships on mobile.
-
 ---
 
-## 4. Phase 2 — Conditional Cleanup
+## 4. Phase 2 — Desktop cutover (SHIPPED 2026-04-30)
 
-### 4.1 If Phase 0 reported parity match (every account, every verifier)
+Phase 0 confirmed pubkey **mismatch** between modal and SFA (see §6 results). Phase 2 was originally conditional on that result + Phase 1 mobile validation; both gates were satisfied by 2026-04-30. Trigger event: a user (admin@blockster.com sign-in test on desktop Chrome incognito) hit the same 60s "browser blocked the secure key derivation" timeout iOS Safari was hitting — Chrome's third-party-cookie restrictions break the modal SDK's iframe MPC the same way ITP did. Rather than maintain two SDK paths and ask users to allowlist `web3auth.io` in their cookie settings, we cut over.
 
-**Optional desktop migration:** can migrate desktop to SFA later for bundle savings (~5MB by dropping `@web3auth/modal`, `@web3auth/no-modal`, `@web3auth/ws-embed`). Defer until/unless bundle becomes a priority. No urgency — desktop modal works fine.
+### 4.1 What changed
 
-### 4.2 If Phase 0 reported parity mismatch
+- `assets/js/hooks/web3auth_sfa_hook.js` mounted() — dropped the `if (!isMobileUA()) return` early-return. SFA now runs on all UAs.
+- `assets/js/hooks/web3auth_hook.js` mounted() — replaced the `if (isMobileUA()) return` with an unconditional `return`. Modal hook is permanently inert on every device. Kept around as a 1-line revert lever in case Phase 2 reveals an unexpected regression.
 
-**Cut desktop over to SFA after Phase 1 is verified working on real mobile devices.**
+### 4.2 User impact
 
-- Decision: collapse to single SDK, single hook, all users on SFA.
-- Existing modal users: next sign-in derives new pubkey via SFA → reclaim flow creates new user row, merges legacy (BUX, multipliers, X handle, Telegram ID, phone, content, referrals, fingerprints) into new wallet via `Accounts.reclaim_legacy_via_web3auth/3` + `LegacyMerge.merge_legacy_into!`.
-- BUX migration is on-chain via settler (existing pattern, exercised by social-login launch).
-- Risk: if a user signs in on multiple devices mid-cutover, ensure email-keyed merge handles ping-pong gracefully. Watch `LegacyMerge` logs for 24 hours post-cutover; investigate any double-merges or merge-into-merged-row scenarios.
+- **Existing modal-registered users** (the small launch cohort): on next sign-in, SFA derives a new pubkey from `(verifier, sub)`. Email match triggers `Accounts.reclaim_legacy_via_web3auth/3` + `LegacyMerge.merge_legacy_into!`:
+  - Mints legacy BUX from old pubkey to new pubkey via settler.
+  - Transfers username, X handle, Telegram, phone, content, referrals, multipliers, fingerprints.
+  - Deactivates the old user row (frees email/username/slug).
+  - Returning user stays signed in, but with the new SFA-derived pubkey as primary `wallet_address`.
+- **Brand new users**: no impact (just a different sign-in mechanism — same UX).
+- **Sign latency** on signing ops (shop checkout, pool deposit, BUX burn, airdrop, coin flip): ~50ms (modal cached) → ~1s on the first sign per cache window, then ~50ms thereafter via the Phase 1.1 in-memory seed cache (60s TTL).
 
-### 4.3 Cleanup tasks (after either path)
+### 4.3 Cleanup tasks (deferred — let Phase 2 soak first)
 
-- Remove `WEB3AUTH_USE_SFA` flag and the dual-hook branch in `wallet_components.ex` once mobile has been on SFA for 7+ days with no regression.
-- Drop `@web3auth/modal`, `@web3auth/no-modal`, `@web3auth/ws-embed` from `package.json` if and only if §4.2 path was taken (or §4.1 was deferred and is now in flight).
-- Delete `assets/js/hooks/web3auth_hook.js` (modal hook) once unused.
-- Update `docs/web3auth_integration.md` with the new signing pattern (`sfa.getKey` per call instead of `provider.request({method: "solana_privateKey"})`).
-- Update `CLAUDE.md` Social Login section: replace modal references with SFA.
+- Drop `@web3auth/modal`, `@web3auth/no-modal`, `@web3auth/ws-embed`, `@web3auth/auth` from `package.json` once we're confident Phase 2 is stable. Bundle wins ~3-4 MB.
+- Delete `assets/js/hooks/web3auth_hook.js` once those deps are gone.
+- Delete the `<div id="web3auth-root" phx-hook="Web3Auth" ...>` mount in `wallet_components.ex` (it's currently a no-op since the hook early-returns).
+- Update `docs/web3auth_integration.md` §4 with the SFA signing pattern.
+- Update `CLAUDE.md` Social Login section: replace remaining modal references with SFA.
+
+Soak window: minimum 7 days of clean Phase 2 traffic before any cleanup.
 
 ---
 
@@ -229,11 +233,14 @@ Effort: ~15 LOC in `web3auth_sfa_hook.js`. Zero server-side. Implement when (a) 
 
 ## 6. Phase 0 Results
 
-*To be filled in after the parity test runs.*
+Run on prod (mainnet) on 2026-04-29 via `assets/_sfa_derive.mjs` (Node script using `@toruslabs/customauth.getTorusKey` directly, with JWTs minted from prod via `flyctl ssh -C "/app/bin/blockster_v2 rpc 'BlocksterV2.Auth.Web3AuthSigning.sign_id_token(...)'"` and prod `WEB3AUTH_CLIENT_ID`).
 
-| Account | Verifier | Expected pubkey | Derived (SFA) | Match? | keyType | Notes |
-|---|---|---|---|---|---|---|
-| | | | | | | |
+| Account | Verifier | Expected pubkey (modal) | Derived (SFA `keyType: ed25519`) | Match? | Notes |
+|---|---|---|---|---|---|
+| `adam+sfa@blockster.com` | `blockster-email` | `SrVxSkLZyQbpq3Vyd93BjPZMznxpbuFKD62XQeERPEs` | `WVhdgbjLZTn9mYM8qA2ci6rzLoG3nkvhBqjScunr5nh` | ✗ MISMATCH | First test account |
+| Telegram (admin) | `blockster-telegram` | `F1NsPeF5pwh3QPtB9gotMPKe1YSYKXBG8r6Nx5oqeq4V` | (not run) | n/a | Blocked: User row 2221 has `telegram_user_id: nil` despite `auth_method: "web3auth_telegram"` — separate persistence bug. Couldn't mint a matching JWT without the original `sub` value. Sample size of 1 (email) deemed sufficient given launch-week user count. |
+
+**Decision**: with email parity confirmed mismatched, the assumption that SFA could be a drop-in for modal was wrong — the ed25519 derivation path differs (likely SFA uses `getED25519Key(secp_privkey)` SHA-512 derivation while modal/ws-embed uses Torus's `keyType: ED25519` metadata-server seed retrieval). User authorized cutover (low launch-week user count + reclaim flow handles the merge), and Phase 2 was scheduled.
 
 ---
 
