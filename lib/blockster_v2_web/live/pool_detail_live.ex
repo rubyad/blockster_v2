@@ -628,6 +628,14 @@ defmodule BlocksterV2Web.PoolDetailLive do
                     {if @pool_loading, do: "—", else: format_lp_price(@lp_price)}
                   </span>
                   <span class="text-[14px] md:text-[18px] text-white/90">{@token}</span>
+                  <%= if @is_sol and not @pool_loading do %>
+                    <% lp_usd_str = format_sol_usd_approx(@lp_price) %>
+                    <%= if lp_usd_str != "" do %>
+                      <span class="text-[12px] md:text-[14px] text-white/80 font-mono">
+                        {lp_usd_str}
+                      </span>
+                    <% end %>
+                  <% end %>
                   <span
                     :if={@chart_price_stats && @chart_price_stats.change_pct}
                     class={"ml-1 md:ml-2 inline-flex items-center gap-1 text-[12px] md:text-[14px] font-mono font-bold " <> if(@chart_price_stats.change_pct >= 0, do: "text-[#CAFC00]", else: "text-red-200")}
@@ -652,6 +660,14 @@ defmodule BlocksterV2Web.PoolDetailLive do
                   </div>
                   <div class="text-[9px] uppercase tracking-[0.14em] text-white/80 mt-1">
                     TVL · {@token}
+                    <%= if @is_sol do %>
+                      <% tvl_usd = format_sol_usd_approx(@tvl) %>
+                      <%= if tvl_usd != "" do %>
+                        <span class="ml-1 normal-case tracking-normal text-white/70 font-mono">
+                          · {tvl_usd}
+                        </span>
+                      <% end %>
+                    <% end %>
                   </div>
                 </div>
                 <div class="bg-black/25 backdrop-blur ring-1 ring-white/15 rounded-xl px-3 py-2">
@@ -678,6 +694,14 @@ defmodule BlocksterV2Web.PoolDetailLive do
                   </div>
                   <div class="text-[10px] uppercase tracking-[0.14em] text-white/90 mt-1.5">
                     TVL · {@token}
+                    <%= if @is_sol do %>
+                      <% tvl_usd = format_sol_usd_approx(@tvl) %>
+                      <%= if tvl_usd != "" do %>
+                        <span class="ml-1 normal-case tracking-normal text-white/75 font-mono">
+                          · {tvl_usd}
+                        </span>
+                      <% end %>
+                    <% end %>
                   </div>
                 </div>
                 <div class="w-px h-10 bg-white/30"></div>
@@ -731,6 +755,14 @@ defmodule BlocksterV2Web.PoolDetailLive do
                     <div class="font-mono font-bold text-[13px] md:text-[14px] text-[#141414] whitespace-nowrap overflow-hidden text-ellipsis">
                       {format_cost_basis(@position_summary, @token)}
                     </div>
+                    <%= if @is_sol and is_map(@position_summary) and is_number(@position_summary[:cost_basis]) and @position_summary[:cost_basis] > 0 do %>
+                      <% cb_usd = format_sol_usd_approx(@position_summary[:cost_basis]) %>
+                      <%= if cb_usd != "" do %>
+                        <div class="text-[10px] font-mono text-neutral-500 whitespace-nowrap overflow-hidden text-ellipsis">
+                          {cb_usd}
+                        </div>
+                      <% end %>
+                    <% end %>
                   </div>
                   <div>
                     <div class="text-[9px] uppercase tracking-[0.12em] text-neutral-500">
@@ -739,6 +771,15 @@ defmodule BlocksterV2Web.PoolDetailLive do
                     <div class={"font-mono font-bold text-[13px] md:text-[14px] whitespace-nowrap overflow-hidden text-ellipsis " <> pnl_color(@position_summary)}>
                       {format_pnl(@position_summary, @token)}
                     </div>
+                    <%= if @is_sol and is_map(@position_summary) and is_number(@position_summary[:unrealized_pnl]) do %>
+                      <% pnl = @position_summary[:unrealized_pnl] %>
+                      <% pnl_usd = format_sol_usd_signed(pnl, pnl_sign(pnl)) %>
+                      <%= if pnl_usd != "" do %>
+                        <div class="text-[10px] font-mono text-neutral-500 whitespace-nowrap overflow-hidden text-ellipsis">
+                          {pnl_usd}
+                        </div>
+                      <% end %>
+                    <% end %>
                   </div>
                   <div>
                     <div class="text-[9px] uppercase tracking-[0.12em] text-neutral-500">
@@ -747,6 +788,15 @@ defmodule BlocksterV2Web.PoolDetailLive do
                     <div class={"font-mono font-bold text-[13px] md:text-[14px] whitespace-nowrap overflow-hidden text-ellipsis " <> realized_color(@position_summary)}>
                       {format_realized_gain(@position_summary, @token)}
                     </div>
+                    <%= if @is_sol and is_map(@position_summary) and is_number(@position_summary[:realized_gain]) do %>
+                      <% rg = @position_summary[:realized_gain] %>
+                      <% rg_usd = format_sol_usd_signed(rg, pnl_sign(rg)) %>
+                      <%= if rg_usd != "" do %>
+                        <div class="text-[10px] font-mono text-neutral-500 whitespace-nowrap overflow-hidden text-ellipsis">
+                          {rg_usd}
+                        </div>
+                      <% end %>
+                    <% end %>
                   </div>
                 </div>
               </div>
@@ -799,46 +849,66 @@ defmodule BlocksterV2Web.PoolDetailLive do
                   <div class="text-[10px] font-bold uppercase tracking-[0.14em] text-neutral-500 mb-3">
                     Your wallet
                   </div>
+                  <% token_logo =
+                    if @is_sol,
+                      do: "https://ik.imagekit.io/blockster/solana-sol-logo.png",
+                      else: "https://ik.imagekit.io/blockster/blockster-icon.png" %>
                   <div class="grid grid-cols-2 gap-3">
                     <div class="bg-neutral-50 border border-neutral-200/70 rounded-xl p-3">
                       <div class="flex items-center gap-2 mb-1">
-                        <div
-                          class="w-4 h-4 rounded-full grid place-items-center"
-                          style={wallet_icon_bg(@is_sol)}
-                        >
-                          <span class="font-bold text-[6px] text-black">{@token}</span>
-                        </div>
+                        <img src={token_logo} alt={@token} class="w-4 h-4 rounded-full shrink-0" />
                         <span class="text-[10px] text-neutral-500">{@token}</span>
                       </div>
                       <div class="font-mono font-bold text-[16px] text-[#141414] tabular-nums">
                         {format_balance(@balances[@token])}
                       </div>
+                      <%= if @is_sol do %>
+                        <% bal_usd = format_sol_usd_approx(@balances[@token]) %>
+                        <%= if bal_usd != "" do %>
+                          <div class="text-[10px] font-mono text-neutral-500 mt-0.5">
+                            {bal_usd}
+                          </div>
+                        <% end %>
+                      <% end %>
                     </div>
                     <div class="bg-neutral-50 border border-neutral-200/70 rounded-xl p-3">
                       <div class="flex items-center gap-2 mb-1">
-                        <div
-                          class="w-4 h-4 rounded-full grid place-items-center opacity-60"
-                          style={wallet_icon_bg(@is_sol)}
-                        >
-                          <span class="font-bold text-[6px] text-black">{@token}</span>
-                        </div>
+                        <img
+                          src={token_logo}
+                          alt={@lp_token}
+                          class="w-4 h-4 rounded-full shrink-0 opacity-60"
+                        />
                         <span class="text-[10px] text-neutral-500">{@lp_token}</span>
                       </div>
                       <div class="font-mono font-bold text-[16px] text-[#141414] tabular-nums">
                         {format_lp(@user_lp)}
                       </div>
+                      <%= if @is_sol and is_number(@user_lp) and is_number(@lp_price) do %>
+                        <% lp_usd = format_sol_usd_approx(@user_lp * @lp_price) %>
+                        <%= if lp_usd != "" do %>
+                          <div class="text-[10px] font-mono text-neutral-500 mt-0.5">
+                            {lp_usd}
+                          </div>
+                        <% end %>
+                      <% end %>
                     </div>
                   </div>
                 </div>
 
                 <%!-- LP Price line --%>
-                <div class="px-5 pt-4 pb-2 flex items-center justify-between">
-                  <div class="text-[10px] font-bold uppercase tracking-[0.14em] text-neutral-500">
+                <div class="px-5 pt-4 pb-2 flex items-center justify-between gap-3">
+                  <div class="text-[10px] font-bold uppercase tracking-[0.14em] text-neutral-500 shrink-0">
                     {@lp_token} Price
                   </div>
-                  <div class="font-mono text-[12px] text-[#141414]">
+                  <div class="font-mono text-[12px] text-[#141414] text-right">
                     1 {@lp_token} =
                     <span class="font-bold">{format_lp_price(@lp_price)} {@token}</span>
+                    <%= if @is_sol do %>
+                      <% price_usd = format_sol_usd_approx(@lp_price) %>
+                      <%= if price_usd != "" do %>
+                        <span class="ml-1 text-neutral-500">· {price_usd}</span>
+                      <% end %>
+                    <% end %>
                   </div>
                 </div>
 
@@ -873,22 +943,29 @@ defmodule BlocksterV2Web.PoolDetailLive do
                     phx-change="update_amount"
                     class="bg-neutral-50 border border-neutral-200 rounded-2xl px-5 py-4 flex items-center gap-3"
                   >
-                    <input
-                      type="text"
-                      inputmode="decimal"
-                      name="amount"
-                      value={@amount}
-                      phx-keyup="update_amount"
-                      phx-debounce="100"
-                      placeholder="0.00"
-                      autocomplete="off"
-                      class="flex-1 bg-transparent border-0 outline-none font-mono font-bold text-[28px] text-[#141414] tracking-tight w-full focus:outline-none"
-                    />
+                    <div class="flex-1 min-w-0 flex flex-col">
+                      <input
+                        type="text"
+                        inputmode="decimal"
+                        name="amount"
+                        value={@amount}
+                        phx-keyup="update_amount"
+                        phx-debounce="100"
+                        placeholder="0.00"
+                        autocomplete="off"
+                        class="w-full bg-transparent border-0 outline-none font-mono font-bold text-[28px] text-[#141414] tracking-tight focus:outline-none p-0 leading-none"
+                      />
+                      <% dollar_str = estimate_dollar_value(@amount, @deposit_token, @lp_price) %>
+                      <%= if dollar_str != "" do %>
+                        <div class="text-[12px] text-neutral-500 font-mono mt-1.5">
+                          {dollar_str}
+                        </div>
+                      <% end %>
+                    </div>
                     <div class="text-[14px] text-neutral-500 shrink-0">{@deposit_token}</div>
                   </form>
                   <div class="flex items-center justify-between mt-2 text-[10px] font-mono text-neutral-400">
                     <span>Balance · {format_balance(@deposit_balance)} {@deposit_token}</span>
-                    <span>{estimate_dollar_value(@amount, @deposit_token)}</span>
                   </div>
                 </div>
 
@@ -909,11 +986,19 @@ defmodule BlocksterV2Web.PoolDetailLive do
                       </div>
                       <div class={"text-[10px] font-mono " <> preview_muted}>est.</div>
                     </div>
-                    <div class="flex items-baseline gap-2">
+                    <div class="flex items-baseline gap-2 flex-wrap">
                       <span class={"font-mono font-bold text-[28px] leading-none tabular-nums " <> preview_label}>
                         {estimate_output(@amount, @lp_price, @multiply)}
                       </span>
                       <span class={"text-[12px] " <> preview_muted}>{@output_token}</span>
+                      <%= if @is_sol do %>
+                        <% out_usd = output_preview_usd(@amount, @lp_price, @multiply, @output_token) %>
+                        <%= if out_usd != "" do %>
+                          <span class={"text-[11px] font-mono " <> preview_muted}>
+                            {out_usd}
+                          </span>
+                        <% end %>
+                      <% end %>
                     </div>
                     <div
                       :if={@tab == :deposit}
@@ -1168,6 +1253,20 @@ defmodule BlocksterV2Web.PoolDetailLive do
     end
   end
 
+  # USD-equivalent of the output preview, only when output is denominated in
+  # SOL (i.e. withdrawing on /pool/sol). LP-token outputs return "" — LP units
+  # don't have a stable dollar price.
+  defp output_preview_usd(amount, lp_price, multiply, output_token) do
+    case {parse_amount(amount), lp_price, output_token} do
+      {a, p, "SOL"} when a > 0 and is_number(p) and p > 0 ->
+        sol_out = if multiply, do: a * p, else: a / p
+        format_sol_usd_approx(sol_out)
+
+      _ ->
+        ""
+    end
+  end
+
   defp format_activity(%{
          type: type,
          game: game,
@@ -1193,16 +1292,18 @@ defmodule BlocksterV2Web.PoolDetailLive do
     payout_str =
       if type == "win" and is_number(payout), do: format_amount(payout, decimals), else: nil
 
-    profit =
+    {profit, profit_usd} =
       cond do
         type == "win" and is_number(bet_amount) and is_number(payout) ->
-          "+#{format_amount(payout - bet_amount, decimals)} #{token}"
+          gain = payout - bet_amount
+          {"+#{format_amount(gain, decimals)} #{token}", activity_usd_only(gain, vault_type)}
 
         type == "loss" and is_number(bet_amount) ->
-          "-#{format_amount(bet_amount, decimals)} #{token}"
+          {"-#{format_amount(bet_amount, decimals)} #{token}",
+           activity_usd_only(bet_amount, vault_type)}
 
         true ->
-          ""
+          {"", ""}
       end
 
     %{
@@ -1214,8 +1315,10 @@ defmodule BlocksterV2Web.PoolDetailLive do
       "settlement_sig" => settlement_sig,
       "settled" => status == :settled,
       "bet" => "#{bet_str} #{token}",
+      "bet_usd" => activity_usd_only(bet_amount, vault_type),
       "payout" => if(payout_str, do: "#{payout_str} #{token}"),
       "profit" => profit,
+      "profit_usd" => profit_usd,
       "multiplier" => format_multiplier(difficulty),
       "predictions" => predictions,
       "results" => results,
@@ -1225,6 +1328,15 @@ defmodule BlocksterV2Web.PoolDetailLive do
       "_created_at" => created_at || 0
     }
   end
+
+  # "≈ $X" string for SOL-vault activity amounts; "" otherwise. Rendered as a
+  # separate grey span next to the colored SOL value, so the USD doesn't
+  # inherit the win/loss color.
+  defp activity_usd_only(amount, "sol") when is_number(amount) and amount > 0 do
+    format_sol_usd_approx(amount)
+  end
+
+  defp activity_usd_only(_, _), do: ""
 
   defp load_pool_activities(vault_type) do
     :mnesia.dirty_index_read(:pool_activities, vault_type, :vault_type)
@@ -1239,8 +1351,10 @@ defmodule BlocksterV2Web.PoolDetailLive do
         "type" => type,
         "game" => nil,
         "bet" => nil,
+        "bet_usd" => "",
         "payout" => nil,
         "profit" => "#{amount_str} #{token}",
+        "profit_usd" => activity_usd_only(amount, vault_type),
         "wallet" => wallet,
         "full_wallet" => nil,
         "tx_sig" => nil,
@@ -1352,9 +1466,6 @@ defmodule BlocksterV2Web.PoolDetailLive do
   defp banner_bg_style(false),
     do: "background: linear-gradient(135deg, #CAFC00 0%, #9ED600 50%, #4d6800 130%);"
 
-  defp wallet_icon_bg(true), do: "background: linear-gradient(135deg, #00FFA3, #00DC82);"
-  defp wallet_icon_bg(false), do: "background: linear-gradient(135deg, #CAFC00, #9ED600);"
-
   defp change_arrow(pct) when is_number(pct) and pct >= 0, do: "▲"
   defp change_arrow(_), do: "▼"
 
@@ -1380,25 +1491,66 @@ defmodule BlocksterV2Web.PoolDetailLive do
     end
   end
 
-  defp estimate_dollar_value(amount, token) do
+  defp estimate_dollar_value(amount, token, lp_price) do
     val = parse_amount(amount)
 
-    usd =
-      case token do
-        "SOL" -> val * 160.0
-        "SOL-LP" -> val * 160.0
-        "BUX" -> val * 0.01
-        "BUX-LP" -> val * 0.01
-        _ -> 0.0
-      end
+    case token do
+      "SOL" ->
+        format_sol_usd_approx(val)
 
-    cond do
-      usd >= 1_000_000 -> "≈ $#{:erlang.float_to_binary(usd / 1_000_000, decimals: 2)}M"
-      usd >= 1_000 -> "≈ $#{:erlang.float_to_binary(usd / 1_000, decimals: 2)}k"
-      usd > 0 -> "≈ $#{:erlang.float_to_binary(usd, decimals: 2)}"
-      true -> "≈ $0.00"
+      "SOL-LP" when is_number(lp_price) and lp_price > 0 ->
+        format_sol_usd_approx(val * lp_price)
+
+      _ ->
+        ""
     end
   end
+
+  # "$X" for any USD float — no sign prefix, no `≈`. Adds k/M scaling.
+  defp format_usd_amount(usd) when is_number(usd) do
+    abs_val = abs(usd * 1.0)
+
+    cond do
+      abs_val >= 1_000_000 -> "$#{:erlang.float_to_binary(abs_val / 1_000_000, decimals: 2)}M"
+      abs_val >= 1_000 -> "$#{:erlang.float_to_binary(abs_val / 1_000, decimals: 2)}k"
+      abs_val >= 0.01 -> "$#{:erlang.float_to_binary(abs_val, decimals: 2)}"
+      abs_val > 0 -> "<$0.01"
+      true -> "$0"
+    end
+  end
+
+  defp format_usd_amount(_), do: ""
+
+  # "≈ $X" for a SOL amount; "" when amount or rate is unavailable.
+  defp format_sol_usd_approx(sol) when is_number(sol) and sol > 0 do
+    rate = fetch_sol_usd_price()
+    if rate > 0, do: "≈ #{format_usd_amount(sol * rate)}", else: ""
+  end
+
+  defp format_sol_usd_approx(_), do: ""
+
+  # "<sign>$X" for a signed SOL amount. Caller passes "+ " / "− " / "".
+  defp format_sol_usd_signed(sol, sign) when is_number(sol) do
+    rate = fetch_sol_usd_price()
+
+    if rate > 0 and abs(sol) > 0.0001 do
+      "#{sign}#{format_usd_amount(abs(sol) * rate)}"
+    else
+      ""
+    end
+  end
+
+  defp format_sol_usd_signed(_, _), do: ""
+
+  defp pnl_sign(pnl) when is_number(pnl) do
+    cond do
+      pnl > 0.0001 -> "+ "
+      pnl < -0.0001 -> "− "
+      true -> ""
+    end
+  end
+
+  defp pnl_sign(_), do: ""
 
   defp format_cost_basis(%{cost_basis: tc}, token) when is_number(tc) and tc > 0 do
     "#{format_position_amount(tc, token)} #{token}"

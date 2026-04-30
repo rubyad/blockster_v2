@@ -476,7 +476,7 @@ defmodule BlocksterV2Web.PoolComponents do
 
   defp activity_row(assigns) do
     ~H"""
-    <div class="px-4 md:px-5 py-3 grid grid-cols-[110px_1fr_70px_50px] md:grid-cols-[180px_1fr_140px_60px] items-center gap-2 hover:bg-black/[0.02] transition-colors">
+    <div class="px-4 md:px-5 py-3 grid grid-cols-[100px_1fr_140px_50px] md:grid-cols-[180px_1fr_220px_60px] items-center gap-2 hover:bg-black/[0.02] transition-colors">
       <%!-- Col 1: icon tile + label --%>
       <div class="flex items-center gap-2.5">
         <div class={[
@@ -546,39 +546,48 @@ defmodule BlocksterV2Web.PoolComponents do
       </div>
 
       <%!-- Col 3: profit + bet sub-line --%>
-      <div class="text-right">
-        <%= if @activity["game_id"] && valid_sig?(@activity["settlement_sig"]) do %>
-          <a
-            href={BlocksterV2Web.Solscan.tx_url(@activity["settlement_sig"])}
-            target="_blank"
-            title="View settlement tx"
-            class={[
-              "font-mono font-bold text-[13px] tabular-nums hover:underline cursor-pointer",
-              profit_text_color(@activity["type"])
-            ]}
-          >
-            {@activity["profit"]}
-          </a>
-        <% else %>
-          <div class={[
-            "font-mono font-bold text-[13px] tabular-nums",
-            profit_text_color(@activity["type"])
-          ]}>
-            {@activity["profit"]}
-          </div>
-        <% end %>
+      <div class="text-right min-w-0">
+        <div class="font-mono font-bold text-[13px] tabular-nums whitespace-nowrap overflow-hidden text-ellipsis">
+          <%= if @activity["game_id"] && valid_sig?(@activity["settlement_sig"]) do %>
+            <a
+              href={BlocksterV2Web.Solscan.tx_url(@activity["settlement_sig"])}
+              target="_blank"
+              title="View settlement tx"
+              class={[
+                "hover:underline cursor-pointer",
+                profit_text_color(@activity["type"])
+              ]}
+            >
+              {@activity["profit"]}
+            </a>
+          <% else %>
+            <span class={profit_text_color(@activity["type"])}>{@activity["profit"]}</span>
+          <% end %>
+          <%= if @activity["profit_usd"] && @activity["profit_usd"] != "" do %>
+            <span class="text-neutral-500 font-normal"> · {@activity["profit_usd"]}</span>
+          <% end %>
+        </div>
         <%= cond do %>
           <% @activity["bet"] && valid_sig?(@activity["bet_sig"]) -> %>
-            <a
-              href={BlocksterV2Web.Solscan.tx_url(@activity["bet_sig"])}
-              target="_blank"
-              title="View bet tx"
-              class="text-[10px] text-neutral-500 font-mono hover:underline cursor-pointer block mt-0.5"
-            >
-              bet {@activity["bet"]}
-            </a>
+            <div class="text-[10px] text-neutral-500 font-mono mt-0.5 whitespace-nowrap overflow-hidden text-ellipsis">
+              <a
+                href={BlocksterV2Web.Solscan.tx_url(@activity["bet_sig"])}
+                target="_blank"
+                title="View bet tx"
+                class="hover:underline cursor-pointer"
+              >
+                bet {@activity["bet"]}
+              </a>
+              <%= if @activity["bet_usd"] && @activity["bet_usd"] != "" do %>
+                <span> · {@activity["bet_usd"]}</span>
+              <% end %>
+            </div>
           <% @activity["bet"] -> %>
-            <div class="text-[10px] text-neutral-500 font-mono mt-0.5">bet {@activity["bet"]}</div>
+            <div class="text-[10px] text-neutral-500 font-mono mt-0.5 whitespace-nowrap overflow-hidden text-ellipsis">
+              bet {@activity["bet"]}<%= if @activity["bet_usd"] && @activity["bet_usd"] != "" do %>
+                <span> · {@activity["bet_usd"]}</span>
+              <% end %>
+            </div>
           <% @activity["type"] == "deposit" -> %>
             <div class="text-[10px] text-neutral-500 font-mono mt-0.5">to vault</div>
           <% @activity["type"] == "withdraw" -> %>

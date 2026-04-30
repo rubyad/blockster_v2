@@ -6,6 +6,7 @@ defmodule BlocksterV2Web.CoinFlipLive do
   alias BlocksterV2.ProvablyFair
   alias BlocksterV2.CoinFlipGame
   alias BlocksterV2.BuxMinter
+  alias BlocksterV2.PriceTracker
 
   import BlocksterV2Web.PoolComponents, only: [coin_flip_fairness_modal: 1]
 
@@ -46,6 +47,7 @@ defmodule BlocksterV2Web.CoinFlipLive do
         if wallet_address != nil and connected?(socket) do
           Phoenix.PubSub.subscribe(BlocksterV2.PubSub, "bux_balance:#{current_user.id}")
           Phoenix.PubSub.subscribe(BlocksterV2.PubSub, "coin_flip_settlement:#{current_user.id}")
+          Phoenix.PubSub.subscribe(BlocksterV2.PubSub, "token_prices")
 
           # Check for expired bets periodically (every 30s)
           Process.send_after(self(), :check_expired_bets, 1000)
@@ -118,6 +120,7 @@ defmodule BlocksterV2Web.CoinFlipLive do
         |> assign(bet_sig: nil)
         |> assign(settlement_sig: nil)
         |> assign(next_game_session: nil)
+        |> assign(sol_usd_rate: fetch_sol_usd_rate())
 
       socket =
         if connected?(socket) do
@@ -181,8 +184,17 @@ defmodule BlocksterV2Web.CoinFlipLive do
         |> assign(bet_sig: nil)
         |> assign(settlement_sig: nil)
         |> assign(next_game_session: nil)
+        |> assign(sol_usd_rate: fetch_sol_usd_rate())
         |> start_async(:fetch_house_balance, fn -> fetch_house_balance_async("SOL", 1) end)
         |> start_async(:fetch_pool_balances, fn -> fetch_pool_balances_async() end)
+
+      socket =
+        if connected?(socket) do
+          Phoenix.PubSub.subscribe(BlocksterV2.PubSub, "token_prices")
+          socket
+        else
+          socket
+        end
 
       {:ok, socket}
     end
@@ -300,7 +312,10 @@ defmodule BlocksterV2Web.CoinFlipLive do
             </div>
             <div class="col-span-12 md:col-span-5">
               <div class="grid grid-cols-3 gap-3">
-                <div class="bg-white rounded-2xl border border-neutral-200/70 p-4 text-right shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+                <.link
+                  navigate={~p"/pool/sol"}
+                  class="bg-white rounded-2xl border border-neutral-200/70 p-4 text-right shadow-[0_1px_3px_rgba(0,0,0,0.04)] hover:border-[#141414] transition-colors cursor-pointer"
+                >
                   <div class="text-[9px] uppercase tracking-[0.14em] text-neutral-500 mb-1">
                     SOL Pool
                   </div>
@@ -312,14 +327,16 @@ defmodule BlocksterV2Web.CoinFlipLive do
                     />
                     <span class="truncate">{format_balance(@sol_house_balance)}</span>
                   </div>
-                  <.link
-                    navigate={~p"/pool/sol"}
-                    class="text-[10px] text-[#22C55E] font-mono hover:underline"
-                  >
-                    View pool ↗
-                  </.link>
-                </div>
-                <div class="bg-white rounded-2xl border border-neutral-200/70 p-4 text-right shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+                  <%= if @selected_token == "SOL" and is_number(@sol_usd_rate) do %>
+                    <div class="text-[10px] text-neutral-500 font-mono mt-0.5">
+                      {sol_usd_str(@sol_house_balance, @sol_usd_rate)}
+                    </div>
+                  <% end %>
+                </.link>
+                <.link
+                  navigate={~p"/pool/bux"}
+                  class="bg-white rounded-2xl border border-neutral-200/70 p-4 text-right shadow-[0_1px_3px_rgba(0,0,0,0.04)] hover:border-[#141414] transition-colors cursor-pointer"
+                >
                   <div class="text-[9px] uppercase tracking-[0.14em] text-neutral-500 mb-1">
                     BUX Pool
                   </div>
@@ -331,22 +348,18 @@ defmodule BlocksterV2Web.CoinFlipLive do
                     />
                     <span class="truncate">{format_balance_compact(@bux_house_balance)}</span>
                   </div>
-                  <.link
-                    navigate={~p"/pool/bux"}
-                    class="text-[10px] text-[#22C55E] font-mono hover:underline"
-                  >
-                    View pool ↗
-                  </.link>
-                </div>
-                <div class="bg-white rounded-2xl border border-neutral-200/70 p-4 text-right shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+                </.link>
+                <.link
+                  navigate={~p"/docs/security-audit"}
+                  class="bg-white rounded-2xl border border-neutral-200/70 p-4 text-right shadow-[0_1px_3px_rgba(0,0,0,0.04)] hover:border-[#141414] transition-colors cursor-pointer"
+                >
                   <div class="text-[9px] uppercase tracking-[0.14em] text-neutral-500 mb-1">
                     House Edge
                   </div>
                   <div class="font-mono font-bold text-[18px] text-[#141414]">
                     0.92<span class="text-[12px] text-neutral-500">%</span>
                   </div>
-                  <span class="text-[10px] text-neutral-500 font-mono">verified</span>
-                </div>
+                </.link>
               </div>
             </div>
           </div>
@@ -441,22 +454,36 @@ defmodule BlocksterV2Web.CoinFlipLive do
                       </button>
                     <% end %>
                   </div>
-                  <div class="flex items-center gap-2 md:gap-4 text-[10px] md:text-[11px]">
-                    <div>
-                      <span class="text-neutral-500 hidden md:inline">Your balance: </span>
-                      <span class="text-neutral-500 md:hidden">You: </span>
-                      <span class="font-mono font-bold text-[#141414]">
-                        {format_balance(Map.get(@balances, @selected_token, 0))}
-                      </span>
+                  <div class="flex items-end gap-2 md:gap-4 text-[10px] md:text-[11px]">
+                    <div class="flex flex-col items-end">
+                      <div>
+                        <span class="text-neutral-500 hidden md:inline">Your balance: </span>
+                        <span class="text-neutral-500 md:hidden">You: </span>
+                        <span class="font-mono font-bold text-[#141414]">
+                          {format_balance(Map.get(@balances, @selected_token, 0))}
+                        </span>
+                      </div>
+                      <%= if @selected_token == "SOL" and is_number(@sol_usd_rate) do %>
+                        <span class="text-[10px] text-neutral-500 font-mono">
+                          {sol_usd_str(Map.get(@balances, @selected_token, 0), @sol_usd_rate)}
+                        </span>
+                      <% end %>
                     </div>
-                    <div>
-                      <span class="text-neutral-500">House: </span>
-                      <.link
-                        navigate={~p"/pool/#{String.downcase(@selected_token)}"}
-                        class="font-mono font-bold text-[#141414] hover:text-[#22C55E] transition-colors"
-                      >
-                        {format_balance(@house_balance)} ↗
-                      </.link>
+                    <div class="flex flex-col items-end">
+                      <div>
+                        <span class="text-neutral-500">House: </span>
+                        <.link
+                          navigate={~p"/pool/#{String.downcase(@selected_token)}"}
+                          class="font-mono font-bold text-[#141414] hover:text-[#22C55E] transition-colors"
+                        >
+                          {format_balance(@house_balance)} ↗
+                        </.link>
+                      </div>
+                      <%= if @selected_token == "SOL" and is_number(@sol_usd_rate) do %>
+                        <span class="text-[10px] text-neutral-500 font-mono">
+                          {sol_usd_str(@house_balance, @sol_usd_rate)}
+                        </span>
+                      <% end %>
                     </div>
                   </div>
                 </div>
@@ -569,15 +596,22 @@ defmodule BlocksterV2Web.CoinFlipLive do
                     </button>
                   </div>
                   <div class="bg-neutral-50 border border-neutral-200 rounded-2xl px-4 py-3 md:px-5 md:py-4 flex items-center gap-2 md:gap-3">
-                    <input
-                      type="text"
-                      inputmode="decimal"
-                      value={format_bet_amount(@bet_amount)}
-                      phx-keyup="update_bet_amount"
-                      phx-debounce="150"
-                      autocomplete="off"
-                      class="flex-1 min-w-0 bg-transparent border-0 font-mono text-[22px] md:text-[28px] font-bold text-[#141414] tracking-[-0.02em] focus:outline-none"
-                    />
+                    <div class="flex-1 min-w-0 flex flex-col">
+                      <input
+                        type="text"
+                        inputmode="decimal"
+                        value={format_bet_amount(@bet_amount)}
+                        phx-keyup="update_bet_amount"
+                        phx-debounce="150"
+                        autocomplete="off"
+                        class="w-full bg-transparent border-0 font-mono text-[22px] md:text-[28px] font-bold text-[#141414] tracking-[-0.02em] focus:outline-none p-0 leading-none"
+                      />
+                      <%= if @selected_token == "SOL" and is_number(@sol_usd_rate) do %>
+                        <div class="text-[11px] text-neutral-500 font-mono mt-1">
+                          {sol_usd_str(@bet_amount, @sol_usd_rate)}
+                        </div>
+                      <% end %>
+                    </div>
                     <%!-- Mobile: ½ / 2× still inline next to input for one-hand tweaks;
                          MAX lives with the label row above. --%>
                     <div class="flex md:hidden items-center gap-1 shrink-0">
@@ -631,13 +665,24 @@ defmodule BlocksterV2Web.CoinFlipLive do
                       <div class="text-[9px] md:text-[10px] font-bold uppercase tracking-[0.14em] text-[#15803d] mb-0.5 md:mb-1">
                         Potential profit
                       </div>
-                      <div class="font-mono font-bold text-[22px] md:text-[32px] text-[#15803d] leading-none">
-                        + {format_balance(
-                          @bet_amount * get_multiplier(@selected_difficulty) - @bet_amount
-                        )} {@selected_token}
+                      <div class="font-mono font-bold text-[22px] md:text-[32px] text-[#15803d] leading-none flex items-baseline gap-2 flex-wrap">
+                        <span>
+                          + {format_balance(
+                            @bet_amount * get_multiplier(@selected_difficulty) - @bet_amount
+                          )} {@selected_token}
+                        </span>
+                        <%= if @selected_token == "SOL" and is_number(@sol_usd_rate) do %>
+                          <span class="text-[12px] md:text-[14px] font-normal text-[#15803d]/70">
+                            {sol_usd_str(
+                              @bet_amount * get_multiplier(@selected_difficulty) - @bet_amount,
+                              @sol_usd_rate
+                            )}
+                          </span>
+                        <% end %>
                       </div>
                       <div class="text-[10px] md:text-[11px] text-[#15803d]/70 mt-1 truncate">
-                        Payout: {format_balance(@bet_amount * get_multiplier(@selected_difficulty))} {@selected_token}
+                        Payout: {format_balance(@bet_amount * get_multiplier(@selected_difficulty))} {@selected_token}<%= if @selected_token == "SOL" and is_number(@sol_usd_rate) do %>
+                          · {sol_usd_str(@bet_amount * get_multiplier(@selected_difficulty), @sol_usd_rate)}<% end %>
                       </div>
                     </div>
                     <div class="text-right shrink-0">
@@ -851,15 +896,27 @@ defmodule BlocksterV2Web.CoinFlipLive do
                       <div class="font-mono font-bold text-[16px] md:text-[20px] text-[#141414] leading-none">
                         {format_balance(@current_bet)} {@selected_token}
                       </div>
+                      <%= if @selected_token == "SOL" and is_number(@sol_usd_rate) do %>
+                        <div class="text-[10px] md:text-[11px] text-neutral-500 font-mono mt-1">
+                          {sol_usd_str(@current_bet, @sol_usd_rate)}
+                        </div>
+                      <% end %>
                     </div>
                   </div>
-                  <div class="flex items-center gap-2 md:gap-3 text-[10px] md:text-[11px]">
-                    <div class="text-neutral-500">
-                      <span class="hidden md:inline">Multiplier </span><span class="md:hidden">×</span><span class="font-mono font-bold text-[#141414]"><%= get_multiplier(@selected_difficulty) %>×</span>
+                  <div class="flex flex-col items-end gap-1">
+                    <div class="flex items-center gap-2 md:gap-3 text-[10px] md:text-[11px]">
+                      <div class="text-neutral-500">
+                        <span class="hidden md:inline">Multiplier </span><span class="md:hidden">×</span><span class="font-mono font-bold text-[#141414]"><%= get_multiplier(@selected_difficulty) %>×</span>
+                      </div>
+                      <div class="text-neutral-500">
+                        <span class="hidden md:inline">Potential </span><span class="font-mono font-bold text-[#22C55E]">+ <%= format_balance(@current_bet * get_multiplier(@selected_difficulty) - @current_bet) %> <%= @selected_token %></span>
+                      </div>
                     </div>
-                    <div class="text-neutral-500">
-                      <span class="hidden md:inline">Potential </span><span class="font-mono font-bold text-[#22C55E]">+ <%= format_balance(@current_bet * get_multiplier(@selected_difficulty) - @current_bet) %> <%= @selected_token %></span>
-                    </div>
+                    <%= if @selected_token == "SOL" and is_number(@sol_usd_rate) do %>
+                      <div class="text-[10px] md:text-[11px] text-neutral-500 font-mono">
+                        Potential {sol_usd_str(@current_bet * get_multiplier(@selected_difficulty) - @current_bet, @sol_usd_rate)}
+                      </div>
+                    <% end %>
                   </div>
                 </div>
 
@@ -1113,8 +1170,14 @@ defmodule BlocksterV2Web.CoinFlipLive do
                       <div class="font-mono font-bold text-[36px] md:text-[64px] text-[#15803d] leading-none tracking-tight">
                         + {format_balance(@payout - @placed_stake)} {@selected_token}
                       </div>
+                      <%= if @selected_token == "SOL" and is_number(@sol_usd_rate) do %>
+                        <div class="text-[12px] md:text-[14px] text-[#15803d]/80 font-mono mt-1 md:mt-2">
+                          {sol_usd_str(@payout - @placed_stake, @sol_usd_rate)}
+                        </div>
+                      <% end %>
                       <div class="text-[11px] md:text-[12px] text-[#15803d]/70 mt-1 md:mt-2">
-                        Total payout {format_balance(@payout)} {@selected_token} · {get_multiplier(
+                        Total payout {format_balance(@payout)} {@selected_token}<%= if @selected_token == "SOL" and is_number(@sol_usd_rate) do %>
+                          · {sol_usd_str(@payout, @sol_usd_rate)}<% end %> · {get_multiplier(
                           @selected_difficulty
                         )}× multiplier
                       </div>
@@ -1122,6 +1185,11 @@ defmodule BlocksterV2Web.CoinFlipLive do
                       <div class="font-mono font-bold text-[36px] md:text-[64px] text-[#15803d]/40 leading-none tracking-tight">
                         + {format_balance(@payout - @placed_stake)} {@selected_token}
                       </div>
+                      <%= if @selected_token == "SOL" and is_number(@sol_usd_rate) do %>
+                        <div class="text-[12px] md:text-[14px] text-[#15803d]/40 font-mono mt-1 md:mt-2">
+                          {sol_usd_str(@payout - @placed_stake, @sol_usd_rate)}
+                        </div>
+                      <% end %>
                       <div class="inline-flex items-center gap-2 mt-1 md:mt-2 text-[10px] md:text-[11px] uppercase tracking-[0.14em] text-[#15803d]/70 font-bold">
                         <svg
                           class="animate-spin w-3 h-3"
@@ -1154,6 +1222,11 @@ defmodule BlocksterV2Web.CoinFlipLive do
                     <div class="font-mono font-bold text-[32px] md:text-[48px] text-[#7f1d1d] leading-none tracking-tight">
                       − {format_balance(@placed_stake)} {@selected_token}
                     </div>
+                    <%= if @selected_token == "SOL" and is_number(@sol_usd_rate) do %>
+                      <div class="text-[12px] md:text-[14px] text-[#7f1d1d]/80 font-mono mt-1 md:mt-2">
+                        {sol_usd_str(@placed_stake, @sol_usd_rate)}
+                      </div>
+                    <% end %>
                     <div class="text-[11px] md:text-[12px] text-[#7f1d1d]/70 mt-1 md:mt-2">
                       Stake returned to bankroll
                     </div>
@@ -1499,6 +1572,11 @@ defmodule BlocksterV2Web.CoinFlipLive do
                         ]}>
                           {if net >= 0, do: "+ ", else: "− "}{format_balance(abs(net))}
                         </div>
+                        <%= if @selected_token == "SOL" and is_number(@sol_usd_rate) do %>
+                          <div class="text-[10px] text-neutral-500 font-mono mt-0.5">
+                            {sol_usd_str(net, @sol_usd_rate)}
+                          </div>
+                        <% end %>
                         <div class="text-[10px] text-neutral-500 mt-1 uppercase tracking-wider">
                           Net {@selected_token}
                         </div>
@@ -1507,6 +1585,11 @@ defmodule BlocksterV2Web.CoinFlipLive do
                         <div class="font-mono font-bold text-[20px] text-[#141414] leading-none">
                           {format_balance(@user_stats.biggest_win)}
                         </div>
+                        <%= if @selected_token == "SOL" and is_number(@sol_usd_rate) do %>
+                          <div class="text-[10px] text-neutral-500 font-mono mt-0.5">
+                            {sol_usd_str(@user_stats.biggest_win, @sol_usd_rate)}
+                          </div>
+                        <% end %>
                         <div class="text-[10px] text-neutral-500 mt-1 uppercase tracking-wider">
                           Best win
                         </div>
@@ -1536,21 +1619,31 @@ defmodule BlocksterV2Web.CoinFlipLive do
                     </div>
                     <div class="divide-y divide-neutral-100">
                       <%= for game <- Enum.take(@recent_games, 5) do %>
+                        <% sol_game = game.vault_type in ["sol", :sol] %>
+                        <% show_usd = @selected_token == "SOL" and sol_game and is_number(@sol_usd_rate) %>
+                        <% pl_amount = if game.won, do: game.payout - game.bet_amount, else: game.bet_amount %>
                         <div class="px-5 py-3 flex items-center justify-between">
                           <div class="flex items-center gap-2">
                             <img
                               src={
-                                if game.vault_type in ["sol", :sol],
+                                if sol_game,
                                   do: "https://ik.imagekit.io/blockster/solana-sol-logo.png",
                                   else: "https://ik.imagekit.io/blockster/blockster-icon.png"
                               }
                               class="w-5 h-5 rounded-full"
                             />
-                            <span class="text-[11px] font-mono text-neutral-500">
-                              {format_balance(game.bet_amount)} {String.upcase(
-                                to_string(game.vault_type)
-                              )}
-                            </span>
+                            <div class="flex flex-col">
+                              <span class="text-[11px] font-mono text-neutral-500">
+                                {format_balance(game.bet_amount)} {String.upcase(
+                                  to_string(game.vault_type)
+                                )}
+                              </span>
+                              <%= if show_usd do %>
+                                <span class="text-[10px] font-mono text-neutral-400">
+                                  {sol_usd_str(game.bet_amount, @sol_usd_rate)}
+                                </span>
+                              <% end %>
+                            </div>
                           </div>
                           <div class="text-right">
                             <div class={[
@@ -1561,9 +1654,14 @@ defmodule BlocksterV2Web.CoinFlipLive do
                                 do: "+ #{format_balance(game.payout - game.bet_amount)}",
                                 else: "− #{format_balance(game.bet_amount)}"}
                             </div>
-                            <div class="text-[9px] font-mono text-neutral-400">
-                              {game.multiplier}×
-                            </div>
+                            <%= if show_usd do %>
+                              <div class={[
+                                "text-[10px] font-mono",
+                                if(game.won, do: "text-[#22C55E]/70", else: "text-[#EF4444]/70")
+                              ]}>
+                                {if game.won, do: "+ ", else: "− "}{format_usd(pl_amount * @sol_usd_rate)}
+                              </div>
+                            <% end %>
                           </div>
                         </div>
                       <% end %>
@@ -1679,15 +1777,25 @@ defmodule BlocksterV2Web.CoinFlipLive do
                   <%= if @won do %>
                     <%= if @user_stats do %>
                       <div class="space-y-3 text-[12px]">
-                        <div class="flex items-center justify-between">
+                        <div class="flex items-start justify-between gap-3">
                           <span class="text-neutral-500">Net {@selected_token}</span>
                           <% net = @user_stats.total_won - @user_stats.total_lost %>
-                          <span class={[
-                            "font-mono font-bold",
-                            if(net >= 0, do: "text-[#22C55E]", else: "text-[#EF4444]")
-                          ]}>
-                            {if net >= 0, do: "+ ", else: "− "}{format_balance(abs(net))}
-                          </span>
+                          <div class="flex flex-col items-end">
+                            <span class={[
+                              "font-mono font-bold",
+                              if(net >= 0, do: "text-[#22C55E]", else: "text-[#EF4444]")
+                            ]}>
+                              {if net >= 0, do: "+ ", else: "− "}{format_balance(abs(net))}
+                            </span>
+                            <%= if @selected_token == "SOL" and is_number(@sol_usd_rate) do %>
+                              <span class={[
+                                "text-[10px] font-mono",
+                                if(net >= 0, do: "text-[#22C55E]/70", else: "text-[#EF4444]/70")
+                              ]}>
+                                {if net >= 0, do: "+ ", else: "− "}{format_usd(abs(net) * @sol_usd_rate)}
+                              </span>
+                            <% end %>
+                          </div>
                         </div>
                         <div class="flex items-center justify-between">
                           <span class="text-neutral-500">Win streak</span>
@@ -1734,6 +1842,11 @@ defmodule BlocksterV2Web.CoinFlipLive do
                       <div class="font-mono font-bold text-[14px] text-[#141414]">
                         + {format_balance(@placed_stake)} {@selected_token}
                       </div>
+                      <%= if @selected_token == "SOL" and is_number(@sol_usd_rate) do %>
+                        <div class="text-[10px] text-neutral-500 font-mono mt-0.5">
+                          + {format_usd(@placed_stake * @sol_usd_rate)}
+                        </div>
+                      <% end %>
                     </div>
                     <.link
                       navigate={pool_path}
@@ -1796,6 +1909,8 @@ defmodule BlocksterV2Web.CoinFlipLive do
                     </thead>
                     <tbody class="divide-y divide-neutral-100">
                       <%= for game <- @recent_games do %>
+                        <% sol_game = game.vault_type in ["sol", :sol] %>
+                        <% show_usd = @selected_token == "SOL" and sol_game and is_number(@sol_usd_rate) %>
                         <tr
                           id={"game-#{game.game_id}"}
                           class={[
@@ -1820,18 +1935,27 @@ defmodule BlocksterV2Web.CoinFlipLive do
                             <div class="flex items-center gap-1.5">
                               <img
                                 src={
-                                  if game.vault_type in ["sol", :sol],
+                                  if sol_game,
                                     do: "https://ik.imagekit.io/blockster/solana-sol-logo.png",
                                     else: "https://ik.imagekit.io/blockster/blockster-icon.png"
                                 }
                                 class="w-3.5 h-3.5 rounded-full"
                               />
-                              <span class="font-mono text-[12px] text-[#141414]">
-                                {format_balance(game.bet_amount)}
-                              </span>
-                              <span class="text-[10px] text-neutral-500">
-                                {String.upcase(to_string(game.vault_type))}
-                              </span>
+                              <div class="flex flex-col">
+                                <div class="flex items-baseline gap-1">
+                                  <span class="font-mono text-[12px] text-[#141414]">
+                                    {format_balance(game.bet_amount)}
+                                  </span>
+                                  <span class="text-[10px] text-neutral-500">
+                                    {String.upcase(to_string(game.vault_type))}
+                                  </span>
+                                </div>
+                                <%= if show_usd do %>
+                                  <span class="text-[10px] text-neutral-500 font-mono">
+                                    {sol_usd_str(game.bet_amount, @sol_usd_rate)}
+                                  </span>
+                                <% end %>
+                              </div>
                             </div>
                           </td>
                           <td class="px-5 py-3">
@@ -1867,33 +1991,40 @@ defmodule BlocksterV2Web.CoinFlipLive do
                             <% end %>
                           </td>
                           <td class="px-5 py-3 text-right">
-                            <%= if game.settlement_sig do %>
-                              <a
-                                href={BlocksterV2Web.Solscan.tx_url(game.settlement_sig)}
-                                target="_blank"
-                                class={[
-                                  "font-mono font-bold text-[12px] hover:underline cursor-pointer",
+                            <% pl_amount = if game.won, do: game.payout - game.bet_amount, else: game.bet_amount %>
+                            <div class="flex flex-col items-end">
+                              <%= if game.settlement_sig do %>
+                                <a
+                                  href={BlocksterV2Web.Solscan.tx_url(game.settlement_sig)}
+                                  target="_blank"
+                                  class={[
+                                    "font-mono font-bold text-[12px] hover:underline cursor-pointer",
+                                    if(game.won, do: "text-[#22C55E]", else: "text-[#EF4444]")
+                                  ]}
+                                >
+                                  {if game.won, do: "+ ", else: "− "}{format_balance(pl_amount)} {String.upcase(
+                                    to_string(game.vault_type)
+                                  )}
+                                </a>
+                              <% else %>
+                                <span class={[
+                                  "font-mono font-bold text-[12px]",
                                   if(game.won, do: "text-[#22C55E]", else: "text-[#EF4444]")
-                                ]}
-                              >
-                                {if game.won,
-                                  do: "+ #{format_balance(game.payout - game.bet_amount)}",
-                                  else: "− #{format_balance(game.bet_amount)}"} {String.upcase(
-                                  to_string(game.vault_type)
-                                )}
-                              </a>
-                            <% else %>
-                              <span class={[
-                                "font-mono font-bold text-[12px]",
-                                if(game.won, do: "text-[#22C55E]", else: "text-[#EF4444]")
-                              ]}>
-                                {if game.won,
-                                  do: "+ #{format_balance(game.payout - game.bet_amount)}",
-                                  else: "− #{format_balance(game.bet_amount)}"} {String.upcase(
-                                  to_string(game.vault_type)
-                                )}
-                              </span>
-                            <% end %>
+                                ]}>
+                                  {if game.won, do: "+ ", else: "− "}{format_balance(pl_amount)} {String.upcase(
+                                    to_string(game.vault_type)
+                                  )}
+                                </span>
+                              <% end %>
+                              <%= if show_usd do %>
+                                <span class={[
+                                  "text-[10px] font-mono",
+                                  if(game.won, do: "text-[#22C55E]/70", else: "text-[#EF4444]/70")
+                                ]}>
+                                  {if game.won, do: "+ ", else: "− "}{format_usd(pl_amount * @sol_usd_rate)}
+                                </span>
+                              <% end %>
+                            </div>
                           </td>
                           <td class="px-5 py-3 text-right">
                             <%= if game.server_seed && game.commitment_hash && game.nonce do %>
@@ -3090,6 +3221,16 @@ defmodule BlocksterV2Web.CoinFlipLive do
 
   def handle_info({:bux_balance_updated, _new_balance}, socket), do: {:noreply, socket}
 
+  def handle_info({:token_prices_updated, prices}, socket) do
+    rate =
+      case Map.get(prices, "SOL") do
+        %{usd_price: p} when is_number(p) and p > 0 -> p
+        _ -> socket.assigns[:sol_usd_rate]
+      end
+
+    {:noreply, assign(socket, sol_usd_rate: rate)}
+  end
+
   def handle_info(:check_expired_bets, socket) do
     if socket.assigns.current_user && socket.assigns.wallet_address do
       user_id = socket.assigns.current_user.id
@@ -3445,6 +3586,43 @@ defmodule BlocksterV2Web.CoinFlipLive do
 
     "#{integer_with_commas}.#{decimal_part}"
   end
+
+  defp fetch_sol_usd_rate do
+    case PriceTracker.get_price("SOL") do
+      {:ok, %{usd_price: p}} when is_number(p) and p > 0 -> p
+      _ -> nil
+    end
+  catch
+    :exit, _ -> nil
+  end
+
+  defp sol_usd_str(_amount, nil), do: nil
+
+  defp sol_usd_str(amount, rate) when is_number(amount) and is_number(rate) do
+    "≈ " <> format_usd(abs(amount) * rate)
+  end
+
+  defp sol_usd_str(_, _), do: nil
+
+  defp format_usd(value) when is_number(value) do
+    abs_val = abs(value * 1.0)
+
+    cond do
+      abs_val == 0 ->
+        "$0.00"
+
+      abs_val < 0.01 ->
+        "<$0.01"
+
+      true ->
+        "$" <>
+          (abs_val
+           |> :erlang.float_to_binary(decimals: 2)
+           |> add_comma_delimiters())
+    end
+  end
+
+  defp format_usd(_), do: "$0.00"
 
   @sol_presets [0.01, 0.05, 0.1, 0.25, 0.5, 1.0]
   @bux_presets [1, 5, 10, 25, 50, 100]
