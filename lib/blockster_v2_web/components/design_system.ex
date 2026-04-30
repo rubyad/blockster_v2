@@ -79,7 +79,8 @@ defmodule BlocksterV2Web.DesignSystem do
       style={"font-size: #{@size};"}
       {@rest}
     >
-      <span class="ds-logo__b">BL</span><img
+      <span class="ds-logo__b">BL</span>
+      <img
         src="https://ik.imagekit.io/blockster/blockster-icon.png"
         alt="o"
         class="ds-logo__o"
@@ -257,7 +258,9 @@ defmodule BlocksterV2Web.DesignSystem do
         assign(assigns, :message, %{
           text: "Double your BUX!",
           short: "Double your BUX!",
-          link: "/play", cta: "Play Now →", badge: false
+          link: "/play",
+          cta: "Play Now →",
+          badge: false
         })
       end
 
@@ -271,24 +274,37 @@ defmodule BlocksterV2Web.DesignSystem do
     >
       <div class="max-w-[1280px] mx-auto px-6">
         <div class="flex items-center justify-center gap-3 py-1.5 text-[13px] text-black">
-          <span class="hidden sm:inline"><%= @message.text %></span>
-          <span class="sm:hidden"><%= @message.short %></span>
+          <span class="hidden sm:inline">{@message.text}</span>
+          <span class="sm:hidden">{@message.short}</span>
           <%= if @message[:badge] do %>
             <span class="inline-flex items-center gap-1 bg-black/10 px-2 py-0.5 rounded-md text-[11px] font-medium whitespace-nowrap">
-              <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              <svg
+                class="w-3 h-3"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2.5"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                />
               </svg>
-              <%= @message.cta %>
+              {@message.cta}
             </span>
           <% else %>
             <%= if @message[:link] do %>
-              <a href={@message.link} class="inline-flex items-center gap-1 bg-black/10 hover:bg-black/20 px-2 py-0.5 rounded-md text-[11px] font-medium whitespace-nowrap transition-colors cursor-pointer">
-                <%= @message.cta %>
+              <a
+                href={@message.link}
+                class="inline-flex items-center gap-1 bg-black/10 hover:bg-black/20 px-2 py-0.5 rounded-md text-[11px] font-medium whitespace-nowrap transition-colors cursor-pointer"
+              >
+                {@message.cta}
               </a>
             <% else %>
               <%= if @message[:cta] do %>
                 <span class="inline-flex items-center gap-1 bg-black/10 px-2 py-0.5 rounded-md text-[11px] font-medium whitespace-nowrap">
-                  <%= @message.cta %>
+                  {@message.cta}
                 </span>
               <% end %>
             <% end %>
@@ -329,10 +345,15 @@ defmodule BlocksterV2Web.DesignSystem do
   attr :announcement_banner, :any, default: nil, doc: "message map from AnnouncementBanner.pick/1"
   attr :show_why_earn_bux, :boolean, default: true, doc: "deprecated — use announcement_banner"
   attr :connecting, :boolean, default: false
-  attr :display_token, :string, default: "BUX", values: ~w(BUX SOL), doc: "which token balance to show in the header pill"
+
+  attr :display_token, :string,
+    default: "BUX",
+    values: ~w(BUX SOL),
+    doc: "which token balance to show in the header pill"
 
   def header(assigns) do
     display_token = assigns.display_token
+
     display_balance =
       case display_token do
         "SOL" -> Map.get(assigns.token_balances || %{}, "SOL", 0)
@@ -342,7 +363,10 @@ defmodule BlocksterV2Web.DesignSystem do
     assigns =
       assigns
       |> assign(:formatted_bux, format_bux(assigns.bux_balance))
-      |> assign(:formatted_display_balance, format_display_balance(display_token, display_balance))
+      |> assign(
+        :formatted_display_balance,
+        format_display_balance(display_token, display_balance)
+      )
       |> assign(:display_token_icon, display_token_icon(display_token))
       |> assign(:initials, user_initials(assigns.current_user))
       |> assign(:user_slug, user_slug(assigns.current_user))
@@ -386,7 +410,11 @@ defmodule BlocksterV2Web.DesignSystem do
             class="relative w-9 h-9 hidden md:flex items-center justify-center rounded-full bg-neutral-100 hover:bg-neutral-200 transition-colors cursor-pointer"
           >
             <svg class="w-4 h-4 text-[#141414]" viewBox="0 0 24 24" fill="currentColor">
-              <path fill-rule="evenodd" d="M10.5 3.75a6.75 6.75 0 1 0 0 13.5 6.75 6.75 0 0 0 0-13.5ZM2.25 10.5a8.25 8.25 0 1 1 14.59 5.28l4.69 4.69a.75.75 0 1 1-1.06 1.06l-4.69-4.69A8.25 8.25 0 0 1 2.25 10.5Z" clip-rule="evenodd" />
+              <path
+                fill-rule="evenodd"
+                d="M10.5 3.75a6.75 6.75 0 1 0 0 13.5 6.75 6.75 0 0 0 0-13.5ZM2.25 10.5a8.25 8.25 0 1 1 14.59 5.28l4.69 4.69a.75.75 0 1 1-1.06 1.06l-4.69-4.69A8.25 8.25 0 0 1 2.25 10.5Z"
+                clip-rule="evenodd"
+              />
             </svg>
           </button>
           <%= if @current_user do %>
@@ -399,7 +427,11 @@ defmodule BlocksterV2Web.DesignSystem do
                 aria-label="Notifications"
               >
                 <svg class="w-4 h-4 text-[#141414]" viewBox="0 0 24 24" fill="currentColor">
-                  <path fill-rule="evenodd" d="M5.25 9a6.75 6.75 0 0 1 13.5 0v.75c0 2.123.8 4.057 2.118 5.52a.75.75 0 0 1-.297 1.206c-1.544.57-3.16.99-4.831 1.243a3.75 3.75 0 1 1-7.48 0 24.585 24.585 0 0 1-4.831-1.244.75.75 0 0 1-.298-1.205A8.217 8.217 0 0 0 5.25 9.75V9Zm4.502 8.9a2.25 2.25 0 1 0 4.496 0 25.057 25.057 0 0 1-4.496 0Z" clip-rule="evenodd" />
+                  <path
+                    fill-rule="evenodd"
+                    d="M5.25 9a6.75 6.75 0 0 1 13.5 0v.75c0 2.123.8 4.057 2.118 5.52a.75.75 0 0 1-.297 1.206c-1.544.57-3.16.99-4.831 1.243a3.75 3.75 0 1 1-7.48 0 24.585 24.585 0 0 1-4.831-1.244.75.75 0 0 1-.298-1.205A8.217 8.217 0 0 0 5.25 9.75V9Zm4.502 8.9a2.25 2.25 0 1 0 4.496 0 25.057 25.057 0 0 1-4.496 0Z"
+                    clip-rule="evenodd"
+                  />
                 </svg>
                 <%= if @unread_notification_count > 0 do %>
                   <span class="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1">
@@ -410,11 +442,20 @@ defmodule BlocksterV2Web.DesignSystem do
 
               <%!-- Notification dropdown panel --%>
               <%= if @notification_dropdown_open do %>
-                <div id="ds-notification-dropdown" class="absolute right-0 top-12 w-96 bg-white rounded-2xl shadow-2xl border border-gray-100 z-50 overflow-hidden" phx-click-away="close_notification_dropdown">
+                <div
+                  id="ds-notification-dropdown"
+                  class="absolute right-0 top-12 w-96 bg-white rounded-2xl shadow-2xl border border-gray-100 z-50 overflow-hidden"
+                  phx-click-away="close_notification_dropdown"
+                >
                   <div class="flex items-center justify-between px-4 py-3 border-b border-gray-100">
                     <h3 class="font-bold text-[#141414] text-sm">Notifications</h3>
                     <%= if @unread_notification_count > 0 do %>
-                      <button phx-click="mark_all_notifications_read" class="text-xs text-gray-500 hover:text-[#141414] cursor-pointer">Mark all read</button>
+                      <button
+                        phx-click="mark_all_notifications_read"
+                        class="text-xs text-gray-500 hover:text-[#141414] cursor-pointer"
+                      >
+                        Mark all read
+                      </button>
                     <% end %>
                   </div>
                   <div class="max-h-[420px] overflow-y-auto divide-y divide-gray-50">
@@ -429,11 +470,18 @@ defmodule BlocksterV2Web.DesignSystem do
                           class={"flex items-start gap-3 px-4 py-3 hover:bg-gray-50 cursor-pointer transition-colors #{if is_nil(notification.read_at), do: "bg-blue-50/30", else: ""}"}
                         >
                           <%= if notification.image_url do %>
-                            <img src={notification.image_url} class="w-10 h-10 rounded-lg object-cover flex-shrink-0" />
+                            <img
+                              src={notification.image_url}
+                              class="w-10 h-10 rounded-lg object-cover flex-shrink-0"
+                            />
                           <% else %>
                             <div class="w-10 h-10 rounded-lg bg-[#CAFC00] flex items-center justify-center flex-shrink-0">
                               <svg class="w-5 h-5 text-black" viewBox="0 0 24 24" fill="currentColor">
-                                <path fill-rule="evenodd" d="M5.25 9a6.75 6.75 0 0 1 13.5 0v.75c0 2.123.8 4.057 2.118 5.52a.75.75 0 0 1-.297 1.206c-1.544.57-3.16.99-4.831 1.243a3.75 3.75 0 1 1-7.48 0 24.585 24.585 0 0 1-4.831-1.244.75.75 0 0 1-.298-1.205A8.217 8.217 0 0 0 5.25 9.75V9Zm4.502 8.9a2.25 2.25 0 1 0 4.496 0 25.057 25.057 0 0 1-4.496 0Z" clip-rule="evenodd" />
+                                <path
+                                  fill-rule="evenodd"
+                                  d="M5.25 9a6.75 6.75 0 0 1 13.5 0v.75c0 2.123.8 4.057 2.118 5.52a.75.75 0 0 1-.297 1.206c-1.544.57-3.16.99-4.831 1.243a3.75 3.75 0 1 1-7.48 0 24.585 24.585 0 0 1-4.831-1.244.75.75 0 0 1-.298-1.205A8.217 8.217 0 0 0 5.25 9.75V9Zm4.502 8.9a2.25 2.25 0 1 0 4.496 0 25.057 25.057 0 0 1-4.496 0Z"
+                                  clip-rule="evenodd"
+                                />
                               </svg>
                             </div>
                           <% end %>
@@ -441,8 +489,12 @@ defmodule BlocksterV2Web.DesignSystem do
                             <p class={"text-sm truncate #{if is_nil(notification.read_at), do: "font-bold text-[#141414]", else: "text-gray-600"}"}>
                               {notification.title}
                             </p>
-                            <p class="text-xs text-gray-500 mt-0.5 line-clamp-2">{notification.body}</p>
-                            <p class="text-[10px] text-gray-400 mt-1">{format_notification_time(notification.inserted_at)}</p>
+                            <p class="text-xs text-gray-500 mt-0.5 line-clamp-2">
+                              {notification.body}
+                            </p>
+                            <p class="text-[10px] text-gray-400 mt-1">
+                              {format_notification_time(notification.inserted_at)}
+                            </p>
                           </div>
                           <%= if is_nil(notification.read_at) do %>
                             <div class="w-2 h-2 rounded-full bg-blue-500 flex-shrink-0 mt-2"></div>
@@ -452,10 +504,22 @@ defmodule BlocksterV2Web.DesignSystem do
                     <% end %>
                   </div>
                   <div class="flex items-center justify-between px-4 py-2.5 border-t border-gray-100 bg-gray-50/50">
-                    <.link navigate={~p"/notifications"} class="text-xs font-bold text-[#141414] hover:underline">View all</.link>
-                    <.link navigate={~p"/notifications/settings"} class="text-xs text-gray-500 hover:text-[#141414] flex items-center gap-1">
+                    <.link
+                      navigate={~p"/notifications"}
+                      class="text-xs font-bold text-[#141414] hover:underline"
+                    >
+                      View all
+                    </.link>
+                    <.link
+                      navigate={~p"/notifications/settings"}
+                      class="text-xs text-gray-500 hover:text-[#141414] flex items-center gap-1"
+                    >
                       <svg class="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor">
-                        <path fill-rule="evenodd" d="M7.84 1.804A1 1 0 0 1 8.82 1h2.36a1 1 0 0 1 .98.804l.331 1.652a6.993 6.993 0 0 1 1.929 1.115l1.598-.54a1 1 0 0 1 1.186.447l1.18 2.044a1 1 0 0 1-.205 1.251l-1.267 1.113a7.047 7.047 0 0 1 0 2.228l1.267 1.113a1 1 0 0 1 .206 1.25l-1.18 2.045a1 1 0 0 1-1.187.447l-1.598-.54a6.993 6.993 0 0 1-1.929 1.115l-.33 1.652a1 1 0 0 1-.98.804H8.82a1 1 0 0 1-.98-.804l-.331-1.652a6.993 6.993 0 0 1-1.929-1.115l-1.598.54a1 1 0 0 1-1.186-.447l-1.18-2.044a1 1 0 0 1 .205-1.251l1.267-1.114a7.05 7.05 0 0 1 0-2.227L1.821 7.773a1 1 0 0 1-.206-1.25l1.18-2.045a1 1 0 0 1 1.187-.447l1.598.54A6.992 6.992 0 0 1 7.51 3.456l.33-1.652ZM10 13a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" clip-rule="evenodd" />
+                        <path
+                          fill-rule="evenodd"
+                          d="M7.84 1.804A1 1 0 0 1 8.82 1h2.36a1 1 0 0 1 .98.804l.331 1.652a6.993 6.993 0 0 1 1.929 1.115l1.598-.54a1 1 0 0 1 1.186.447l1.18 2.044a1 1 0 0 1-.205 1.251l-1.267 1.113a7.047 7.047 0 0 1 0 2.228l1.267 1.113a1 1 0 0 1 .206 1.25l-1.18 2.045a1 1 0 0 1-1.187.447l-1.598-.54a6.993 6.993 0 0 1-1.929 1.115l-.33 1.652a1 1 0 0 1-.98.804H8.82a1 1 0 0 1-.98-.804l-.331-1.652a6.993 6.993 0 0 1-1.929-1.115l-1.598.54a1 1 0 0 1-1.186-.447l-1.18-2.044a1 1 0 0 1 .205-1.251l1.267-1.114a7.05 7.05 0 0 1 0-2.227L1.821 7.773a1 1 0 0 1-.206-1.25l1.18-2.045a1 1 0 0 1 1.187-.447l1.598.54A6.992 6.992 0 0 1 7.51 3.456l.33-1.652ZM10 13a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z"
+                          clip-rule="evenodd"
+                        />
                       </svg>
                       Settings
                     </.link>
@@ -474,7 +538,11 @@ defmodule BlocksterV2Web.DesignSystem do
               aria-label="Cart"
             >
               <svg class="w-4 h-4 text-[#141414]" viewBox="0 0 24 24" fill="currentColor">
-                <path fill-rule="evenodd" d="M7.5 6v.75H5.513c-.96 0-1.764.724-1.865 1.679l-1.263 12A1.875 1.875 0 0 0 4.25 22.5h15.5a1.875 1.875 0 0 0 1.865-2.071l-1.263-12a1.875 1.875 0 0 0-1.865-1.679H16.5V6a4.5 4.5 0 1 0-9 0ZM12 3a3 3 0 0 0-3 3v.75h6V6a3 3 0 0 0-3-3Z" clip-rule="evenodd" />
+                <path
+                  fill-rule="evenodd"
+                  d="M7.5 6v.75H5.513c-.96 0-1.764.724-1.865 1.679l-1.263 12A1.875 1.875 0 0 0 4.25 22.5h15.5a1.875 1.875 0 0 0 1.865-2.071l-1.263-12a1.875 1.875 0 0 0-1.865-1.679H16.5V6a4.5 4.5 0 1 0-9 0ZM12 3a3 3 0 0 0-3 3v.75h6V6a3 3 0 0 0-3-3Z"
+                  clip-rule="evenodd"
+                />
               </svg>
               <%= if @cart_item_count > 0 do %>
                 <span class="absolute -top-1 -right-1 bg-[#CAFC00] text-[#141414] text-[10px] font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1">
@@ -484,13 +552,32 @@ defmodule BlocksterV2Web.DesignSystem do
             </.link>
 
             <%!-- User dropdown (token pill + avatar) --%>
-            <div class="relative" id="ds-user-dropdown" phx-click-away={JS.hide(to: "#ds-header-user-menu")}>
-              <button id="ds-user-button" phx-click={JS.toggle(to: "#ds-header-user-menu")} class="flex items-center gap-2 h-9 md:h-10 rounded-full bg-neutral-100 pl-1.5 pr-2 md:pl-2 md:pr-3 hover:bg-neutral-200 transition-colors cursor-pointer">
-                <img src={@display_token_icon} alt={@display_token} class="w-6 h-6 rounded-full object-cover" />
-                <span class="text-[13px] font-bold text-[#141414] font-mono tabular-nums">{@formatted_display_balance}</span>
+            <div
+              class="relative"
+              id="ds-user-dropdown"
+              phx-click-away={JS.hide(to: "#ds-header-user-menu")}
+            >
+              <button
+                id="ds-user-button"
+                phx-click={JS.toggle(to: "#ds-header-user-menu")}
+                class="flex items-center gap-2 h-9 md:h-10 rounded-full bg-neutral-100 pl-1.5 pr-2 md:pl-2 md:pr-3 hover:bg-neutral-200 transition-colors cursor-pointer"
+              >
+                <img
+                  src={@display_token_icon}
+                  alt={@display_token}
+                  class="w-6 h-6 rounded-full object-cover"
+                />
+                <span class="text-[13px] font-bold text-[#141414] font-mono tabular-nums">
+                  {@formatted_display_balance}
+                </span>
                 <span class="hidden md:inline text-[11px] text-neutral-500">{@display_token}</span>
                 <svg class="w-4 h-4 ml-0.5 text-neutral-400" viewBox="0 0 24 24" fill="none">
-                  <path d="M8 10L12 14L16 10" stroke="currentColor" stroke-width="1.5" stroke-linecap="square" />
+                  <path
+                    d="M8 10L12 14L16 10"
+                    stroke="currentColor"
+                    stroke-width="1.5"
+                    stroke-linecap="square"
+                  />
                 </svg>
               </button>
               <%!-- ──────────────────────────────────────────────────────────────
@@ -524,19 +611,25 @@ defmodule BlocksterV2Web.DesignSystem do
 
                   <div class="flex items-center gap-3">
                     <div class="w-10 h-10 rounded-full bg-gradient-to-br from-emerald-400 via-cyan-500 to-violet-500 ring-2 ring-white shadow-sm flex-shrink-0 grid place-items-center">
-                      <span class="text-[13px] font-bold text-white/95 leading-none" style="letter-spacing: -0.02em;">
-                        <%= ds_user_initial(@current_user) %>
+                      <span
+                        class="text-[13px] font-bold text-white/95 leading-none"
+                        style="letter-spacing: -0.02em;"
+                      >
+                        {ds_user_initial(@current_user)}
                       </span>
                     </div>
                     <div class="min-w-0 flex-1">
-                      <div class="text-[14.5px] font-bold text-[#141414] truncate leading-tight" style="letter-spacing: -0.015em;">
-                        <%= ds_user_display_name(@current_user) %>
+                      <div
+                        class="text-[14.5px] font-bold text-[#141414] truncate leading-tight"
+                        style="letter-spacing: -0.015em;"
+                      >
+                        {ds_user_display_name(@current_user)}
                       </div>
                       <div class="mt-1">
                         <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-[#CAFC00]/10 ring-1 ring-[#CAFC00]/30">
                           <span class="w-1 h-1 rounded-full bg-[#141414]" aria-hidden="true"></span>
                           <span class="text-[9px] uppercase tracking-[0.14em] font-bold font-mono text-[#141414]">
-                            <%= ds_auth_source_label(@current_user.auth_method) %>
+                            {ds_auth_source_label(@current_user.auth_method)}
                           </span>
                         </span>
                       </div>
@@ -552,11 +645,22 @@ defmodule BlocksterV2Web.DesignSystem do
                       class="flex items-center gap-2 flex-1 min-w-0 cursor-pointer"
                       aria-label="View wallet on Solscan"
                     >
-                      <svg class="w-3 h-3 text-neutral-400 group-hover:text-[#141414] transition-colors flex-shrink-0" viewBox="0 0 20 20" fill="none" aria-hidden="true">
-                        <path d="M7 13l6-6M13 7H8m5 0v5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                      <svg
+                        class="w-3 h-3 text-neutral-400 group-hover:text-[#141414] transition-colors flex-shrink-0"
+                        viewBox="0 0 20 20"
+                        fill="none"
+                        aria-hidden="true"
+                      >
+                        <path
+                          d="M7 13l6-6M13 7H8m5 0v5"
+                          stroke="currentColor"
+                          stroke-width="1.5"
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                        />
                       </svg>
                       <code class="flex-1 min-w-0 text-[10.5px] font-mono text-neutral-500 group-hover:text-[#141414] transition-colors text-left truncate tabular-nums">
-                        <%= ds_truncate_addr(@current_user.wallet_address) %>
+                        {ds_truncate_addr(@current_user.wallet_address)}
                       </code>
                     </a>
                     <button
@@ -567,12 +671,41 @@ defmodule BlocksterV2Web.DesignSystem do
                       class="copy-btn flex items-center gap-1 px-1.5 py-1 rounded-md hover:bg-white transition-colors cursor-pointer flex-shrink-0"
                       aria-label="Copy wallet address"
                     >
-                      <svg class="w-3 h-3 text-neutral-400 copy-icon-default" viewBox="0 0 20 20" fill="none" aria-hidden="true">
-                        <rect x="7" y="7" width="9" height="9" rx="1.5" stroke="currentColor" stroke-width="1.5"/>
-                        <path d="M13 7V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v7a1 1 0 0 0 1 1h2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                      <svg
+                        class="w-3 h-3 text-neutral-400 copy-icon-default"
+                        viewBox="0 0 20 20"
+                        fill="none"
+                        aria-hidden="true"
+                      >
+                        <rect
+                          x="7"
+                          y="7"
+                          width="9"
+                          height="9"
+                          rx="1.5"
+                          stroke="currentColor"
+                          stroke-width="1.5"
+                        />
+                        <path
+                          d="M13 7V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v7a1 1 0 0 0 1 1h2"
+                          stroke="currentColor"
+                          stroke-width="1.5"
+                          stroke-linecap="round"
+                        />
                       </svg>
-                      <svg class="w-3 h-3 text-[#22C55E] copy-icon hidden" viewBox="0 0 20 20" fill="none" aria-hidden="true">
-                        <path d="M4 10l4 4 8-8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                      <svg
+                        class="w-3 h-3 text-[#22C55E] copy-icon hidden"
+                        viewBox="0 0 20 20"
+                        fill="none"
+                        aria-hidden="true"
+                      >
+                        <path
+                          d="M4 10l4 4 8-8"
+                          stroke="currentColor"
+                          stroke-width="2"
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                        />
                       </svg>
                       <span class="copy-text text-[9px] uppercase tracking-[0.14em] font-bold font-mono text-neutral-400 hover:text-[#141414] transition-colors">
                         copy
@@ -588,7 +721,8 @@ defmodule BlocksterV2Web.DesignSystem do
                       Balances
                     </span>
                     <div class="flex items-center gap-1.5">
-                      <span class="w-1 h-1 rounded-full bg-[#CAFC00] ds-pulse" aria-hidden="true"></span>
+                      <span class="w-1 h-1 rounded-full bg-[#CAFC00] ds-pulse" aria-hidden="true">
+                      </span>
                       <span class="text-[9px] uppercase tracking-[0.14em] font-mono text-neutral-400">
                         live
                       </span>
@@ -605,15 +739,24 @@ defmodule BlocksterV2Web.DesignSystem do
                         aria-hidden="true"
                       />
                       <div class="min-w-0 flex-1">
-                        <div class="text-[12.5px] font-bold text-[#141414] leading-none" style="letter-spacing: -0.01em;">
+                        <div
+                          class="text-[12.5px] font-bold text-[#141414] leading-none"
+                          style="letter-spacing: -0.01em;"
+                        >
                           SOL
                         </div>
                         <div class="text-[10px] text-neutral-400 font-mono tabular-nums mt-1">
-                          ≈ $<%= ds_format_usd(Map.get(@token_balances, "SOL", 0), Map.get(assigns, :sol_usd_price, 0)) %>
+                          ≈ ${ds_format_usd(
+                            Map.get(@token_balances, "SOL", 0),
+                            Map.get(assigns, :sol_usd_price, 0)
+                          )}
                         </div>
                       </div>
-                      <div class="text-[13px] font-mono font-bold text-[#141414] tabular-nums" style="letter-spacing: -0.015em;">
-                        <%= ds_format_sol(Map.get(@token_balances, "SOL", 0)) %>
+                      <div
+                        class="text-[13px] font-mono font-bold text-[#141414] tabular-nums"
+                        style="letter-spacing: -0.015em;"
+                      >
+                        {ds_format_sol(Map.get(@token_balances, "SOL", 0))}
                       </div>
                     </div>
 
@@ -628,15 +771,21 @@ defmodule BlocksterV2Web.DesignSystem do
                         aria-hidden="true"
                       />
                       <div class="min-w-0 flex-1">
-                        <div class="text-[12.5px] font-bold text-[#141414] leading-none" style="letter-spacing: -0.01em;">
+                        <div
+                          class="text-[12.5px] font-bold text-[#141414] leading-none"
+                          style="letter-spacing: -0.01em;"
+                        >
                           BUX
                         </div>
                         <div class="text-[10px] text-neutral-400 font-mono tabular-nums mt-1">
                           engagement token
                         </div>
                       </div>
-                      <div class="text-[13px] font-mono font-bold text-[#141414] tabular-nums" style="letter-spacing: -0.015em;">
-                        <%= ds_format_bux(Map.get(@token_balances, "BUX", 0)) %>
+                      <div
+                        class="text-[13px] font-mono font-bold text-[#141414] tabular-nums"
+                        style="letter-spacing: -0.015em;"
+                      >
+                        {ds_format_bux(Map.get(@token_balances, "BUX", 0))}
                       </div>
                     </div>
                   </div>
@@ -649,14 +798,35 @@ defmodule BlocksterV2Web.DesignSystem do
                     class="group flex items-center gap-3 px-4 py-2.5 text-[13.5px] text-[#141414] hover:bg-neutral-50 transition-colors"
                   >
                     <span class="w-7 h-7 rounded-lg bg-neutral-100 group-hover:bg-white group-hover:ring-1 group-hover:ring-black/[0.06] grid place-items-center transition-all">
-                      <svg class="w-3.5 h-3.5 text-[#141414]" viewBox="0 0 20 20" fill="none" aria-hidden="true">
-                        <circle cx="10" cy="7" r="3" stroke="currentColor" stroke-width="1.5"/>
-                        <path d="M4 17c0-3 2.5-5 6-5s6 2 6 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                      <svg
+                        class="w-3.5 h-3.5 text-[#141414]"
+                        viewBox="0 0 20 20"
+                        fill="none"
+                        aria-hidden="true"
+                      >
+                        <circle cx="10" cy="7" r="3" stroke="currentColor" stroke-width="1.5" />
+                        <path
+                          d="M4 17c0-3 2.5-5 6-5s6 2 6 5"
+                          stroke="currentColor"
+                          stroke-width="1.5"
+                          stroke-linecap="round"
+                        />
                       </svg>
                     </span>
                     <span class="flex-1 font-medium">My profile</span>
-                    <svg class="w-3 h-3 text-neutral-300 opacity-0 group-hover:opacity-100 group-hover:translate-x-0 -translate-x-1 transition-all" viewBox="0 0 12 12" fill="none" aria-hidden="true">
-                      <path d="M4 2l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                    <svg
+                      class="w-3 h-3 text-neutral-300 opacity-0 group-hover:opacity-100 group-hover:translate-x-0 -translate-x-1 transition-all"
+                      viewBox="0 0 12 12"
+                      fill="none"
+                      aria-hidden="true"
+                    >
+                      <path
+                        d="M4 2l4 4-4 4"
+                        stroke="currentColor"
+                        stroke-width="1.5"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                      />
                     </svg>
                   </.link>
 
@@ -676,19 +846,49 @@ defmodule BlocksterV2Web.DesignSystem do
                     class="group flex items-center gap-3 px-4 py-2.5 text-[13.5px] text-[#141414] hover:bg-neutral-50 transition-colors"
                   >
                     <span class="w-7 h-7 rounded-lg bg-neutral-100 group-hover:bg-white group-hover:ring-1 group-hover:ring-black/[0.06] grid place-items-center transition-all">
-                      <svg class="w-3.5 h-3.5 text-[#141414]" viewBox="0 0 20 20" fill="none" aria-hidden="true">
-                        <rect x="4" y="9" width="12" height="8" rx="1.5" stroke="currentColor" stroke-width="1.5"/>
-                        <path d="M7 9V6a3 3 0 016 0v3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                      <svg
+                        class="w-3.5 h-3.5 text-[#141414]"
+                        viewBox="0 0 20 20"
+                        fill="none"
+                        aria-hidden="true"
+                      >
+                        <rect
+                          x="4"
+                          y="9"
+                          width="12"
+                          height="8"
+                          rx="1.5"
+                          stroke="currentColor"
+                          stroke-width="1.5"
+                        />
+                        <path
+                          d="M7 9V6a3 3 0 016 0v3"
+                          stroke="currentColor"
+                          stroke-width="1.5"
+                          stroke-linecap="round"
+                        />
                       </svg>
                     </span>
                     <span class="flex-1 font-medium">
-                      <%= if web3auth?, do: "Wallet & self-custody", else: "Wallet" %>
+                      {if web3auth?, do: "Wallet & self-custody", else: "Wallet"}
                     </span>
                     <%= if web3auth? do %>
-                      <span class="w-1.5 h-1.5 rounded-full bg-[#CAFC00] ds-pulse" aria-hidden="true"></span>
+                      <span class="w-1.5 h-1.5 rounded-full bg-[#CAFC00] ds-pulse" aria-hidden="true">
+                      </span>
                     <% end %>
-                    <svg class="w-3 h-3 text-neutral-300 opacity-0 group-hover:opacity-100 group-hover:translate-x-0 -translate-x-1 transition-all" viewBox="0 0 12 12" fill="none" aria-hidden="true">
-                      <path d="M4 2l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                    <svg
+                      class="w-3 h-3 text-neutral-300 opacity-0 group-hover:opacity-100 group-hover:translate-x-0 -translate-x-1 transition-all"
+                      viewBox="0 0 12 12"
+                      fill="none"
+                      aria-hidden="true"
+                    >
+                      <path
+                        d="M4 2l4 4-4 4"
+                        stroke="currentColor"
+                        stroke-width="1.5"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                      />
                     </svg>
                   </.link>
 
@@ -697,19 +897,47 @@ defmodule BlocksterV2Web.DesignSystem do
                     class="group flex items-center gap-3 px-4 py-2.5 text-[13.5px] text-[#141414] hover:bg-neutral-50 transition-colors"
                   >
                     <span class="w-7 h-7 rounded-lg bg-neutral-100 group-hover:bg-white group-hover:ring-1 group-hover:ring-black/[0.06] grid place-items-center transition-all">
-                      <svg class="w-3.5 h-3.5 text-[#141414]" viewBox="0 0 20 20" fill="none" aria-hidden="true">
-                        <path d="M5 9a5 5 0 0110 0v3l1.5 2.5h-13L5 12V9z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
-                        <path d="M8 16a2 2 0 004 0" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                      <svg
+                        class="w-3.5 h-3.5 text-[#141414]"
+                        viewBox="0 0 20 20"
+                        fill="none"
+                        aria-hidden="true"
+                      >
+                        <path
+                          d="M5 9a5 5 0 0110 0v3l1.5 2.5h-13L5 12V9z"
+                          stroke="currentColor"
+                          stroke-width="1.5"
+                          stroke-linejoin="round"
+                        />
+                        <path
+                          d="M8 16a2 2 0 004 0"
+                          stroke="currentColor"
+                          stroke-width="1.5"
+                          stroke-linecap="round"
+                        />
                       </svg>
                     </span>
                     <span class="flex-1 font-medium">Notifications</span>
                     <%= if @unread_notification_count > 0 do %>
                       <span class="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1.5 rounded-full bg-[#141414] text-white text-[10px] font-bold tabular-nums">
-                        <%= if @unread_notification_count > 99, do: "99+", else: @unread_notification_count %>
+                        {if @unread_notification_count > 99,
+                          do: "99+",
+                          else: @unread_notification_count}
                       </span>
                     <% else %>
-                      <svg class="w-3 h-3 text-neutral-300 opacity-0 group-hover:opacity-100 group-hover:translate-x-0 -translate-x-1 transition-all" viewBox="0 0 12 12" fill="none" aria-hidden="true">
-                        <path d="M4 2l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                      <svg
+                        class="w-3 h-3 text-neutral-300 opacity-0 group-hover:opacity-100 group-hover:translate-x-0 -translate-x-1 transition-all"
+                        viewBox="0 0 12 12"
+                        fill="none"
+                        aria-hidden="true"
+                      >
+                        <path
+                          d="M4 2l4 4-4 4"
+                          stroke="currentColor"
+                          stroke-width="1.5"
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                        />
                       </svg>
                     <% end %>
                   </.link>
@@ -720,16 +948,64 @@ defmodule BlocksterV2Web.DesignSystem do
                   <details class="ds-admin-details border-t border-neutral-100 group">
                     <summary class="flex items-center gap-3 px-4 py-2.5 text-[13.5px] text-[#141414] hover:bg-neutral-50 transition-colors cursor-pointer list-none">
                       <span class="w-7 h-7 rounded-lg bg-neutral-100 group-hover:bg-white group-hover:ring-1 group-hover:ring-black/[0.06] grid place-items-center transition-all">
-                        <svg class="w-3.5 h-3.5 text-[#141414]" viewBox="0 0 20 20" fill="none" aria-hidden="true">
-                          <rect x="3" y="3" width="6" height="6" rx="1" stroke="currentColor" stroke-width="1.5"/>
-                          <rect x="11" y="3" width="6" height="6" rx="1" stroke="currentColor" stroke-width="1.5"/>
-                          <rect x="3" y="11" width="6" height="6" rx="1" stroke="currentColor" stroke-width="1.5"/>
-                          <rect x="11" y="11" width="6" height="6" rx="1" stroke="currentColor" stroke-width="1.5"/>
+                        <svg
+                          class="w-3.5 h-3.5 text-[#141414]"
+                          viewBox="0 0 20 20"
+                          fill="none"
+                          aria-hidden="true"
+                        >
+                          <rect
+                            x="3"
+                            y="3"
+                            width="6"
+                            height="6"
+                            rx="1"
+                            stroke="currentColor"
+                            stroke-width="1.5"
+                          />
+                          <rect
+                            x="11"
+                            y="3"
+                            width="6"
+                            height="6"
+                            rx="1"
+                            stroke="currentColor"
+                            stroke-width="1.5"
+                          />
+                          <rect
+                            x="3"
+                            y="11"
+                            width="6"
+                            height="6"
+                            rx="1"
+                            stroke="currentColor"
+                            stroke-width="1.5"
+                          />
+                          <rect
+                            x="11"
+                            y="11"
+                            width="6"
+                            height="6"
+                            rx="1"
+                            stroke="currentColor"
+                            stroke-width="1.5"
+                          />
                         </svg>
                       </span>
                       <span class="flex-1 font-medium">Admin tools</span>
-                      <svg class="w-3 h-3 text-neutral-400 transition-transform group-open:rotate-90" viewBox="0 0 12 12" fill="none" aria-hidden="true">
-                        <path d="M4 2l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                      <svg
+                        class="w-3 h-3 text-neutral-400 transition-transform group-open:rotate-90"
+                        viewBox="0 0 12 12"
+                        fill="none"
+                        aria-hidden="true"
+                      >
+                        <path
+                          d="M4 2l4 4-4 4"
+                          stroke="currentColor"
+                          stroke-width="1.5"
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                        />
                       </svg>
                     </summary>
 
@@ -741,26 +1017,104 @@ defmodule BlocksterV2Web.DesignSystem do
                         <div class="flex-1 border-t border-neutral-200/60"></div>
                       </div>
 
-                      <.link navigate={~p"/new"} class="block px-4 py-1.5 text-[12.5px] text-neutral-600 hover:bg-white hover:text-[#141414] transition-colors">
+                      <.link
+                        navigate={~p"/new"}
+                        class="block px-4 py-1.5 text-[12.5px] text-neutral-600 hover:bg-white hover:text-[#141414] transition-colors"
+                      >
                         Create article
                       </.link>
 
                       <%= if @current_user.is_admin do %>
-                        <.link navigate={~p"/admin"} class="block px-4 py-1.5 text-[12.5px] text-neutral-600 hover:bg-white hover:text-[#141414] transition-colors">Dashboard</.link>
-                        <.link navigate={~p"/admin/posts"} class="block px-4 py-1.5 text-[12.5px] text-neutral-600 hover:bg-white hover:text-[#141414] transition-colors">Posts</.link>
-                        <.link navigate={~p"/admin/events"} class="block px-4 py-1.5 text-[12.5px] text-neutral-600 hover:bg-white hover:text-[#141414] transition-colors">Events</.link>
-                        <.link navigate={~p"/admin/campaigns"} class="block px-4 py-1.5 text-[12.5px] text-neutral-600 hover:bg-white hover:text-[#141414] transition-colors">Campaigns</.link>
-                        <.link navigate={~p"/admin/categories"} class="block px-4 py-1.5 text-[12.5px] text-neutral-600 hover:bg-white hover:text-[#141414] transition-colors">Categories</.link>
-                        <.link navigate={~p"/hubs/admin"} class="block px-4 py-1.5 text-[12.5px] text-neutral-600 hover:bg-white hover:text-[#141414] transition-colors">Hubs</.link>
-                        <.link navigate={~p"/admin/products"} class="block px-4 py-1.5 text-[12.5px] text-neutral-600 hover:bg-white hover:text-[#141414] transition-colors">Products</.link>
-                        <.link navigate={~p"/admin/orders"} class="block px-4 py-1.5 text-[12.5px] text-neutral-600 hover:bg-white hover:text-[#141414] transition-colors">Orders</.link>
-                        <.link navigate={~p"/admin/product-categories"} class="block px-4 py-1.5 text-[12.5px] text-neutral-600 hover:bg-white hover:text-[#141414] transition-colors">Product categories</.link>
-                        <.link navigate={~p"/admin/product-tags"} class="block px-4 py-1.5 text-[12.5px] text-neutral-600 hover:bg-white hover:text-[#141414] transition-colors">Product tags</.link>
-                        <.link navigate={~p"/admin/artists"} class="block px-4 py-1.5 text-[12.5px] text-neutral-600 hover:bg-white hover:text-[#141414] transition-colors">Artists</.link>
-                        <.link navigate={~p"/admin/waitlist"} class="block px-4 py-1.5 text-[12.5px] text-neutral-600 hover:bg-white hover:text-[#141414] transition-colors">Waitlist</.link>
-                        <.link navigate={~p"/admin/flagged-accounts"} class="block px-4 py-1.5 text-[12.5px] text-neutral-600 hover:bg-white hover:text-[#141414] transition-colors">Flagged accounts</.link>
-                        <.link navigate={~p"/admin/stats"} class="block px-4 py-1.5 text-[12.5px] text-neutral-600 hover:bg-white hover:text-[#141414] transition-colors">Bet stats</.link>
-                        <.link navigate={~p"/admin/content"} class="block px-4 py-1.5 text-[12.5px] text-neutral-600 hover:bg-white hover:text-[#141414] transition-colors">Content generator</.link>
+                        <.link
+                          navigate={~p"/admin"}
+                          class="block px-4 py-1.5 text-[12.5px] text-neutral-600 hover:bg-white hover:text-[#141414] transition-colors"
+                        >
+                          Dashboard
+                        </.link>
+                        <.link
+                          navigate={~p"/admin/posts"}
+                          class="block px-4 py-1.5 text-[12.5px] text-neutral-600 hover:bg-white hover:text-[#141414] transition-colors"
+                        >
+                          Posts
+                        </.link>
+                        <.link
+                          navigate={~p"/admin/events"}
+                          class="block px-4 py-1.5 text-[12.5px] text-neutral-600 hover:bg-white hover:text-[#141414] transition-colors"
+                        >
+                          Events
+                        </.link>
+                        <.link
+                          navigate={~p"/admin/campaigns"}
+                          class="block px-4 py-1.5 text-[12.5px] text-neutral-600 hover:bg-white hover:text-[#141414] transition-colors"
+                        >
+                          Campaigns
+                        </.link>
+                        <.link
+                          navigate={~p"/admin/categories"}
+                          class="block px-4 py-1.5 text-[12.5px] text-neutral-600 hover:bg-white hover:text-[#141414] transition-colors"
+                        >
+                          Categories
+                        </.link>
+                        <.link
+                          navigate={~p"/hubs/admin"}
+                          class="block px-4 py-1.5 text-[12.5px] text-neutral-600 hover:bg-white hover:text-[#141414] transition-colors"
+                        >
+                          Hubs
+                        </.link>
+                        <.link
+                          navigate={~p"/admin/products"}
+                          class="block px-4 py-1.5 text-[12.5px] text-neutral-600 hover:bg-white hover:text-[#141414] transition-colors"
+                        >
+                          Products
+                        </.link>
+                        <.link
+                          navigate={~p"/admin/orders"}
+                          class="block px-4 py-1.5 text-[12.5px] text-neutral-600 hover:bg-white hover:text-[#141414] transition-colors"
+                        >
+                          Orders
+                        </.link>
+                        <.link
+                          navigate={~p"/admin/product-categories"}
+                          class="block px-4 py-1.5 text-[12.5px] text-neutral-600 hover:bg-white hover:text-[#141414] transition-colors"
+                        >
+                          Product categories
+                        </.link>
+                        <.link
+                          navigate={~p"/admin/product-tags"}
+                          class="block px-4 py-1.5 text-[12.5px] text-neutral-600 hover:bg-white hover:text-[#141414] transition-colors"
+                        >
+                          Product tags
+                        </.link>
+                        <.link
+                          navigate={~p"/admin/artists"}
+                          class="block px-4 py-1.5 text-[12.5px] text-neutral-600 hover:bg-white hover:text-[#141414] transition-colors"
+                        >
+                          Artists
+                        </.link>
+                        <.link
+                          navigate={~p"/admin/waitlist"}
+                          class="block px-4 py-1.5 text-[12.5px] text-neutral-600 hover:bg-white hover:text-[#141414] transition-colors"
+                        >
+                          Waitlist
+                        </.link>
+                        <.link
+                          navigate={~p"/admin/flagged-accounts"}
+                          class="block px-4 py-1.5 text-[12.5px] text-neutral-600 hover:bg-white hover:text-[#141414] transition-colors"
+                        >
+                          Flagged accounts
+                        </.link>
+                        <.link
+                          navigate={~p"/admin/stats"}
+                          class="block px-4 py-1.5 text-[12.5px] text-neutral-600 hover:bg-white hover:text-[#141414] transition-colors"
+                        >
+                          Bet stats
+                        </.link>
+                        <.link
+                          navigate={~p"/admin/content"}
+                          class="block px-4 py-1.5 text-[12.5px] text-neutral-600 hover:bg-white hover:text-[#141414] transition-colors"
+                        >
+                          Content generator
+                        </.link>
 
                         <div class="px-4 pt-2 pb-1.5 mt-1 flex items-center gap-2">
                           <span class="text-[9px] uppercase tracking-[0.18em] font-bold text-neutral-400 font-mono">
@@ -769,27 +1123,69 @@ defmodule BlocksterV2Web.DesignSystem do
                           <div class="flex-1 border-t border-neutral-200/60"></div>
                         </div>
 
-                        <.link navigate={~p"/admin/notifications/campaigns"} class="block px-4 py-1.5 text-[12.5px] text-neutral-600 hover:bg-white hover:text-[#141414] transition-colors">Notification campaigns</.link>
-                        <.link navigate={~p"/admin/notifications/analytics"} class="block px-4 py-1.5 text-[12.5px] text-neutral-600 hover:bg-white hover:text-[#141414] transition-colors">Notification analytics</.link>
-                        <.link navigate={~p"/admin/ai-manager"} class="block px-4 py-1.5 text-[12.5px] text-neutral-600 hover:bg-white hover:text-[#141414] transition-colors">AI manager</.link>
-                        <.link navigate={~p"/admin/banners"} class="block px-4 py-1.5 text-[12.5px] text-neutral-600 hover:bg-white hover:text-[#141414] transition-colors">Ad banners</.link>
-                        <.link navigate={~p"/admin/promo"} class="block px-4 py-1.5 text-[12.5px] text-neutral-600 hover:bg-white hover:text-[#141414] transition-colors">Promo dashboard</.link>
+                        <.link
+                          navigate={~p"/admin/notifications/campaigns"}
+                          class="block px-4 py-1.5 text-[12.5px] text-neutral-600 hover:bg-white hover:text-[#141414] transition-colors"
+                        >
+                          Notification campaigns
+                        </.link>
+                        <.link
+                          navigate={~p"/admin/notifications/analytics"}
+                          class="block px-4 py-1.5 text-[12.5px] text-neutral-600 hover:bg-white hover:text-[#141414] transition-colors"
+                        >
+                          Notification analytics
+                        </.link>
+                        <.link
+                          navigate={~p"/admin/ai-manager"}
+                          class="block px-4 py-1.5 text-[12.5px] text-neutral-600 hover:bg-white hover:text-[#141414] transition-colors"
+                        >
+                          AI manager
+                        </.link>
+                        <.link
+                          navigate={~p"/admin/banners"}
+                          class="block px-4 py-1.5 text-[12.5px] text-neutral-600 hover:bg-white hover:text-[#141414] transition-colors"
+                        >
+                          Ad banners
+                        </.link>
+                        <.link
+                          navigate={~p"/admin/promo"}
+                          class="block px-4 py-1.5 text-[12.5px] text-neutral-600 hover:bg-white hover:text-[#141414] transition-colors"
+                        >
+                          Promo dashboard
+                        </.link>
                       <% end %>
                     </div>
                   </details>
                 <% end %>
 
-                <%!-- ── Disconnect ───────────────────────────────────────── --%>
+                <%!-- ── Disconnect ─────────────────────────────────────────
+                     Uses onclick instead of phx-click so it works on the
+                     first tap after iOS Safari backgrounding — phx-click
+                     events are dropped while the LV websocket is briefly
+                     reconnecting on page resume. window.handleWalletDisconnect
+                     does the local cleanup + DELETE /api/auth/session +
+                     hard reload independently of LV. --%>
                 <div class="border-t border-neutral-100 py-1">
                   <button
                     type="button"
-                    phx-click="disconnect_wallet"
+                    onclick="window.handleWalletDisconnect && window.handleWalletDisconnect()"
                     class="group w-full flex items-center gap-3 px-4 py-2.5 text-[13.5px] text-neutral-500 hover:bg-red-50/60 hover:text-red-600 transition-colors cursor-pointer"
                   >
                     <span class="w-7 h-7 rounded-lg bg-neutral-100 group-hover:bg-white group-hover:ring-1 group-hover:ring-red-200 grid place-items-center transition-all">
                       <svg class="w-3.5 h-3.5" viewBox="0 0 20 20" fill="none" aria-hidden="true">
-                        <path d="M12 4H5a1 1 0 00-1 1v10a1 1 0 001 1h7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-                        <path d="M9 10h8m0 0l-3-3m3 3l-3 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                        <path
+                          d="M12 4H5a1 1 0 00-1 1v10a1 1 0 001 1h7"
+                          stroke="currentColor"
+                          stroke-width="1.5"
+                          stroke-linecap="round"
+                        />
+                        <path
+                          d="M9 10h8m0 0l-3-3m3 3l-3 3"
+                          stroke="currentColor"
+                          stroke-width="1.5"
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                        />
                       </svg>
                     </span>
                     <span class="flex-1 font-medium text-left">Sign out</span>
@@ -802,7 +1198,7 @@ defmodule BlocksterV2Web.DesignSystem do
                   <span class="text-neutral-300">·</span>
                   <span>ED25519</span>
                   <span class="text-neutral-300">·</span>
-                  <span><%= ds_short_pubkey(@current_user.wallet_address) %></span>
+                  <span>{ds_short_pubkey(@current_user.wallet_address)}</span>
                   <span class="ml-auto">REV 01</span>
                 </div>
               </div>
@@ -863,12 +1259,33 @@ defmodule BlocksterV2Web.DesignSystem do
             >
               <%= if @connecting do %>
                 <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                  <circle class="opacity-20" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3"></circle>
-                  <path class="opacity-80" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                  <circle
+                    class="opacity-20"
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="currentColor"
+                    stroke-width="3"
+                  >
+                  </circle>
+                  <path
+                    class="opacity-80"
+                    fill="currentColor"
+                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                  >
+                  </path>
                 </svg>
                 Connecting...
               <% else %>
-                <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <svg
+                  class="w-3.5 h-3.5"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2.2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
                   <rect x="2" y="6" width="20" height="14" rx="2" />
                   <path d="M22 10h-4a2 2 0 100 4h4" />
                 </svg>
@@ -879,7 +1296,10 @@ defmodule BlocksterV2Web.DesignSystem do
         </div>
       </div>
 
-      <.why_earn_bux_banner :if={@announcement_banner || @show_why_earn_bux} message={@announcement_banner} />
+      <.why_earn_bux_banner
+        :if={@announcement_banner || @show_why_earn_bux}
+        message={@announcement_banner}
+      />
     </header>
 
     <%!-- Search modal --%>
@@ -889,9 +1309,20 @@ defmodule BlocksterV2Web.DesignSystem do
         phx-window-keydown="close_search_modal"
         phx-key="escape"
       >
-        <div class="w-full max-w-2xl bg-white rounded-2xl shadow-2xl border border-neutral-200 overflow-hidden" phx-click-away="close_search_modal">
+        <div
+          class="w-full max-w-2xl bg-white rounded-2xl shadow-2xl border border-neutral-200 overflow-hidden"
+          phx-click-away="close_search_modal"
+        >
           <div class="flex items-center gap-3 px-5 py-4 border-b border-neutral-100">
-            <svg class="w-4 h-4 text-neutral-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <svg
+              class="w-4 h-4 text-neutral-400 shrink-0"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
               <circle cx="11" cy="11" r="7"></circle>
               <path d="m21 21-4.3-4.3"></path>
             </svg>
@@ -905,9 +1336,21 @@ defmodule BlocksterV2Web.DesignSystem do
               class="flex-1 bg-transparent text-base outline-none border-0 focus:ring-0 text-[#141414]"
               id="ds-search-modal-input"
             />
-            <button type="button" phx-click="close_search_modal" aria-label="Close"
-              class="w-8 h-8 flex items-center justify-center text-neutral-500 rounded-full bg-neutral-100 hover:bg-neutral-200 cursor-pointer">
-              <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <button
+              type="button"
+              phx-click="close_search_modal"
+              aria-label="Close"
+              class="w-8 h-8 flex items-center justify-center text-neutral-500 rounded-full bg-neutral-100 hover:bg-neutral-200 cursor-pointer"
+            >
+              <svg
+                class="w-3.5 h-3.5"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
                 <line x1="18" y1="6" x2="6" y2="18"></line>
                 <line x1="6" y1="6" x2="18" y2="18"></line>
               </svg>
@@ -917,8 +1360,10 @@ defmodule BlocksterV2Web.DesignSystem do
             <% @show_search_results and length(@search_results) > 0 -> %>
               <div class="max-h-[60vh] overflow-y-auto py-2">
                 <%= for post <- @search_results do %>
-                  <.link navigate={~p"/#{post.slug}"}
-                    class="flex items-start gap-3 px-5 py-3 hover:bg-neutral-50 transition-colors cursor-pointer">
+                  <.link
+                    navigate={~p"/#{post.slug}"}
+                    class="flex items-start gap-3 px-5 py-3 hover:bg-neutral-50 transition-colors cursor-pointer"
+                  >
                     <div class="rounded-lg overflow-hidden shrink-0 w-14 h-14">
                       <img src={post.featured_image} class="object-cover w-full h-full" alt="" />
                     </div>
@@ -1053,19 +1498,45 @@ defmodule BlocksterV2Web.DesignSystem do
     >
       <ul class="flex items-stretch justify-between px-2">
         <.mobile_nav_tab href={~p"/"} nav_path="/" label="News">
-          <svg viewBox="0 0 24 24" fill="currentColor" class="w-5 h-5"><path fill-rule="evenodd" d="M4.125 3C3.089 3 2.25 3.84 2.25 4.875V18a3 3 0 0 0 3 3h15a3 3 0 0 1-3-3V4.875C17.25 3.839 16.41 3 15.375 3H4.125ZM12 9.75a.75.75 0 0 0 0 1.5h1.5a.75.75 0 0 0 0-1.5H12Zm-.75-2.25a.75.75 0 0 1 .75-.75h1.5a.75.75 0 0 1 0 1.5H12a.75.75 0 0 1-.75-.75ZM6 12.75a.75.75 0 0 0 0 1.5h7.5a.75.75 0 0 0 0-1.5H6Zm-.75 3.75a.75.75 0 0 1 .75-.75h7.5a.75.75 0 0 1 0 1.5H6a.75.75 0 0 1-.75-.75ZM6 6.75a.75.75 0 0 0-.75.75v3c0 .414.336.75.75.75h3a.75.75 0 0 0 .75-.75v-3A.75.75 0 0 0 9 6.75H6Z" clip-rule="evenodd"/><path d="M18.75 6.75h1.875c.621 0 1.125.504 1.125 1.125V18a1.5 1.5 0 0 1-3 0V6.75Z"/></svg>
+          <svg viewBox="0 0 24 24" fill="currentColor" class="w-5 h-5">
+            <path
+              fill-rule="evenodd"
+              d="M4.125 3C3.089 3 2.25 3.84 2.25 4.875V18a3 3 0 0 0 3 3h15a3 3 0 0 1-3-3V4.875C17.25 3.839 16.41 3 15.375 3H4.125ZM12 9.75a.75.75 0 0 0 0 1.5h1.5a.75.75 0 0 0 0-1.5H12Zm-.75-2.25a.75.75 0 0 1 .75-.75h1.5a.75.75 0 0 1 0 1.5H12a.75.75 0 0 1-.75-.75ZM6 12.75a.75.75 0 0 0 0 1.5h7.5a.75.75 0 0 0 0-1.5H6Zm-.75 3.75a.75.75 0 0 1 .75-.75h7.5a.75.75 0 0 1 0 1.5H6a.75.75 0 0 1-.75-.75ZM6 6.75a.75.75 0 0 0-.75.75v3c0 .414.336.75.75.75h3a.75.75 0 0 0 .75-.75v-3A.75.75 0 0 0 9 6.75H6Z"
+              clip-rule="evenodd"
+            /><path d="M18.75 6.75h1.875c.621 0 1.125.504 1.125 1.125V18a1.5 1.5 0 0 1-3 0V6.75Z" />
+          </svg>
         </.mobile_nav_tab>
         <.mobile_nav_tab href={~p"/hubs"} nav_path="/hubs" label="Hubs">
-          <svg viewBox="0 0 24 24" fill="currentColor" class="w-5 h-5"><path fill-rule="evenodd" d="M8.25 6.75a3.75 3.75 0 1 1 7.5 0 3.75 3.75 0 0 1-7.5 0ZM15.75 9.75a3 3 0 1 1 6 0 3 3 0 0 1-6 0ZM2.25 9.75a3 3 0 1 1 6 0 3 3 0 0 1-6 0ZM6.31 15.117A6.745 6.745 0 0 1 12 12a6.745 6.745 0 0 1 6.709 7.498.75.75 0 0 1-.372.568A12.696 12.696 0 0 1 12 21.75c-2.305 0-4.47-.612-6.337-1.684a.75.75 0 0 1-.372-.568 6.787 6.787 0 0 1 1.019-4.38Z" clip-rule="evenodd"/></svg>
+          <svg viewBox="0 0 24 24" fill="currentColor" class="w-5 h-5">
+            <path
+              fill-rule="evenodd"
+              d="M8.25 6.75a3.75 3.75 0 1 1 7.5 0 3.75 3.75 0 0 1-7.5 0ZM15.75 9.75a3 3 0 1 1 6 0 3 3 0 0 1-6 0ZM2.25 9.75a3 3 0 1 1 6 0 3 3 0 0 1-6 0ZM6.31 15.117A6.745 6.745 0 0 1 12 12a6.745 6.745 0 0 1 6.709 7.498.75.75 0 0 1-.372.568A12.696 12.696 0 0 1 12 21.75c-2.305 0-4.47-.612-6.337-1.684a.75.75 0 0 1-.372-.568 6.787 6.787 0 0 1 1.019-4.38Z"
+              clip-rule="evenodd"
+            />
+          </svg>
         </.mobile_nav_tab>
         <.mobile_nav_tab href={~p"/shop"} nav_path="/shop" label="Shop">
-          <svg viewBox="0 0 24 24" fill="currentColor" class="w-5 h-5"><path fill-rule="evenodd" d="M7.5 6v.75H5.513c-.96 0-1.764.724-1.865 1.679l-1.263 12A1.875 1.875 0 0 0 4.25 22.5h15.5a1.875 1.875 0 0 0 1.865-2.071l-1.263-12a1.875 1.875 0 0 0-1.865-1.679H16.5V6a4.5 4.5 0 1 0-9 0ZM12 3a3 3 0 0 0-3 3v.75h6V6a3 3 0 0 0-3-3Zm-3 8.25a3 3 0 1 0 6 0v-.75a.75.75 0 0 1 1.5 0v.75a4.5 4.5 0 1 1-9 0v-.75a.75.75 0 0 1 1.5 0v.75Z" clip-rule="evenodd"/></svg>
+          <svg viewBox="0 0 24 24" fill="currentColor" class="w-5 h-5">
+            <path
+              fill-rule="evenodd"
+              d="M7.5 6v.75H5.513c-.96 0-1.764.724-1.865 1.679l-1.263 12A1.875 1.875 0 0 0 4.25 22.5h15.5a1.875 1.875 0 0 0 1.865-2.071l-1.263-12a1.875 1.875 0 0 0-1.865-1.679H16.5V6a4.5 4.5 0 1 0-9 0ZM12 3a3 3 0 0 0-3 3v.75h6V6a3 3 0 0 0-3-3Zm-3 8.25a3 3 0 1 0 6 0v-.75a.75.75 0 0 1 1.5 0v.75a4.5 4.5 0 1 1-9 0v-.75a.75.75 0 0 1 1.5 0v.75Z"
+              clip-rule="evenodd"
+            />
+          </svg>
         </.mobile_nav_tab>
         <.mobile_nav_tab href={~p"/pool"} nav_path="/pool" label="Pool">
-          <svg viewBox="0 0 24 24" fill="currentColor" class="w-5 h-5"><path d="M21 6.375c0 2.692-4.03 4.875-9 4.875S3 9.067 3 6.375 7.03 1.5 12 1.5s9 2.183 9 4.875Z"/><path d="M12 12.75c2.685 0 5.19-.586 7.078-1.609a8.283 8.283 0 0 0 1.897-1.384c.016.111.025.223.025.334 0 2.692-4.03 4.875-9 4.875s-9-2.183-9-4.875c0-.11.008-.223.025-.334a8.301 8.301 0 0 0 1.897 1.384C6.809 12.164 9.315 12.75 12 12.75Z"/><path d="M12 16.5c2.685 0 5.19-.586 7.078-1.609a8.282 8.282 0 0 0 1.897-1.384c.016.111.025.223.025.334 0 2.692-4.03 4.875-9 4.875s-9-2.183-9-4.875c0-.11.008-.223.025-.334a8.3 8.3 0 0 0 1.897 1.384C6.809 15.914 9.315 16.5 12 16.5Z"/></svg>
+          <svg viewBox="0 0 24 24" fill="currentColor" class="w-5 h-5">
+            <path d="M21 6.375c0 2.692-4.03 4.875-9 4.875S3 9.067 3 6.375 7.03 1.5 12 1.5s9 2.183 9 4.875Z" /><path d="M12 12.75c2.685 0 5.19-.586 7.078-1.609a8.283 8.283 0 0 0 1.897-1.384c.016.111.025.223.025.334 0 2.692-4.03 4.875-9 4.875s-9-2.183-9-4.875c0-.11.008-.223.025-.334a8.301 8.301 0 0 0 1.897 1.384C6.809 12.164 9.315 12.75 12 12.75Z" /><path d="M12 16.5c2.685 0 5.19-.586 7.078-1.609a8.282 8.282 0 0 0 1.897-1.384c.016.111.025.223.025.334 0 2.692-4.03 4.875-9 4.875s-9-2.183-9-4.875c0-.11.008-.223.025-.334a8.3 8.3 0 0 0 1.897 1.384C6.809 15.914 9.315 16.5 12 16.5Z" />
+          </svg>
         </.mobile_nav_tab>
         <.mobile_nav_tab href={~p"/play"} nav_path="/play" label="Play">
-          <svg viewBox="0 0 24 24" fill="currentColor" class="w-5 h-5"><path fill-rule="evenodd" d="M9.315 7.584C12.195 3.883 16.695 1.5 21.75 1.5a.75.75 0 0 1 .75.75c0 5.056-2.383 9.555-6.084 12.436A6.75 6.75 0 0 1 9.75 22.5a.75.75 0 0 1-.75-.75v-4.131A15.838 15.838 0 0 1 6.382 15H2.25a.75.75 0 0 1-.75-.75 6.75 6.75 0 0 1 7.815-6.666ZM15 6.75a2.25 2.25 0 1 0 0 4.5 2.25 2.25 0 0 0 0-4.5Z" clip-rule="evenodd"/></svg>
+          <svg viewBox="0 0 24 24" fill="currentColor" class="w-5 h-5">
+            <path
+              fill-rule="evenodd"
+              d="M9.315 7.584C12.195 3.883 16.695 1.5 21.75 1.5a.75.75 0 0 1 .75.75c0 5.056-2.383 9.555-6.084 12.436A6.75 6.75 0 0 1 9.75 22.5a.75.75 0 0 1-.75-.75v-4.131A15.838 15.838 0 0 1 6.382 15H2.25a.75.75 0 0 1-.75-.75 6.75 6.75 0 0 1 7.815-6.666ZM15 6.75a2.25 2.25 0 1 0 0 4.5 2.25 2.25 0 0 0 0-4.5Z"
+              clip-rule="evenodd"
+            />
+          </svg>
         </.mobile_nav_tab>
       </ul>
     </nav>
@@ -1115,8 +1586,10 @@ defmodule BlocksterV2Web.DesignSystem do
       ]}
       {@rest}
     >
-      <div class="absolute top-0 right-0 w-[40%] h-full bg-gradient-to-l from-[#CAFC00]/[0.04] to-transparent pointer-events-none"></div>
-      <div class="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent"></div>
+      <div class="absolute top-0 right-0 w-[40%] h-full bg-gradient-to-l from-[#CAFC00]/[0.04] to-transparent pointer-events-none">
+      </div>
+      <div class="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent">
+      </div>
 
       <div class="max-w-[1280px] mx-auto px-6 py-16 relative">
         <div class="grid grid-cols-12 gap-4 md:gap-8">
@@ -1132,7 +1605,13 @@ defmodule BlocksterV2Web.DesignSystem do
               The home feed of crypto. Builders, protocols, culture — daily.
             </p>
             <div class="mt-5 flex items-start gap-2 text-[11px] text-white/40 leading-relaxed max-w-[360px]">
-              <svg class="w-3 h-3 mt-0.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <svg
+                class="w-3 h-3 mt-0.5 shrink-0"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
                 <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
                 <circle cx="12" cy="10" r="3" />
               </svg>
@@ -1142,22 +1621,57 @@ defmodule BlocksterV2Web.DesignSystem do
 
           <%!-- Read column --%>
           <div class="col-span-6 md:col-span-2">
-            <div class="text-[10px] uppercase tracking-[0.14em] text-white/40 font-bold mb-4">Read</div>
+            <div class="text-[10px] uppercase tracking-[0.14em] text-white/40 font-bold mb-4">
+              Read
+            </div>
             <ul class="space-y-2.5 text-[13px]">
-              <li><.link navigate={~p"/"} class="text-white/70 hover:text-white transition-colors">Latest</.link></li>
-              <li><.link navigate={~p"/hubs"} class="text-white/70 hover:text-white transition-colors">Hubs</.link></li>
-              <li><.link navigate={~p"/docs"} class="text-white/70 hover:text-white transition-colors">Docs</.link></li>
+              <li>
+                <.link navigate={~p"/"} class="text-white/70 hover:text-white transition-colors">
+                  Latest
+                </.link>
+              </li>
+              <li>
+                <.link navigate={~p"/hubs"} class="text-white/70 hover:text-white transition-colors">
+                  Hubs
+                </.link>
+              </li>
+              <li>
+                <.link navigate={~p"/docs"} class="text-white/70 hover:text-white transition-colors">
+                  Docs
+                </.link>
+              </li>
             </ul>
           </div>
 
           <%!-- Earn column --%>
           <div class="col-span-6 md:col-span-2">
-            <div class="text-[10px] uppercase tracking-[0.14em] text-white/40 font-bold mb-4">Earn</div>
+            <div class="text-[10px] uppercase tracking-[0.14em] text-white/40 font-bold mb-4">
+              Earn
+            </div>
             <ul class="space-y-2.5 text-[13px]">
-              <li><.link navigate={~p"/pool/bux"} class="text-white/70 hover:text-white transition-colors">BUX Token</.link></li>
-              <li><.link navigate={~p"/pool"} class="text-white/70 hover:text-white transition-colors">Pool</.link></li>
-              <li><.link navigate={~p"/play"} class="text-white/70 hover:text-white transition-colors">Play</.link></li>
-              <li><.link navigate={~p"/shop"} class="text-white/70 hover:text-white transition-colors">Shop</.link></li>
+              <li>
+                <.link
+                  navigate={~p"/pool/bux"}
+                  class="text-white/70 hover:text-white transition-colors"
+                >
+                  BUX Token
+                </.link>
+              </li>
+              <li>
+                <.link navigate={~p"/pool"} class="text-white/70 hover:text-white transition-colors">
+                  Pool
+                </.link>
+              </li>
+              <li>
+                <.link navigate={~p"/play"} class="text-white/70 hover:text-white transition-colors">
+                  Play
+                </.link>
+              </li>
+              <li>
+                <.link navigate={~p"/shop"} class="text-white/70 hover:text-white transition-colors">
+                  Shop
+                </.link>
+              </li>
             </ul>
           </div>
 
@@ -1165,7 +1679,9 @@ defmodule BlocksterV2Web.DesignSystem do
                (Newsletter.Subscription schema, NewsletterHook handle_event)
                kept as dead code; the form was rebuilt as social links instead. --%>
           <div class="col-span-12 md:col-span-3">
-            <div class="text-[10px] uppercase tracking-[0.14em] text-white/40 font-bold mb-4">Community</div>
+            <div class="text-[10px] uppercase tracking-[0.14em] text-white/40 font-bold mb-4">
+              Community
+            </div>
             <p class="text-[13px] text-white/60 leading-relaxed mb-4">
               Builders, traders, lurkers. Join us.
             </p>
@@ -1177,7 +1693,13 @@ defmodule BlocksterV2Web.DesignSystem do
                   rel="noopener noreferrer"
                   class="inline-flex items-center gap-2 text-white/70 hover:text-white transition-colors group"
                 >
-                  <svg class="w-3.5 h-3.5 text-white/50 group-hover:text-[#CAFC00] transition-colors" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" /></svg>
+                  <svg
+                    class="w-3.5 h-3.5 text-white/50 group-hover:text-[#CAFC00] transition-colors"
+                    viewBox="0 0 24 24"
+                    fill="currentColor"
+                  >
+                    <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+                  </svg>
                   <span>@BlocksterCom on X</span>
                 </a>
               </li>
@@ -1188,7 +1710,13 @@ defmodule BlocksterV2Web.DesignSystem do
                   rel="noopener noreferrer"
                   class="inline-flex items-center gap-2 text-white/70 hover:text-white transition-colors group"
                 >
-                  <svg class="w-3.5 h-3.5 text-white/50 group-hover:text-[#CAFC00] transition-colors" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.894 8.221l-1.97 9.28c-.145.658-.537.818-1.084.508l-3-2.21-1.446 1.394c-.14.18-.357.295-.6.295-.002 0-.003 0-.005 0l.213-3.054 5.56-5.022c.24-.213-.054-.334-.373-.121l-6.869 4.326-2.96-.924c-.64-.203-.658-.643.135-.953l11.566-4.458c.538-.196 1.006.128.832.95z" /></svg>
+                  <svg
+                    class="w-3.5 h-3.5 text-white/50 group-hover:text-[#CAFC00] transition-colors"
+                    viewBox="0 0 24 24"
+                    fill="currentColor"
+                  >
+                    <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.894 8.221l-1.97 9.28c-.145.658-.537.818-1.084.508l-3-2.21-1.446 1.394c-.14.18-.357.295-.6.295-.002 0-.003 0-.005 0l.213-3.054 5.56-5.022c.24-.213-.054-.334-.373-.121l-6.869 4.326-2.96-.924c-.64-.203-.658-.643.135-.953l11.566-4.458c.538-.196 1.006.128.832.95z" />
+                  </svg>
                   <span>Join Telegram</span>
                 </a>
               </li>
@@ -1491,7 +2019,8 @@ defmodule BlocksterV2Web.DesignSystem do
     attr :href, :string
   end
 
-  slot :inner_block, doc: "optional content rendered to the right of the title (e.g. filter chips)"
+  slot :inner_block,
+    doc: "optional content rendered to the right of the title (e.g. filter chips)"
 
   def section_header(assigns) do
     ~H"""
@@ -1627,7 +2156,11 @@ defmodule BlocksterV2Web.DesignSystem do
                 </div>
                 <%= if @bux_reward do %>
                   <div class="ml-auto flex items-center gap-1 bg-[#CAFC00] text-black px-2.5 py-1 rounded-full text-[11px] font-bold">
-                    <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="" class="w-3 h-3 rounded-full" />
+                    <img
+                      src="https://ik.imagekit.io/blockster/blockster-icon.png"
+                      alt=""
+                      class="w-3 h-3 rounded-full"
+                    />
                     {format_reward(@bux_reward)}
                   </div>
                 <% end %>
@@ -1636,7 +2169,13 @@ defmodule BlocksterV2Web.DesignSystem do
             <div class="inline-flex items-center gap-2 bg-[#0a0a0a] text-white px-5 py-3 rounded-full text-[13px] font-bold group-hover:bg-[#1a1a22] transition-colors">
               Read article
               <svg class="w-3.5 h-3.5" viewBox="0 0 20 20" fill="none">
-                <path d="M3 10h12m0 0l-4-4m4 4l-4 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                <path
+                  d="M3 10h12m0 0l-4-4m4 4l-4 4"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                />
               </svg>
             </div>
           </div>
@@ -1692,7 +2231,8 @@ defmodule BlocksterV2Web.DesignSystem do
       <div
         class="absolute inset-0 pointer-events-none"
         style="background: radial-gradient(circle at 80% 20%, rgba(255,255,255,0.18), transparent 60%);"
-      ></div>
+      >
+      </div>
       <div class="relative z-10 flex flex-col gap-3 md:min-h-[200px] md:gap-0">
         <div class="flex items-center justify-between md:mb-8">
           <div class="w-7 h-7 md:w-9 md:h-9 rounded-md bg-white/15 backdrop-blur grid place-items-center ring-1 ring-white/20">
@@ -1702,7 +2242,9 @@ defmodule BlocksterV2Web.DesignSystem do
               <% @ticker -> %>
                 <span class="text-white font-bold text-[11px] md:text-[14px]">{@ticker}</span>
               <% true -> %>
-                <span class="text-white font-bold text-[11px] md:text-[14px]">{String.first(@name)}</span>
+                <span class="text-white font-bold text-[11px] md:text-[14px]">
+                  {String.first(@name)}
+                </span>
             <% end %>
           </div>
           <%= if @category do %>
@@ -1713,7 +2255,9 @@ defmodule BlocksterV2Web.DesignSystem do
         </div>
         <h3 class="font-bold text-[15px] md:text-[20px] tracking-tight mb-0.5 md:mb-1">{@name}</h3>
         <%= if @description do %>
-          <p class="text-white/80 text-[11px] leading-snug line-clamp-3 md:line-clamp-2 md:mb-4 md:mt-auto">{@description}</p>
+          <p class="text-white/80 text-[11px] leading-snug line-clamp-3 md:line-clamp-2 md:mb-4 md:mt-auto">
+            {@description}
+          </p>
         <% end %>
         <%!-- Mobile: counters row + full-width-ish Visit button stacked.
              Desktop: counters left, Visit-hub pill right. --%>
@@ -1761,8 +2305,18 @@ defmodule BlocksterV2Web.DesignSystem do
     >
       <div>
         <div class="w-12 h-12 rounded-full bg-neutral-100 grid place-items-center mx-auto mb-4 group-hover:bg-[#CAFC00] transition-colors">
-          <svg class="w-5 h-5 text-neutral-600 group-hover:text-black transition-colors" viewBox="0 0 20 20" fill="none">
-            <path d="M3 10h12m0 0l-4-4m4 4l-4 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+          <svg
+            class="w-5 h-5 text-neutral-600 group-hover:text-black transition-colors"
+            viewBox="0 0 20 20"
+            fill="none"
+          >
+            <path
+              d="M3 10h12m0 0l-4-4m4 4l-4 4"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
           </svg>
         </div>
         <h3 class="font-bold text-[16px] text-[#141414]">+{@more_count} more hubs</h3>
@@ -1953,8 +2507,11 @@ defmodule BlocksterV2Web.DesignSystem do
       end)
       |> assign_new(:default_body, fn ->
         case assigns.variant do
-          "token_sale" -> "We're launching token sales for BUX-tier holders soon. Check back here when allocations open."
-          "recommended" -> "We're building a recommendation system that surfaces posts based on what you've already read. Until then, your followed hubs and the trending feed below have you covered."
+          "token_sale" ->
+            "We're launching token sales for BUX-tier holders soon. Check back here when allocations open."
+
+          "recommended" ->
+            "We're building a recommendation system that surfaces posts based on what you've already read. Until then, your followed hubs and the trending feed below have you covered."
         end
       end)
 
@@ -1970,7 +2527,13 @@ defmodule BlocksterV2Web.DesignSystem do
           <div class="flex items-start justify-between mb-4">
             <div class="flex items-center gap-3">
               <div class="w-12 h-12 rounded-xl grid place-items-center bg-neutral-100">
-                <svg class="w-5 h-5 text-neutral-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <svg
+                  class="w-5 h-5 text-neutral-400"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                >
                   <circle cx="12" cy="12" r="10" />
                   <path d="M12 6v6l4 2" />
                 </svg>
@@ -2000,7 +2563,13 @@ defmodule BlocksterV2Web.DesignSystem do
       <%= if @variant == "recommended" do %>
         <div class="flex items-start gap-4">
           <div class="w-12 h-12 rounded-xl bg-neutral-100 grid place-items-center shrink-0">
-            <svg class="w-5 h-5 text-neutral-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <svg
+              class="w-5 h-5 text-neutral-400"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
               <path d="M12 2l3 7h7l-5.5 4 2 7-6.5-4.5L5.5 20l2-7L2 9h7z" />
             </svg>
           </div>
@@ -2038,14 +2607,19 @@ defmodule BlocksterV2Web.DesignSystem do
   attr :preview_author, :string, default: nil
   attr :preview_read_minutes, :integer, default: nil
   attr :preview_bux_reward, :any, default: nil
-  attr :preview_href, :string, default: nil, doc: "if set, the preview card becomes a link to this path"
+
+  attr :preview_href, :string,
+    default: nil,
+    doc: "if set, the preview card becomes a link to this path"
 
   def welcome_hero(assigns) do
     ~H"""
     <section class="ds-welcome-hero pt-6 pb-4 md:pt-12 md:pb-6 md:mt-8">
       <div class="grid grid-cols-12 gap-6 md:gap-8 items-center bg-gradient-to-br from-[#0a0a0a] via-[#1a1a22] to-[#0a0a0a] rounded-3xl overflow-hidden p-6 md:p-12 ring-1 ring-white/10 relative">
-        <div class="absolute top-0 right-0 w-[60%] h-full bg-gradient-to-l from-[#CAFC00]/[0.06] to-transparent pointer-events-none"></div>
-        <div class="absolute bottom-0 left-0 w-[40%] h-[60%] bg-gradient-to-tr from-[#7D00FF]/15 to-transparent blur-3xl pointer-events-none"></div>
+        <div class="absolute top-0 right-0 w-[60%] h-full bg-gradient-to-l from-[#CAFC00]/[0.06] to-transparent pointer-events-none">
+        </div>
+        <div class="absolute bottom-0 left-0 w-[40%] h-[60%] bg-gradient-to-tr from-[#7D00FF]/15 to-transparent blur-3xl pointer-events-none">
+        </div>
         <div class="col-span-12 md:col-span-7 relative">
           <div class="font-bold uppercase text-[10px] tracking-[0.16em] mb-4 text-[#CAFC00]">
             Welcome to Blockster
@@ -2062,7 +2636,15 @@ defmodule BlocksterV2Web.DesignSystem do
               phx-click="show_wallet_selector"
               class="inline-flex items-center gap-2 bg-[#CAFC00] text-black px-5 py-3 rounded-full text-[14px] font-bold hover:bg-white transition-colors"
             >
-              <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <svg
+                class="w-4 h-4"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2.2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
                 <rect x="2" y="6" width="20" height="14" rx="2" />
                 <path d="M22 10h-4a2 2 0 100 4h4" />
               </svg>
@@ -2076,7 +2658,9 @@ defmodule BlocksterV2Web.DesignSystem do
             </a>
           </div>
           <div class="mt-6 md:mt-7 flex flex-wrap items-center gap-x-4 gap-y-2 md:gap-6 text-white/40 text-[11px] font-mono">
-            <div><span class="text-white font-bold tabular-nums">{@article_count}</span> articles</div>
+            <div>
+              <span class="text-white font-bold tabular-nums">{@article_count}</span> articles
+            </div>
             <div><span class="text-white font-bold tabular-nums">{@bux_paid}</span> BUX paid out</div>
             <div><span class="text-white font-bold tabular-nums">{@hub_count}</span> hubs</div>
           </div>
@@ -2100,7 +2684,8 @@ defmodule BlocksterV2Web.DesignSystem do
               <% end %>
               <%= if @preview_hub_name do %>
                 <div class="flex items-center gap-1.5 mb-2">
-                  <div class="w-4 h-4 rounded" style={"background-color: #{@preview_hub_color};"}></div>
+                  <div class="w-4 h-4 rounded" style={"background-color: #{@preview_hub_color};"}>
+                  </div>
                   <span class="text-[9px] uppercase tracking-[0.12em] text-neutral-500">
                     {@preview_hub_name}{if @preview_category, do: " · #{@preview_category}", else: ""}
                   </span>
@@ -2111,13 +2696,22 @@ defmodule BlocksterV2Web.DesignSystem do
               </h3>
               <div class="flex items-center justify-between text-[10px]">
                 <span class="text-neutral-500">
-                  <% author = if @preview_author in [nil, "", "Anonymous", "Unknown"], do: nil, else: @preview_author %>
-                  {author}{if author && @preview_read_minutes, do: " · ", else: ""}{if @preview_read_minutes, do: "#{@preview_read_minutes} min", else: ""}
+                  <% author =
+                    if @preview_author in [nil, "", "Anonymous", "Unknown"],
+                      do: nil,
+                      else: @preview_author %>
+                  {author}{if author && @preview_read_minutes, do: " · ", else: ""}{if @preview_read_minutes,
+                    do: "#{@preview_read_minutes} min",
+                    else: ""}
                 </span>
                 <% reward = parse_reward(@preview_bux_reward) %>
                 <%= if reward > 0 do %>
                   <div class="flex items-center gap-1 bg-[#CAFC00] text-black px-2 py-0.5 rounded-full font-bold">
-                    <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="" class="w-2.5 h-2.5 rounded-full" />
+                    <img
+                      src="https://ik.imagekit.io/blockster/blockster-icon.png"
+                      alt=""
+                      class="w-2.5 h-2.5 rounded-full"
+                    />
                     {reward} BUX
                   </div>
                 <% end %>
@@ -2126,7 +2720,10 @@ defmodule BlocksterV2Web.DesignSystem do
             <%!-- Fallback for callers that don't provide preview_href: render
                  the original non-clickable card. New code should always pass
                  preview_href; this branch is here for backward compat. --%>
-            <div :if={!@preview_href} class="bg-white rounded-2xl p-5 shadow-2xl relative ring-1 ring-white/20 rotate-1 hover:rotate-0 transition-transform">
+            <div
+              :if={!@preview_href}
+              class="bg-white rounded-2xl p-5 shadow-2xl relative ring-1 ring-white/20 rotate-1 hover:rotate-0 transition-transform"
+            >
               <%= if @preview_image do %>
                 <div class="aspect-[16/9] rounded-xl bg-neutral-100 overflow-hidden mb-4">
                   <img src={@preview_image} alt="" class="w-full h-full object-cover" />
@@ -2134,7 +2731,8 @@ defmodule BlocksterV2Web.DesignSystem do
               <% end %>
               <%= if @preview_hub_name do %>
                 <div class="flex items-center gap-1.5 mb-2">
-                  <div class="w-4 h-4 rounded" style={"background-color: #{@preview_hub_color};"}></div>
+                  <div class="w-4 h-4 rounded" style={"background-color: #{@preview_hub_color};"}>
+                  </div>
                   <span class="text-[9px] uppercase tracking-[0.12em] text-neutral-500">
                     {@preview_hub_name}{if @preview_category, do: " · #{@preview_category}", else: ""}
                   </span>
@@ -2145,13 +2743,22 @@ defmodule BlocksterV2Web.DesignSystem do
               </h3>
               <div class="flex items-center justify-between text-[10px]">
                 <span class="text-neutral-500">
-                  <% author = if @preview_author in [nil, "", "Anonymous", "Unknown"], do: nil, else: @preview_author %>
-                  {author}{if author && @preview_read_minutes, do: " · ", else: ""}{if @preview_read_minutes, do: "#{@preview_read_minutes} min", else: ""}
+                  <% author =
+                    if @preview_author in [nil, "", "Anonymous", "Unknown"],
+                      do: nil,
+                      else: @preview_author %>
+                  {author}{if author && @preview_read_minutes, do: " · ", else: ""}{if @preview_read_minutes,
+                    do: "#{@preview_read_minutes} min",
+                    else: ""}
                 </span>
                 <% reward = parse_reward(@preview_bux_reward) %>
                 <%= if reward > 0 do %>
                   <div class="flex items-center gap-1 bg-[#CAFC00] text-black px-2 py-0.5 rounded-full font-bold">
-                    <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="" class="w-2.5 h-2.5 rounded-full" />
+                    <img
+                      src="https://ik.imagekit.io/blockster/blockster-icon.png"
+                      alt=""
+                      class="w-2.5 h-2.5 rounded-full"
+                    />
                     {reward} BUX
                   </div>
                 <% end %>
@@ -2186,7 +2793,11 @@ defmodule BlocksterV2Web.DesignSystem do
       <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div class="bg-white rounded-2xl p-6 border border-neutral-200/70">
           <div class="w-10 h-10 rounded-xl bg-[#CAFC00] grid place-items-center mb-4">
-            <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="" class="w-6 h-6 rounded-full" />
+            <img
+              src="https://ik.imagekit.io/blockster/blockster-icon.png"
+              alt=""
+              class="w-6 h-6 rounded-full"
+            />
           </div>
           <h3 class="font-bold text-[16px] text-[#141414] mb-2">Earn BUX as you read</h3>
           <p class="text-[13px] text-neutral-600 leading-relaxed">
@@ -2235,24 +2846,47 @@ defmodule BlocksterV2Web.DesignSystem do
 
   def ad_banner(%{banner: %{template: "follow_bar"}} = assigns) do
     assigns = assign(assigns, :p, sanitize_ad_params(assigns.banner.params))
+
     ~H"""
-    <a href={@banner.link_url || "#"} target="_blank" rel="noopener" class={["not-prose block my-9 group", @class]} phx-click="track_ad_click" phx-value-id={@banner.id}>
+    <a
+      href={@banner.link_url || "#"}
+      target="_blank"
+      rel="noopener"
+      class={["not-prose block my-9 group", @class]}
+      phx-click="track_ad_click"
+      phx-value-id={@banner.id}
+    >
       <div class="flex items-center justify-between gap-3 bg-[#0a0a0a] hover:bg-[#1a1a1a] transition-colors rounded-2xl pl-2 pr-3 py-2.5 ring-1 ring-black/10">
         <div class="flex items-center gap-3 min-w-0">
           <div class="w-11 h-11 bg-white grid place-items-center shrink-0 rounded-md">
             <%= if @p["icon_url"] do %>
               <img src={@p["icon_url"]} alt="" class="w-6 h-6 rounded object-cover" />
             <% else %>
-              <div class="w-6 h-6 rounded grid place-items-center" style={"background: #{@p["brand_color"] || "#7D00FF"}"}>
+              <div
+                class="w-6 h-6 rounded grid place-items-center"
+                style={"background: #{@p["brand_color"] || "#7D00FF"}"}
+              >
                 <div class="w-3 h-3 rounded-full bg-white"></div>
               </div>
             <% end %>
           </div>
-          <span class="text-white font-bold text-[15px] truncate">{@p["heading"] || "Follow in Hubs"}</span>
+          <span class="text-white font-bold text-[15px] truncate">
+            {@p["heading"] || "Follow in Hubs"}
+          </span>
         </div>
         <div class="w-9 h-9 rounded-full bg-white grid place-items-center shrink-0 group-hover:scale-105 transition-transform">
-          <svg class="w-4 h-4" style={"color: #{@p["brand_color"] || "#7D00FF"}"} viewBox="0 0 20 20" fill="currentColor">
-            <path d="M10 4v12M4 10h12" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
+          <svg
+            class="w-4 h-4"
+            style={"color: #{@p["brand_color"] || "#7D00FF"}"}
+            viewBox="0 0 20 20"
+            fill="currentColor"
+          >
+            <path
+              d="M10 4v12M4 10h12"
+              stroke="currentColor"
+              stroke-width="2.5"
+              stroke-linecap="round"
+            />
           </svg>
         </div>
       </div>
@@ -2270,7 +2904,10 @@ defmodule BlocksterV2Web.DesignSystem do
   # Without this, the admin form submits "" for unfilled fields and "" is truthy in Elixir.
   defp sanitize_ad_params(params) do
     (params || %{})
-    |> Enum.map(fn {k, ""} -> {k, nil}; kv -> kv end)
+    |> Enum.map(fn
+      {k, ""} -> {k, nil}
+      kv -> kv
+    end)
     |> Map.new()
   end
 
@@ -2332,32 +2969,65 @@ defmodule BlocksterV2Web.DesignSystem do
 
   def ad_banner(%{banner: %{template: "dark_gradient"}} = assigns) do
     assigns = assign(assigns, :p, sanitize_ad_params(assigns.banner.params))
+
     ~H"""
     <div class={["my-10 -mx-2 not-prose", @class]}>
-      <div class="text-[9px] tracking-[0.16em] uppercase text-neutral-400 mb-2 font-bold pl-2">Sponsored</div>
-      <a href={@banner.link_url || "#"} target="_blank" rel="noopener" class="block group" phx-click="track_ad_click" phx-value-id={@banner.id}>
-        <div class="relative rounded-2xl overflow-hidden p-6 shadow-[0_20px_40px_-15px_rgba(0,0,0,0.25)] ring-1 ring-white/[0.06]" style={"background: linear-gradient(135deg, #{@p["bg_color"] || "#0A0A0F"}, #{@p["bg_color_end"] || "#1c1c25"})"}>
-          <div class="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br to-transparent blur-3xl pointer-events-none" style={"background: #{@p["brand_color"] || "#7D00FF"}30"}></div>
-          <div class="absolute bottom-0 left-0 w-48 h-48 bg-gradient-to-tr from-[#CAFC00]/15 to-transparent blur-3xl pointer-events-none"></div>
+      <div class="text-[9px] tracking-[0.16em] uppercase text-neutral-400 mb-2 font-bold pl-2">
+        Sponsored
+      </div>
+      <a
+        href={@banner.link_url || "#"}
+        target="_blank"
+        rel="noopener"
+        class="block group"
+        phx-click="track_ad_click"
+        phx-value-id={@banner.id}
+      >
+        <div
+          class="relative rounded-2xl overflow-hidden p-6 shadow-[0_20px_40px_-15px_rgba(0,0,0,0.25)] ring-1 ring-white/[0.06]"
+          style={"background: linear-gradient(135deg, #{@p["bg_color"] || "#0A0A0F"}, #{@p["bg_color_end"] || "#1c1c25"})"}
+        >
+          <div
+            class="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br to-transparent blur-3xl pointer-events-none"
+            style={"background: #{@p["brand_color"] || "#7D00FF"}30"}
+          >
+          </div>
+          <div class="absolute bottom-0 left-0 w-48 h-48 bg-gradient-to-tr from-[#CAFC00]/15 to-transparent blur-3xl pointer-events-none">
+          </div>
           <div class="relative flex items-center justify-between gap-6">
             <div class="flex-1">
               <div class="flex items-center gap-2 mb-3">
                 <%= if @p["icon_url"] do %>
                   <img src={@p["icon_url"]} alt="" class="w-7 h-7 rounded-md object-cover" />
                 <% else %>
-                  <div class="w-7 h-7 rounded-md grid place-items-center" style={"background: #{@p["brand_color"] || "#7D00FF"}"}>
+                  <div
+                    class="w-7 h-7 rounded-md grid place-items-center"
+                    style={"background: #{@p["brand_color"] || "#7D00FF"}"}
+                  >
                     <div class="w-3.5 h-3.5 rounded-full bg-white"></div>
                   </div>
                 <% end %>
-                <span class="text-[11px] uppercase tracking-[0.14em] text-white/60">{@p["brand_name"] || "Sponsor"}</span>
+                <span class="text-[11px] uppercase tracking-[0.14em] text-white/60">
+                  {@p["brand_name"] || "Sponsor"}
+                </span>
               </div>
-              <h3 class="text-white font-bold text-[22px] leading-[1.15] mb-2 max-w-[380px]">{@p["heading"]}</h3>
+              <h3 class="text-white font-bold text-[22px] leading-[1.15] mb-2 max-w-[380px]">
+                {@p["heading"]}
+              </h3>
               <p class="text-white/60 text-[13px] leading-snug max-w-[420px]">{@p["description"]}</p>
             </div>
             <div class="flex-shrink-0 hidden md:block">
               <div class="inline-flex items-center gap-2 bg-[#CAFC00] text-black px-4 py-2.5 rounded-full font-bold text-[13px] group-hover:bg-white transition-colors">
                 {@p["cta_text"] || "Learn more"}
-                <svg class="w-3.5 h-3.5" viewBox="0 0 20 20" fill="none"><path d="M3 10h12m0 0l-4-4m4 4l-4 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                <svg class="w-3.5 h-3.5" viewBox="0 0 20 20" fill="none">
+                  <path
+                    d="M3 10h12m0 0l-4-4m4 4l-4 4"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  />
+                </svg>
               </div>
             </div>
           </div>
@@ -2369,12 +3039,25 @@ defmodule BlocksterV2Web.DesignSystem do
 
   def ad_banner(%{banner: %{template: "portrait"}} = assigns) do
     assigns = assign(assigns, :p, sanitize_ad_params(assigns.banner.params))
+
     ~H"""
     <div class={["not-prose my-12 flex justify-center", @class]}>
       <div class="text-center">
-        <div class="text-[9px] tracking-[0.16em] uppercase text-neutral-400 mb-2 font-bold">Sponsored</div>
-        <a href={@banner.link_url || "#"} target="_blank" rel="noopener" class="block group max-w-[440px] mx-auto" phx-click="track_ad_click" phx-value-id={@banner.id}>
-          <div class="rounded-2xl overflow-hidden ring-1 ring-black/5 shadow-[0_30px_60px_-15px_rgba(0,0,0,0.18)] relative" style={"background: #{@p["bg_color"] || "#0a1838"}"}>
+        <div class="text-[9px] tracking-[0.16em] uppercase text-neutral-400 mb-2 font-bold">
+          Sponsored
+        </div>
+        <a
+          href={@banner.link_url || "#"}
+          target="_blank"
+          rel="noopener"
+          class="block group max-w-[440px] mx-auto"
+          phx-click="track_ad_click"
+          phx-value-id={@banner.id}
+        >
+          <div
+            class="rounded-2xl overflow-hidden ring-1 ring-black/5 shadow-[0_30px_60px_-15px_rgba(0,0,0,0.18)] relative"
+            style={"background: #{@p["bg_color"] || "#0a1838"}"}
+          >
             <%= if @p["image_url"] do %>
               <div
                 class="aspect-[4/3] relative overflow-hidden"
@@ -2388,23 +3071,51 @@ defmodule BlocksterV2Web.DesignSystem do
                     portrait_image_fit_class(@p["image_fit"])
                   ]}
                 />
-                <div class="absolute top-3 right-3 w-6 h-6 border-t-2 border-r-2" style={"border-color: #{@p["accent_color"] || "#FF6B35"}"}></div>
-                <div class="absolute top-3 right-3 w-2 h-2" style={"background: #{@p["accent_color"] || "#FF6B35"}"}></div>
-                <div class="absolute top-3 left-3 px-1.5 py-0.5 bg-white/95 rounded text-[9px] font-bold uppercase tracking-wider text-neutral-700">Ad</div>
+                <div
+                  class="absolute top-3 right-3 w-6 h-6 border-t-2 border-r-2"
+                  style={"border-color: #{@p["accent_color"] || "#FF6B35"}"}
+                >
+                </div>
+                <div
+                  class="absolute top-3 right-3 w-2 h-2"
+                  style={"background: #{@p["accent_color"] || "#FF6B35"}"}
+                >
+                </div>
+                <div class="absolute top-3 left-3 px-1.5 py-0.5 bg-white/95 rounded text-[9px] font-bold uppercase tracking-wider text-neutral-700">
+                  Ad
+                </div>
               </div>
             <% end %>
-            <div class="px-7 pt-7 pb-6 relative" style={"background: linear-gradient(to bottom, #{@p["bg_color"] || "#0a1838"}, #{@p["bg_color_end"] || "#142a6b"})"}>
-              <div class="absolute bottom-4 left-4 w-7 h-7 border-l-2 border-b-2" style={"border-color: #{@p["accent_color"] || "#FF6B35"}"}></div>
-              <h3 class="text-white font-bold text-[28px] leading-[1.08] mb-5 max-w-[300px]" style="letter-spacing: -0.02em;">
+            <div
+              class="px-7 pt-7 pb-6 relative"
+              style={"background: linear-gradient(to bottom, #{@p["bg_color"] || "#0a1838"}, #{@p["bg_color_end"] || "#142a6b"})"}
+            >
+              <div
+                class="absolute bottom-4 left-4 w-7 h-7 border-l-2 border-b-2"
+                style={"border-color: #{@p["accent_color"] || "#FF6B35"}"}
+              >
+              </div>
+              <h3
+                class="text-white font-bold text-[28px] leading-[1.08] mb-5 max-w-[300px]"
+                style="letter-spacing: -0.02em;"
+              >
                 {@p["heading"]}
               </h3>
               <div class="text-white font-bold text-[15px] mb-5">{@p["subtitle"]}</div>
-              <div class="inline-flex items-center px-4 py-2 border border-white/80 text-white text-[12px] font-bold rounded group-hover:bg-white transition-colors" style={"group-hover:color: #{@p["bg_color"] || "#0a1838"}"}>
+              <div
+                class="inline-flex items-center px-4 py-2 border border-white/80 text-white text-[12px] font-bold rounded group-hover:bg-white transition-colors"
+                style={"group-hover:color: #{@p["bg_color"] || "#0a1838"}"}
+              >
                 {@p["cta_text"] || "Find out more"}
               </div>
               <%= if @p["brand_name"] do %>
                 <div class="mt-5 pt-4 border-t border-white/15 text-right">
-                  <span class="text-white text-[20px] tracking-tight" style="font-family: 'Inter', serif; font-weight: 600;">{@p["brand_name"]}</span>
+                  <span
+                    class="text-white text-[20px] tracking-tight"
+                    style="font-family: 'Inter', serif; font-weight: 600;"
+                  >
+                    {@p["brand_name"]}
+                  </span>
                 </div>
               <% end %>
             </div>
@@ -2417,10 +3128,20 @@ defmodule BlocksterV2Web.DesignSystem do
 
   def ad_banner(%{banner: %{template: "split_card"}} = assigns) do
     assigns = assign(assigns, :p, sanitize_ad_params(assigns.banner.params))
+
     ~H"""
     <div class={["mt-6", @class]}>
-      <div class="text-[9px] tracking-[0.16em] uppercase text-neutral-400 mb-2 font-bold px-1">Sponsored</div>
-      <a href={@banner.link_url || "#"} target="_blank" rel="noopener" class="block group" phx-click="track_ad_click" phx-value-id={@banner.id}>
+      <div class="text-[9px] tracking-[0.16em] uppercase text-neutral-400 mb-2 font-bold px-1">
+        Sponsored
+      </div>
+      <a
+        href={@banner.link_url || "#"}
+        target="_blank"
+        rel="noopener"
+        class="block group"
+        phx-click="track_ad_click"
+        phx-value-id={@banner.id}
+      >
         <div class="relative rounded-2xl overflow-hidden bg-white border border-neutral-200/70 shadow-[0_1px_3px_rgba(0,0,0,0.04)] hover:shadow-[0_18px_30px_-12px_rgba(0,0,0,0.10)] transition-shadow">
           <div class="grid grid-cols-1 md:grid-cols-[1fr_220px] items-stretch">
             <div class="p-7">
@@ -2428,29 +3149,62 @@ defmodule BlocksterV2Web.DesignSystem do
                 <%= if @p["icon_url"] do %>
                   <img src={@p["icon_url"]} alt="" class="w-6 h-6 rounded-md object-cover" />
                 <% else %>
-                  <div class="w-6 h-6 rounded-md grid place-items-center" style={"background: #{@p["brand_color"] || "#7D00FF"}"}>
+                  <div
+                    class="w-6 h-6 rounded-md grid place-items-center"
+                    style={"background: #{@p["brand_color"] || "#7D00FF"}"}
+                  >
                     <div class="w-3 h-3 rounded-full bg-white"></div>
                   </div>
                 <% end %>
-                <span class="text-[10px] uppercase tracking-[0.14em] text-neutral-500">{@p["brand_name"] || "Sponsor"}</span>
+                <span class="text-[10px] uppercase tracking-[0.14em] text-neutral-500">
+                  {@p["brand_name"] || "Sponsor"}
+                </span>
                 <%= if @p["badge"] do %>
                   <span class="text-neutral-300">&middot;</span>
-                  <span class="text-[10px] uppercase tracking-[0.14em] text-neutral-500">{@p["badge"]}</span>
+                  <span class="text-[10px] uppercase tracking-[0.14em] text-neutral-500">
+                    {@p["badge"]}
+                  </span>
                 <% end %>
               </div>
-              <h3 class="font-bold text-[26px] text-[#141414] mb-2 leading-[1.1]" style="letter-spacing: -0.02em;">{@p["heading"]}</h3>
-              <p class="text-neutral-600 text-[14px] leading-snug mb-5 max-w-[520px]">{@p["description"]}</p>
+              <h3
+                class="font-bold text-[26px] text-[#141414] mb-2 leading-[1.1]"
+                style="letter-spacing: -0.02em;"
+              >
+                {@p["heading"]}
+              </h3>
+              <p class="text-neutral-600 text-[14px] leading-snug mb-5 max-w-[520px]">
+                {@p["description"]}
+              </p>
               <div class="inline-flex items-center gap-2 bg-[#0A0A0F] text-white px-4 py-2.5 rounded-full font-bold text-[13px] group-hover:bg-[#1a1a22] transition-colors">
                 {@p["cta_text"] || "Learn more"}
-                <svg class="w-3.5 h-3.5" viewBox="0 0 20 20" fill="none"><path d="M3 10h12m0 0l-4-4m4 4l-4 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                <svg class="w-3.5 h-3.5" viewBox="0 0 20 20" fill="none">
+                  <path
+                    d="M3 10h12m0 0l-4-4m4 4l-4 4"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  />
+                </svg>
               </div>
             </div>
-            <div class="hidden md:grid relative place-items-center" style={"background: linear-gradient(135deg, #{@p["panel_color"] || "#7D00FF"}, #{@p["panel_color_end"] || "#4A00B8"})"}>
-              <div class="absolute inset-0 opacity-20" style="background-image: radial-gradient(circle at 30% 30%, white 1px, transparent 1px); background-size: 16px 16px;"></div>
+            <div
+              class="hidden md:grid relative place-items-center"
+              style={"background: linear-gradient(135deg, #{@p["panel_color"] || "#7D00FF"}, #{@p["panel_color_end"] || "#4A00B8"})"}
+            >
+              <div
+                class="absolute inset-0 opacity-20"
+                style="background-image: radial-gradient(circle at 30% 30%, white 1px, transparent 1px); background-size: 16px 16px;"
+              >
+              </div>
               <div class="relative text-white text-center">
-                <div class="text-[11px] uppercase tracking-[0.14em] opacity-70 mb-1">{@p["stat_label_top"] || ""}</div>
+                <div class="text-[11px] uppercase tracking-[0.14em] opacity-70 mb-1">
+                  {@p["stat_label_top"] || ""}
+                </div>
                 <div class="font-mono text-4xl font-bold">{@p["stat_value"] || ""}</div>
-                <div class="text-[11px] uppercase tracking-[0.14em] opacity-70 mt-1">{@p["stat_label_bottom"] || ""}</div>
+                <div class="text-[11px] uppercase tracking-[0.14em] opacity-70 mt-1">
+                  {@p["stat_label_bottom"] || ""}
+                </div>
               </div>
             </div>
           </div>
@@ -2471,7 +3225,9 @@ defmodule BlocksterV2Web.DesignSystem do
     ~H"""
     <div class={["not-prose my-12 flex justify-center", @class]}>
       <div class="w-full max-w-[560px]">
-        <div class="text-[9px] tracking-[0.16em] uppercase text-neutral-400 mb-2 font-bold text-center">Sponsored</div>
+        <div class="text-[9px] tracking-[0.16em] uppercase text-neutral-400 mb-2 font-bold text-center">
+          Sponsored
+        </div>
         <a
           href={@banner.link_url || "#"}
           target="_blank"
@@ -2487,11 +3243,22 @@ defmodule BlocksterV2Web.DesignSystem do
             <%!-- Brand wordmark strip --%>
             <%= if @p["brand_name"] do %>
               <div class="pt-7 pb-4 flex items-center justify-center gap-3">
-                <div class="h-px w-10 opacity-30" style={"background: #{@p["accent_color"] || "#D4AF37"}"}></div>
-                <div class="text-[11px] font-semibold uppercase" style={"letter-spacing: 0.28em; color: #{@p["accent_color"] || "#D4AF37"};"}>
+                <div
+                  class="h-px w-10 opacity-30"
+                  style={"background: #{@p["accent_color"] || "#D4AF37"}"}
+                >
+                </div>
+                <div
+                  class="text-[11px] font-semibold uppercase"
+                  style={"letter-spacing: 0.28em; color: #{@p["accent_color"] || "#D4AF37"};"}
+                >
                   {@p["brand_name"]}
                 </div>
-                <div class="h-px w-10 opacity-30" style={"background: #{@p["accent_color"] || "#D4AF37"}"}></div>
+                <div
+                  class="h-px w-10 opacity-30"
+                  style={"background: #{@p["accent_color"] || "#D4AF37"}"}
+                >
+                </div>
               </div>
             <% end %>
 
@@ -2507,13 +3274,19 @@ defmodule BlocksterV2Web.DesignSystem do
                   class="w-full h-auto block"
                 />
                 <%!-- Small "Ad" badge, bottom-right of image --%>
-                <div class="absolute bottom-3 right-3 px-1.5 py-0.5 bg-white/85 rounded text-[9px] font-bold uppercase tracking-wider text-neutral-700">Ad</div>
+                <div class="absolute bottom-3 right-3 px-1.5 py-0.5 bg-white/85 rounded text-[9px] font-bold uppercase tracking-wider text-neutral-700">
+                  Ad
+                </div>
               </div>
             <% end %>
 
             <%!-- Divider --%>
             <div class="flex justify-center pt-8">
-              <div class="h-px w-16" style={"background: #{@p["accent_color"] || "#D4AF37"}; opacity: 0.5;"}></div>
+              <div
+                class="h-px w-16"
+                style={"background: #{@p["accent_color"] || "#D4AF37"}; opacity: 0.5;"}
+              >
+              </div>
             </div>
 
             <%!-- Model + reference --%>
@@ -2527,7 +3300,10 @@ defmodule BlocksterV2Web.DesignSystem do
                 </h3>
               <% end %>
               <%= if @p["reference"] do %>
-                <div class="text-[11px] mt-2 italic opacity-75" style="font-family: Georgia, 'Times New Roman', serif;">
+                <div
+                  class="text-[11px] mt-2 italic opacity-75"
+                  style="font-family: Georgia, 'Times New Roman', serif;"
+                >
                   {@p["reference"]}
                 </div>
               <% end %>
@@ -2599,7 +3375,9 @@ defmodule BlocksterV2Web.DesignSystem do
     ~H"""
     <div class={["not-prose my-10 flex justify-center", @class]}>
       <div class="w-full max-w-[560px]">
-        <div class="text-[9px] tracking-[0.16em] uppercase text-neutral-400 mb-2 font-bold text-center">Sponsored</div>
+        <div class="text-[9px] tracking-[0.16em] uppercase text-neutral-400 mb-2 font-bold text-center">
+          Sponsored
+        </div>
         <a
           href={@banner.link_url || "#"}
           target="_blank"
@@ -2614,11 +3392,22 @@ defmodule BlocksterV2Web.DesignSystem do
           >
             <%= if @p["brand_name"] do %>
               <div class="pt-5 pb-3 flex items-center justify-center gap-3">
-                <div class="h-px w-8 opacity-30" style={"background: #{@p["accent_color"] || "#D4AF37"}"}></div>
-                <div class="text-[10px] font-semibold uppercase" style={"letter-spacing: 0.28em; color: #{@p["accent_color"] || "#D4AF37"};"}>
+                <div
+                  class="h-px w-8 opacity-30"
+                  style={"background: #{@p["accent_color"] || "#D4AF37"}"}
+                >
+                </div>
+                <div
+                  class="text-[10px] font-semibold uppercase"
+                  style={"letter-spacing: 0.28em; color: #{@p["accent_color"] || "#D4AF37"};"}
+                >
                   {@p["brand_name"]}
                 </div>
-                <div class="h-px w-8 opacity-30" style={"background: #{@p["accent_color"] || "#D4AF37"}"}></div>
+                <div
+                  class="h-px w-8 opacity-30"
+                  style={"background: #{@p["accent_color"] || "#D4AF37"}"}
+                >
+                </div>
               </div>
             <% end %>
 
@@ -2633,12 +3422,18 @@ defmodule BlocksterV2Web.DesignSystem do
                   alt={@p["model_name"] || ""}
                   class="w-full h-auto block"
                 />
-                <div class="absolute bottom-2 right-2 px-1.5 py-0.5 bg-white/85 rounded text-[9px] font-bold uppercase tracking-wider text-neutral-700">Ad</div>
+                <div class="absolute bottom-2 right-2 px-1.5 py-0.5 bg-white/85 rounded text-[9px] font-bold uppercase tracking-wider text-neutral-700">
+                  Ad
+                </div>
               </div>
             <% end %>
 
             <div class="flex justify-center pt-5">
-              <div class="h-px w-12" style={"background: #{@p["accent_color"] || "#D4AF37"}; opacity: 0.5;"}></div>
+              <div
+                class="h-px w-12"
+                style={"background: #{@p["accent_color"] || "#D4AF37"}; opacity: 0.5;"}
+              >
+              </div>
             </div>
 
             <div class="px-6 pt-4 pb-6 text-center">
@@ -2657,16 +3452,27 @@ defmodule BlocksterV2Web.DesignSystem do
               <% end %>
               <%= if @p["price_usd"] do %>
                 <div class="mt-3 inline-flex items-center justify-center gap-1.5 leading-none">
-                  <img src="https://ik.imagekit.io/blockster/solana-sol-logo.png" alt="SOL" width="22" height="22" class="rounded-full" />
+                  <img
+                    src="https://ik.imagekit.io/blockster/solana-sol-logo.png"
+                    alt="SOL"
+                    width="22"
+                    height="22"
+                    class="rounded-full"
+                  />
                   <span
                     class="text-[22px] font-semibold"
                     style={"font-family: 'JetBrains Mono', ui-monospace, monospace; font-variant-numeric: tabular-nums; color: #{@p["text_color"] || "#E8E4DD"};"}
                   >
                     {luxury_watch_price_sol(@p["price_usd"])}
                   </span>
-                  <span class="text-[13px] font-medium uppercase tracking-[0.2em] opacity-70">SOL</span>
+                  <span class="text-[13px] font-medium uppercase tracking-[0.2em] opacity-70">
+                    SOL
+                  </span>
                 </div>
-                <div class="text-[10px] mt-1 opacity-55" style="font-family: 'JetBrains Mono', ui-monospace, monospace;">
+                <div
+                  class="text-[10px] mt-1 opacity-55"
+                  style="font-family: 'JetBrains Mono', ui-monospace, monospace;"
+                >
                   ≈ ${luxury_watch_format_usd(@p["price_usd"])} USD
                 </div>
               <% end %>
@@ -2699,11 +3505,16 @@ defmodule BlocksterV2Web.DesignSystem do
       >
         <%= if @p["brand_name"] do %>
           <div class="pt-3 pb-2 flex items-center justify-center gap-2">
-            <div class="h-px w-3 opacity-30" style={"background: #{@p["accent_color"] || "#D4AF37"}"}></div>
-            <div class="text-[8px] font-semibold uppercase" style={"letter-spacing: 0.22em; color: #{@p["accent_color"] || "#D4AF37"};"}>
+            <div class="h-px w-3 opacity-30" style={"background: #{@p["accent_color"] || "#D4AF37"}"}>
+            </div>
+            <div
+              class="text-[8px] font-semibold uppercase"
+              style={"letter-spacing: 0.22em; color: #{@p["accent_color"] || "#D4AF37"};"}
+            >
               {@p["brand_name"]}
             </div>
-            <div class="h-px w-3 opacity-30" style={"background: #{@p["accent_color"] || "#D4AF37"}"}></div>
+            <div class="h-px w-3 opacity-30" style={"background: #{@p["accent_color"] || "#D4AF37"}"}>
+            </div>
           </div>
         <% end %>
 
@@ -2717,12 +3528,18 @@ defmodule BlocksterV2Web.DesignSystem do
               alt={@p["model_name"] || ""}
               class="w-full h-auto block"
             />
-            <div class="absolute bottom-1.5 right-1.5 px-1 py-px bg-white/85 rounded text-[7px] font-bold uppercase tracking-wider text-neutral-700">Ad</div>
+            <div class="absolute bottom-1.5 right-1.5 px-1 py-px bg-white/85 rounded text-[7px] font-bold uppercase tracking-wider text-neutral-700">
+              Ad
+            </div>
           </div>
         <% end %>
 
         <div class="flex justify-center pt-3">
-          <div class="h-px w-8" style={"background: #{@p["accent_color"] || "#D4AF37"}; opacity: 0.5;"}></div>
+          <div
+            class="h-px w-8"
+            style={"background: #{@p["accent_color"] || "#D4AF37"}; opacity: 0.5;"}
+          >
+          </div>
         </div>
 
         <div class="px-3 pt-2 pb-4 text-center">
@@ -2735,13 +3552,22 @@ defmodule BlocksterV2Web.DesignSystem do
             </h3>
           <% end %>
           <%= if @p["reference"] do %>
-            <div class="text-[8.5px] mt-1 italic opacity-70 leading-snug" style="font-family: Georgia, serif;">
+            <div
+              class="text-[8.5px] mt-1 italic opacity-70 leading-snug"
+              style="font-family: Georgia, serif;"
+            >
               {@p["reference"]}
             </div>
           <% end %>
           <%= if @p["price_usd"] do %>
             <div class="mt-2 inline-flex items-center justify-center gap-1 leading-none">
-              <img src="https://ik.imagekit.io/blockster/solana-sol-logo.png" alt="SOL" width="14" height="14" class="rounded-full" />
+              <img
+                src="https://ik.imagekit.io/blockster/solana-sol-logo.png"
+                alt="SOL"
+                width="14"
+                height="14"
+                class="rounded-full"
+              />
               <span
                 class="text-[14px] font-semibold"
                 style={"font-family: 'JetBrains Mono', ui-monospace, monospace; font-variant-numeric: tabular-nums; color: #{@p["text_color"] || "#E8E4DD"};"}
@@ -2750,7 +3576,10 @@ defmodule BlocksterV2Web.DesignSystem do
               </span>
               <span class="text-[8px] font-medium uppercase tracking-[0.18em] opacity-70">SOL</span>
             </div>
-            <div class="text-[8.5px] mt-0.5 opacity-55" style="font-family: 'JetBrains Mono', ui-monospace, monospace;">
+            <div
+              class="text-[8.5px] mt-0.5 opacity-55"
+              style="font-family: 'JetBrains Mono', ui-monospace, monospace;"
+            >
               ≈ ${luxury_watch_format_usd(@p["price_usd"])}
             </div>
           <% end %>
@@ -2768,7 +3597,9 @@ defmodule BlocksterV2Web.DesignSystem do
 
     ~H"""
     <div class={["not-prose my-6", @class]}>
-      <div class="text-[9px] tracking-[0.16em] uppercase text-neutral-400 mb-2 font-bold text-center">Sponsored</div>
+      <div class="text-[9px] tracking-[0.16em] uppercase text-neutral-400 mb-2 font-bold text-center">
+        Sponsored
+      </div>
       <a
         href={@banner.link_url || "#"}
         target="_blank"
@@ -2794,7 +3625,9 @@ defmodule BlocksterV2Web.DesignSystem do
                   class="w-full h-full object-cover"
                   style="object-position: center 30%;"
                 />
-                <div class="absolute bottom-2 right-2 px-1.5 py-0.5 bg-white/85 rounded text-[9px] font-bold uppercase tracking-wider text-neutral-700">Ad</div>
+                <div class="absolute bottom-2 right-2 px-1.5 py-0.5 bg-white/85 rounded text-[9px] font-bold uppercase tracking-wider text-neutral-700">
+                  Ad
+                </div>
               </div>
             <% end %>
 
@@ -2802,14 +3635,22 @@ defmodule BlocksterV2Web.DesignSystem do
             <div class="flex-1 px-6 py-5 flex flex-col justify-center md:items-start items-center text-center md:text-left gap-2">
               <%= if @p["brand_name"] do %>
                 <div class="inline-flex items-center gap-2">
-                  <div class="h-px w-6 opacity-30 md:hidden" style={"background: #{@p["accent_color"] || "#D4AF37"}"}></div>
+                  <div
+                    class="h-px w-6 opacity-30 md:hidden"
+                    style={"background: #{@p["accent_color"] || "#D4AF37"}"}
+                  >
+                  </div>
                   <div
                     class="text-[10px] font-semibold uppercase"
                     style={"letter-spacing: 0.26em; color: #{@p["accent_color"] || "#D4AF37"};"}
                   >
                     {@p["brand_name"]}
                   </div>
-                  <div class="h-px w-6 opacity-30 md:hidden" style={"background: #{@p["accent_color"] || "#D4AF37"}"}></div>
+                  <div
+                    class="h-px w-6 opacity-30 md:hidden"
+                    style={"background: #{@p["accent_color"] || "#D4AF37"}"}
+                  >
+                  </div>
                 </div>
               <% end %>
               <%= if @p["model_name"] do %>
@@ -2827,15 +3668,26 @@ defmodule BlocksterV2Web.DesignSystem do
               <% end %>
               <%= if @p["price_usd"] do %>
                 <div class="inline-flex items-baseline gap-1.5 mt-1 leading-none">
-                  <img src="https://ik.imagekit.io/blockster/solana-sol-logo.png" alt="SOL" width="20" height="20" class="rounded-full translate-y-1" />
+                  <img
+                    src="https://ik.imagekit.io/blockster/solana-sol-logo.png"
+                    alt="SOL"
+                    width="20"
+                    height="20"
+                    class="rounded-full translate-y-1"
+                  />
                   <span
                     class="text-[22px] font-semibold"
                     style={"font-family: 'JetBrains Mono', ui-monospace, monospace; font-variant-numeric: tabular-nums; color: #{@p["text_color"] || "#E8E4DD"};"}
                   >
                     {luxury_watch_price_sol(@p["price_usd"])}
                   </span>
-                  <span class="text-[12px] font-medium uppercase tracking-[0.2em] opacity-70">SOL</span>
-                  <span class="text-[10px] opacity-50 ml-2" style="font-family: 'JetBrains Mono', ui-monospace, monospace;">
+                  <span class="text-[12px] font-medium uppercase tracking-[0.2em] opacity-70">
+                    SOL
+                  </span>
+                  <span
+                    class="text-[10px] opacity-50 ml-2"
+                    style="font-family: 'JetBrains Mono', ui-monospace, monospace;"
+                  >
                     ≈ ${luxury_watch_format_usd(@p["price_usd"])}
                   </span>
                 </div>
@@ -2858,7 +3710,9 @@ defmodule BlocksterV2Web.DesignSystem do
 
     ~H"""
     <div class={["mt-6", @class]}>
-      <div class="text-[9px] tracking-[0.16em] uppercase text-neutral-400 mb-2 font-bold pl-1">Sponsored</div>
+      <div class="text-[9px] tracking-[0.16em] uppercase text-neutral-400 mb-2 font-bold pl-1">
+        Sponsored
+      </div>
       <a
         href={@banner.link_url || "#"}
         target="_blank"
@@ -2876,7 +3730,11 @@ defmodule BlocksterV2Web.DesignSystem do
             <div class="p-7 flex flex-col justify-center">
               <%= if @p["brand_name"] do %>
                 <div class="inline-flex items-center gap-2 mb-3">
-                  <div class="h-px w-6 opacity-40" style={"background: #{@p["accent_color"] || "#C9A961"}"}></div>
+                  <div
+                    class="h-px w-6 opacity-40"
+                    style={"background: #{@p["accent_color"] || "#C9A961"}"}
+                  >
+                  </div>
                   <div
                     class="text-[10px] font-semibold uppercase"
                     style={"letter-spacing: 0.28em; color: #{@p["accent_color"] || "#C9A961"};"}
@@ -2900,15 +3758,26 @@ defmodule BlocksterV2Web.DesignSystem do
               <% end %>
               <%= if @p["price_usd"] do %>
                 <div class="inline-flex items-baseline gap-1.5 mb-5 leading-none">
-                  <img src="https://ik.imagekit.io/blockster/solana-sol-logo.png" alt="SOL" width="22" height="22" class="rounded-full translate-y-1" />
+                  <img
+                    src="https://ik.imagekit.io/blockster/solana-sol-logo.png"
+                    alt="SOL"
+                    width="22"
+                    height="22"
+                    class="rounded-full translate-y-1"
+                  />
                   <span
                     class="text-[26px] font-semibold"
                     style={"font-family: 'JetBrains Mono', ui-monospace, monospace; font-variant-numeric: tabular-nums; color: #{@p["text_color"] || "#E8E4DD"};"}
                   >
                     {luxury_watch_price_sol(@p["price_usd"])}
                   </span>
-                  <span class="text-[13px] font-medium uppercase tracking-[0.2em] opacity-70">SOL</span>
-                  <span class="text-[11px] opacity-50 ml-2" style="font-family: 'JetBrains Mono', ui-monospace, monospace;">
+                  <span class="text-[13px] font-medium uppercase tracking-[0.2em] opacity-70">
+                    SOL
+                  </span>
+                  <span
+                    class="text-[11px] opacity-50 ml-2"
+                    style="font-family: 'JetBrains Mono', ui-monospace, monospace;"
+                  >
                     ≈ ${luxury_watch_format_usd(@p["price_usd"])}
                   </span>
                 </div>
@@ -2935,7 +3804,9 @@ defmodule BlocksterV2Web.DesignSystem do
                   alt={@p["model_name"] || ""}
                   class="max-w-full max-h-full w-auto h-auto object-contain block"
                 />
-                <div class="absolute bottom-2 right-2 px-1.5 py-0.5 bg-white/85 rounded text-[9px] font-bold uppercase tracking-wider text-neutral-700">Ad</div>
+                <div class="absolute bottom-2 right-2 px-1.5 py-0.5 bg-white/85 rounded text-[9px] font-bold uppercase tracking-wider text-neutral-700">
+                  Ad
+                </div>
               </div>
             <% end %>
           </div>
@@ -2955,7 +3826,9 @@ defmodule BlocksterV2Web.DesignSystem do
     ~H"""
     <div class={["not-prose my-12 flex justify-center", @class]}>
       <div class="w-full max-w-[560px]">
-        <div class="text-[9px] tracking-[0.16em] uppercase text-neutral-400 mb-2 font-bold text-center">Sponsored</div>
+        <div class="text-[9px] tracking-[0.16em] uppercase text-neutral-400 mb-2 font-bold text-center">
+          Sponsored
+        </div>
         <a
           href={@banner.link_url || "#"}
           target="_blank"
@@ -2972,7 +3845,8 @@ defmodule BlocksterV2Web.DesignSystem do
             <%= if @p["brand_name"] do %>
               <div class="px-6 pt-5 pb-4 flex items-center justify-between">
                 <div class="inline-flex items-center gap-2.5">
-                  <div class="h-px w-6" style={"background: #{@p["accent_color"] || "#FF2800"}"}></div>
+                  <div class="h-px w-6" style={"background: #{@p["accent_color"] || "#FF2800"}"}>
+                  </div>
                   <div
                     class="text-[11px] font-bold uppercase"
                     style={"letter-spacing: 0.24em; color: #{@p["accent_color"] || "#FF2800"};"}
@@ -2999,7 +3873,9 @@ defmodule BlocksterV2Web.DesignSystem do
                   alt={@p["model_name"] || ""}
                   class="w-full h-auto block"
                 />
-                <div class="absolute bottom-3 right-3 px-1.5 py-0.5 bg-white/85 rounded text-[9px] font-bold uppercase tracking-wider text-neutral-700">Ad</div>
+                <div class="absolute bottom-3 right-3 px-1.5 py-0.5 bg-white/85 rounded text-[9px] font-bold uppercase tracking-wider text-neutral-700">
+                  Ad
+                </div>
               </div>
             <% end %>
 
@@ -3012,7 +3888,8 @@ defmodule BlocksterV2Web.DesignSystem do
                 >
                   <%= if @p["year"] do %>
                     <span style={"color: #{@p["accent_color"] || "#FF2800"};"}>{@p["year"]}</span>&nbsp;
-                  <% end %>{@p["model_name"]}
+                  <% end %>
+                  {@p["model_name"]}
                 </h3>
               <% end %>
               <%= if @p["trim"] do %>
@@ -3028,15 +3905,26 @@ defmodule BlocksterV2Web.DesignSystem do
               <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                 <%= if @p["price_usd"] do %>
                   <div class="inline-flex items-baseline gap-1.5 leading-none">
-                    <img src="https://ik.imagekit.io/blockster/solana-sol-logo.png" alt="SOL" width="22" height="22" class="rounded-full translate-y-1" />
+                    <img
+                      src="https://ik.imagekit.io/blockster/solana-sol-logo.png"
+                      alt="SOL"
+                      width="22"
+                      height="22"
+                      class="rounded-full translate-y-1"
+                    />
                     <span
                       class="text-[28px] font-semibold"
                       style={"font-family: 'JetBrains Mono', ui-monospace, monospace; font-variant-numeric: tabular-nums; color: #{@p["text_color"] || "#E8E4DD"};"}
                     >
                       {luxury_watch_price_sol(@p["price_usd"])}
                     </span>
-                    <span class="text-[14px] font-medium uppercase tracking-[0.2em] opacity-70">SOL</span>
-                    <span class="text-[11px] opacity-50 ml-2" style="font-family: 'JetBrains Mono', ui-monospace, monospace;">
+                    <span class="text-[14px] font-medium uppercase tracking-[0.2em] opacity-70">
+                      SOL
+                    </span>
+                    <span
+                      class="text-[11px] opacity-50 ml-2"
+                      style="font-family: 'JetBrains Mono', ui-monospace, monospace;"
+                    >
                       ≈ ${luxury_watch_format_usd(@p["price_usd"])}
                     </span>
                   </div>
@@ -3077,8 +3965,12 @@ defmodule BlocksterV2Web.DesignSystem do
       >
         <%= if @p["brand_name"] do %>
           <div class="pt-3 pb-2 px-3 flex items-center gap-1.5">
-            <div class="h-px w-2 opacity-50" style={"background: #{@p["accent_color"] || "#FF2800"}"}></div>
-            <div class="text-[8px] font-bold uppercase truncate" style={"letter-spacing: 0.18em; color: #{@p["accent_color"] || "#FF2800"};"}>
+            <div class="h-px w-2 opacity-50" style={"background: #{@p["accent_color"] || "#FF2800"}"}>
+            </div>
+            <div
+              class="text-[8px] font-bold uppercase truncate"
+              style={"letter-spacing: 0.18em; color: #{@p["accent_color"] || "#FF2800"};"}
+            >
               {@p["brand_name"]}
             </div>
           </div>
@@ -3091,13 +3983,18 @@ defmodule BlocksterV2Web.DesignSystem do
               alt={@p["model_name"] || ""}
               class="w-full h-auto block"
             />
-            <div class="absolute bottom-1.5 right-1.5 px-1 py-px bg-white/85 rounded text-[7px] font-bold uppercase tracking-wider text-neutral-700">Ad</div>
+            <div class="absolute bottom-1.5 right-1.5 px-1 py-px bg-white/85 rounded text-[7px] font-bold uppercase tracking-wider text-neutral-700">
+              Ad
+            </div>
           </div>
         <% end %>
 
         <div class="px-3 pt-3 pb-4">
           <%= if @p["year"] || @p["model_name"] do %>
-            <h3 class="text-[12px] font-bold uppercase leading-[1.1]" style={"font-family: 'Inter', sans-serif; letter-spacing: -0.005em; color: #{@p["text_color"] || "#E8E4DD"};"}>
+            <h3
+              class="text-[12px] font-bold uppercase leading-[1.1]"
+              style={"font-family: 'Inter', sans-serif; letter-spacing: -0.005em; color: #{@p["text_color"] || "#E8E4DD"};"}
+            >
               <%= if @p["year"] do %>
                 <span style={"color: #{@p["accent_color"] || "#FF2800"};"}>{@p["year"]}</span>
               <% end %>
@@ -3105,13 +4002,22 @@ defmodule BlocksterV2Web.DesignSystem do
             </h3>
           <% end %>
           <%= if @p["trim"] do %>
-            <div class="text-[9px] italic opacity-65 mt-0.5 leading-snug" style="font-family: Georgia, serif;">
+            <div
+              class="text-[9px] italic opacity-65 mt-0.5 leading-snug"
+              style="font-family: Georgia, serif;"
+            >
               {@p["trim"]}
             </div>
           <% end %>
           <%= if @p["price_usd"] do %>
             <div class="mt-2 inline-flex items-baseline gap-1 leading-none">
-              <img src="https://ik.imagekit.io/blockster/solana-sol-logo.png" alt="SOL" width="14" height="14" class="rounded-full translate-y-px" />
+              <img
+                src="https://ik.imagekit.io/blockster/solana-sol-logo.png"
+                alt="SOL"
+                width="14"
+                height="14"
+                class="rounded-full translate-y-px"
+              />
               <span
                 class="text-[14px] font-semibold"
                 style={"font-family: 'JetBrains Mono', ui-monospace, monospace; font-variant-numeric: tabular-nums; color: #{@p["text_color"] || "#E8E4DD"};"}
@@ -3120,7 +4026,10 @@ defmodule BlocksterV2Web.DesignSystem do
               </span>
               <span class="text-[8px] font-medium uppercase tracking-[0.18em] opacity-70">SOL</span>
             </div>
-            <div class="text-[8.5px] mt-0.5 opacity-55" style="font-family: 'JetBrains Mono', ui-monospace, monospace;">
+            <div
+              class="text-[8.5px] mt-0.5 opacity-55"
+              style="font-family: 'JetBrains Mono', ui-monospace, monospace;"
+            >
               ≈ ${luxury_watch_format_usd(@p["price_usd"])}
             </div>
           <% end %>
@@ -3137,7 +4046,9 @@ defmodule BlocksterV2Web.DesignSystem do
 
     ~H"""
     <div class={["not-prose my-6", @class]}>
-      <div class="text-[9px] tracking-[0.16em] uppercase text-neutral-400 mb-2 font-bold text-center">Sponsored</div>
+      <div class="text-[9px] tracking-[0.16em] uppercase text-neutral-400 mb-2 font-bold text-center">
+        Sponsored
+      </div>
       <a
         href={@banner.link_url || "#"}
         target="_blank"
@@ -3162,7 +4073,9 @@ defmodule BlocksterV2Web.DesignSystem do
                   alt={@p["model_name"] || ""}
                   class="w-full h-full object-cover"
                 />
-                <div class="absolute bottom-2 right-2 px-1.5 py-0.5 bg-white/85 rounded text-[9px] font-bold uppercase tracking-wider text-neutral-700">Ad</div>
+                <div class="absolute bottom-2 right-2 px-1.5 py-0.5 bg-white/85 rounded text-[9px] font-bold uppercase tracking-wider text-neutral-700">
+                  Ad
+                </div>
               </div>
             <% end %>
 
@@ -3170,7 +4083,11 @@ defmodule BlocksterV2Web.DesignSystem do
             <div class="flex-1 px-6 py-5 flex flex-col justify-center md:items-start items-center text-center md:text-left gap-2">
               <%= if @p["brand_name"] do %>
                 <div class="inline-flex items-center gap-2">
-                  <div class="h-px w-5 opacity-40" style={"background: #{@p["accent_color"] || "#FF2800"}"}></div>
+                  <div
+                    class="h-px w-5 opacity-40"
+                    style={"background: #{@p["accent_color"] || "#FF2800"}"}
+                  >
+                  </div>
                   <div
                     class="text-[10px] font-bold uppercase"
                     style={"letter-spacing: 0.24em; color: #{@p["accent_color"] || "#FF2800"};"}
@@ -3186,7 +4103,8 @@ defmodule BlocksterV2Web.DesignSystem do
                 >
                   <%= if @p["year"] do %>
                     <span style={"color: #{@p["accent_color"] || "#FF2800"};"}>{@p["year"]}</span>&nbsp;
-                  <% end %>{@p["model_name"]}
+                  <% end %>
+                  {@p["model_name"]}
                 </h3>
               <% end %>
               <%= if @p["trim"] do %>
@@ -3196,15 +4114,26 @@ defmodule BlocksterV2Web.DesignSystem do
               <% end %>
               <%= if @p["price_usd"] do %>
                 <div class="inline-flex items-baseline gap-1.5 mt-1 leading-none">
-                  <img src="https://ik.imagekit.io/blockster/solana-sol-logo.png" alt="SOL" width="20" height="20" class="rounded-full translate-y-1" />
+                  <img
+                    src="https://ik.imagekit.io/blockster/solana-sol-logo.png"
+                    alt="SOL"
+                    width="20"
+                    height="20"
+                    class="rounded-full translate-y-1"
+                  />
                   <span
                     class="text-[24px] font-semibold"
                     style={"font-family: 'JetBrains Mono', ui-monospace, monospace; font-variant-numeric: tabular-nums; color: #{@p["text_color"] || "#E8E4DD"};"}
                   >
                     {luxury_watch_price_sol(@p["price_usd"])}
                   </span>
-                  <span class="text-[12px] font-medium uppercase tracking-[0.2em] opacity-70">SOL</span>
-                  <span class="text-[10px] opacity-50 ml-2" style="font-family: 'JetBrains Mono', ui-monospace, monospace;">
+                  <span class="text-[12px] font-medium uppercase tracking-[0.2em] opacity-70">
+                    SOL
+                  </span>
+                  <span
+                    class="text-[10px] opacity-50 ml-2"
+                    style="font-family: 'JetBrains Mono', ui-monospace, monospace;"
+                  >
                     ≈ ${luxury_watch_format_usd(@p["price_usd"])}
                   </span>
                 </div>
@@ -3228,7 +4157,9 @@ defmodule BlocksterV2Web.DesignSystem do
     ~H"""
     <div class={["not-prose my-10 flex justify-center", @class]}>
       <div class="w-full max-w-[560px]">
-        <div class="text-[9px] tracking-[0.16em] uppercase text-neutral-400 mb-2 font-bold text-center">Sponsored</div>
+        <div class="text-[9px] tracking-[0.16em] uppercase text-neutral-400 mb-2 font-bold text-center">
+          Sponsored
+        </div>
         <a
           href={@banner.link_url || "#"}
           target="_blank"
@@ -3244,7 +4175,8 @@ defmodule BlocksterV2Web.DesignSystem do
             <%= if @p["brand_name"] do %>
               <div class="px-5 pt-4 pb-3 flex items-center justify-between">
                 <div class="inline-flex items-center gap-2">
-                  <div class="h-px w-5" style={"background: #{@p["accent_color"] || "#D4AF37"}"}></div>
+                  <div class="h-px w-5" style={"background: #{@p["accent_color"] || "#D4AF37"}"}>
+                  </div>
                   <div
                     class="text-[10px] font-bold uppercase"
                     style={"letter-spacing: 0.22em; color: #{@p["accent_color"] || "#D4AF37"};"}
@@ -3270,7 +4202,9 @@ defmodule BlocksterV2Web.DesignSystem do
                   alt={@p["headline"] || ""}
                   class="w-full h-auto block"
                 />
-                <div class="absolute bottom-2 right-2 px-1.5 py-0.5 bg-white/85 rounded text-[9px] font-bold uppercase tracking-wider text-neutral-700">Ad</div>
+                <div class="absolute bottom-2 right-2 px-1.5 py-0.5 bg-white/85 rounded text-[9px] font-bold uppercase tracking-wider text-neutral-700">
+                  Ad
+                </div>
               </div>
             <% end %>
 
@@ -3297,15 +4231,26 @@ defmodule BlocksterV2Web.DesignSystem do
               <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3 pt-3 border-t border-white/[0.08]">
                 <%= if @p["price_usd"] do %>
                   <div class="inline-flex items-baseline gap-1.5 leading-none">
-                    <img src="https://ik.imagekit.io/blockster/solana-sol-logo.png" alt="SOL" width="20" height="20" class="rounded-full translate-y-1" />
+                    <img
+                      src="https://ik.imagekit.io/blockster/solana-sol-logo.png"
+                      alt="SOL"
+                      width="20"
+                      height="20"
+                      class="rounded-full translate-y-1"
+                    />
                     <span
                       class="text-[24px] font-semibold"
                       style={"font-family: 'JetBrains Mono', ui-monospace, monospace; font-variant-numeric: tabular-nums; color: #{@p["text_color"] || "#E8E4DD"};"}
                     >
                       {luxury_watch_price_sol(@p["price_usd"])}
                     </span>
-                    <span class="text-[12px] font-medium uppercase tracking-[0.2em] opacity-70">SOL</span>
-                    <span class="text-[10px] opacity-50 ml-2" style="font-family: 'JetBrains Mono', ui-monospace, monospace;">
+                    <span class="text-[12px] font-medium uppercase tracking-[0.2em] opacity-70">
+                      SOL
+                    </span>
+                    <span
+                      class="text-[10px] opacity-50 ml-2"
+                      style="font-family: 'JetBrains Mono', ui-monospace, monospace;"
+                    >
                       ≈ ${luxury_watch_format_usd(@p["price_usd"])}
                     </span>
                   </div>
@@ -3345,8 +4290,12 @@ defmodule BlocksterV2Web.DesignSystem do
       >
         <%= if @p["brand_name"] do %>
           <div class="pt-3 pb-2 px-3 flex items-center gap-1.5">
-            <div class="h-px w-2 opacity-50" style={"background: #{@p["accent_color"] || "#D4AF37"}"}></div>
-            <div class="text-[8px] font-bold uppercase truncate" style={"letter-spacing: 0.18em; color: #{@p["accent_color"] || "#D4AF37"};"}>
+            <div class="h-px w-2 opacity-50" style={"background: #{@p["accent_color"] || "#D4AF37"}"}>
+            </div>
+            <div
+              class="text-[8px] font-bold uppercase truncate"
+              style={"letter-spacing: 0.18em; color: #{@p["accent_color"] || "#D4AF37"};"}
+            >
               {@p["brand_name"]}
             </div>
           </div>
@@ -3359,15 +4308,22 @@ defmodule BlocksterV2Web.DesignSystem do
               alt={@p["headline"] || ""}
               class="w-full h-auto block"
             />
-            <div class="absolute bottom-1.5 right-1.5 px-1 py-px bg-white/85 rounded text-[7px] font-bold uppercase tracking-wider text-neutral-700">Ad</div>
+            <div class="absolute bottom-1.5 right-1.5 px-1 py-px bg-white/85 rounded text-[7px] font-bold uppercase tracking-wider text-neutral-700">
+              Ad
+            </div>
           </div>
         <% end %>
 
         <div class="px-3 pt-3 pb-4">
           <%= if @p["hours"] do %>
-            <h3 class="text-[28px] font-bold leading-[0.95]" style={"font-family: 'Inter', sans-serif; letter-spacing: -0.02em; color: #{@p["text_color"] || "#E8E4DD"};"}>
+            <h3
+              class="text-[28px] font-bold leading-[0.95]"
+              style={"font-family: 'Inter', sans-serif; letter-spacing: -0.02em; color: #{@p["text_color"] || "#E8E4DD"};"}
+            >
               <span style={"color: #{@p["accent_color"] || "#D4AF37"};"}>{@p["hours"]}</span>
-              <span class="text-[10px] font-medium uppercase tracking-[0.18em] opacity-70 ml-1">hrs</span>
+              <span class="text-[10px] font-medium uppercase tracking-[0.18em] opacity-70 ml-1">
+                hrs
+              </span>
             </h3>
           <% end %>
           <%= if @p["headline"] do %>
@@ -3376,13 +4332,22 @@ defmodule BlocksterV2Web.DesignSystem do
             </div>
           <% end %>
           <%= if @p["aircraft_category"] do %>
-            <div class="text-[8.5px] italic opacity-65 mt-1 leading-snug" style="font-family: Georgia, serif;">
+            <div
+              class="text-[8.5px] italic opacity-65 mt-1 leading-snug"
+              style="font-family: Georgia, serif;"
+            >
               {@p["aircraft_category"]}
             </div>
           <% end %>
           <%= if @p["price_usd"] do %>
             <div class="mt-2.5 inline-flex items-baseline gap-1 leading-none">
-              <img src="https://ik.imagekit.io/blockster/solana-sol-logo.png" alt="SOL" width="14" height="14" class="rounded-full translate-y-px" />
+              <img
+                src="https://ik.imagekit.io/blockster/solana-sol-logo.png"
+                alt="SOL"
+                width="14"
+                height="14"
+                class="rounded-full translate-y-px"
+              />
               <span
                 class="text-[15px] font-semibold"
                 style={"font-family: 'JetBrains Mono', ui-monospace, monospace; font-variant-numeric: tabular-nums; color: #{@p["text_color"] || "#E8E4DD"};"}
@@ -3391,7 +4356,10 @@ defmodule BlocksterV2Web.DesignSystem do
               </span>
               <span class="text-[8px] font-medium uppercase tracking-[0.18em] opacity-70">SOL</span>
             </div>
-            <div class="text-[8.5px] mt-0.5 opacity-55" style="font-family: 'JetBrains Mono', ui-monospace, monospace;">
+            <div
+              class="text-[8.5px] mt-0.5 opacity-55"
+              style="font-family: 'JetBrains Mono', ui-monospace, monospace;"
+            >
               ≈ ${luxury_watch_format_usd(@p["price_usd"])}
             </div>
           <% end %>
@@ -3412,7 +4380,9 @@ defmodule BlocksterV2Web.DesignSystem do
     ~H"""
     <div class={["not-prose my-12 flex justify-center", @class]}>
       <div class="w-full max-w-[560px]">
-        <div class="text-[9px] tracking-[0.16em] uppercase text-neutral-400 mb-2 font-bold text-center">Sponsored</div>
+        <div class="text-[9px] tracking-[0.16em] uppercase text-neutral-400 mb-2 font-bold text-center">
+          Sponsored
+        </div>
         <a
           href={@banner.link_url || "#"}
           target="_blank"
@@ -3428,11 +4398,22 @@ defmodule BlocksterV2Web.DesignSystem do
             <%!-- Brand wordmark strip --%>
             <%= if @p["brand_name"] do %>
               <div class="pt-7 pb-4 flex items-center justify-center gap-3">
-                <div class="h-px w-10 opacity-40" style={"background: #{@p["accent_color"] || "#C9A961"}"}></div>
-                <div class="text-[11px] font-semibold uppercase" style={"letter-spacing: 0.28em; color: #{@p["accent_color"] || "#C9A961"};"}>
+                <div
+                  class="h-px w-10 opacity-40"
+                  style={"background: #{@p["accent_color"] || "#C9A961"}"}
+                >
+                </div>
+                <div
+                  class="text-[11px] font-semibold uppercase"
+                  style={"letter-spacing: 0.28em; color: #{@p["accent_color"] || "#C9A961"};"}
+                >
                   {@p["brand_name"]}
                 </div>
-                <div class="h-px w-10 opacity-40" style={"background: #{@p["accent_color"] || "#C9A961"}"}></div>
+                <div
+                  class="h-px w-10 opacity-40"
+                  style={"background: #{@p["accent_color"] || "#C9A961"}"}
+                >
+                </div>
               </div>
             <% end %>
 
@@ -3450,14 +4431,21 @@ defmodule BlocksterV2Web.DesignSystem do
                 <div
                   class="absolute top-0 left-0 right-0 h-2 z-10"
                   style="background: linear-gradient(90deg, #BF0A30 33%, #FFFFFF 33% 66%, #002868 66%);"
-                ></div>
-                <div class="absolute bottom-3 right-3 px-1.5 py-0.5 bg-white/85 rounded text-[9px] font-bold uppercase tracking-wider text-neutral-700">Ad</div>
+                >
+                </div>
+                <div class="absolute bottom-3 right-3 px-1.5 py-0.5 bg-white/85 rounded text-[9px] font-bold uppercase tracking-wider text-neutral-700">
+                  Ad
+                </div>
               </div>
             <% end %>
 
             <%!-- Gold divider --%>
             <div class="flex justify-center pt-8">
-              <div class="h-px w-16" style={"background: #{@p["accent_color"] || "#C9A961"}; opacity: 0.5;"}></div>
+              <div
+                class="h-px w-16"
+                style={"background: #{@p["accent_color"] || "#C9A961"}; opacity: 0.5;"}
+              >
+              </div>
             </div>
 
             <%!-- Model name (bold · uppercase) + italic reference --%>
@@ -3471,7 +4459,10 @@ defmodule BlocksterV2Web.DesignSystem do
                 </h3>
               <% end %>
               <%= if @p["reference"] do %>
-                <div class="text-[11px] mt-2 italic opacity-75" style="font-family: Georgia, 'Times New Roman', serif;">
+                <div
+                  class="text-[11px] mt-2 italic opacity-75"
+                  style="font-family: Georgia, 'Times New Roman', serif;"
+                >
                   {@p["reference"]}
                 </div>
               <% end %>
@@ -3492,7 +4483,10 @@ defmodule BlocksterV2Web.DesignSystem do
             <%!-- Subheading (small uppercase) --%>
             <%= if @p["subheading"] do %>
               <div class="px-8 pt-3 text-center">
-                <div class="text-[11px] opacity-55 font-semibold" style="letter-spacing: 0.18em; text-transform: uppercase;">
+                <div
+                  class="text-[11px] opacity-55 font-semibold"
+                  style="letter-spacing: 0.18em; text-transform: uppercase;"
+                >
                   {@p["subheading"]}
                 </div>
               </div>
@@ -3543,7 +4537,9 @@ defmodule BlocksterV2Web.DesignSystem do
     ~H"""
     <div class={["not-prose my-12 flex justify-center", @class]}>
       <div class="w-full" style="max-width: 440px;">
-        <div class="text-[9px] tracking-[0.16em] uppercase text-neutral-400 mb-2 font-bold text-center">Sponsored</div>
+        <div class="text-[9px] tracking-[0.16em] uppercase text-neutral-400 mb-2 font-bold text-center">
+          Sponsored
+        </div>
         <a
           href={@banner.link_url || "#"}
           target="_blank"
@@ -3554,7 +4550,11 @@ defmodule BlocksterV2Web.DesignSystem do
         >
           <div class="t28-frame">
             <%= if @p["image_url"] do %>
-              <div class="t28-img" style={"background-image: url('#{ad_image_url(@p["image_url"])}');"}></div>
+              <div
+                class="t28-img"
+                style={"background-image: url('#{ad_image_url(@p["image_url"])}');"}
+              >
+              </div>
             <% end %>
             <div class="t28-dim"></div>
 
@@ -3566,7 +4566,9 @@ defmodule BlocksterV2Web.DesignSystem do
             <%!-- Stage 1: headline --%>
             <div class="t28-headline-layer">
               <div class="t28-hl">
-                <%= for word <- @headline_words do %><span>{word}</span> <% end %>
+                <%= for word <- @headline_words do %>
+                  <span>{word}</span>
+                <% end %>
               </div>
             </div>
 
@@ -3590,7 +4592,12 @@ defmodule BlocksterV2Web.DesignSystem do
               <div class="t28-cta-btn" style={"background: #{@p["accent_color"] || "#BF0A30"};"}>
                 {@p["cta_text"] || "Learn more"}
                 <svg class="w-3.5 h-3.5" viewBox="0 0 20 20" fill="none">
-                  <path d="M3 10h12m0 0l-4-4m4 4l-4 4" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
+                  <path
+                    d="M3 10h12m0 0l-4-4m4 4l-4 4"
+                    stroke="currentColor"
+                    stroke-width="2.5"
+                    stroke-linecap="round"
+                  />
                 </svg>
               </div>
             </div>
@@ -3623,7 +4630,9 @@ defmodule BlocksterV2Web.DesignSystem do
     ~H"""
     <div class={["not-prose my-12 flex justify-center", @class]}>
       <div class="w-full" style="max-width: 440px;">
-        <div class="text-[9px] tracking-[0.16em] uppercase text-neutral-400 mb-2 font-bold text-center">Sponsored</div>
+        <div class="text-[9px] tracking-[0.16em] uppercase text-neutral-400 mb-2 font-bold text-center">
+          Sponsored
+        </div>
         <a
           href={@banner.link_url || "#"}
           target="_blank"
@@ -3634,7 +4643,8 @@ defmodule BlocksterV2Web.DesignSystem do
         >
           <div class="pl-frame">
             <%= if @p["image_url"] do %>
-              <div class="pl-img" style={"background-image: url('#{ad_image_url(@p["image_url"])}');"}></div>
+              <div class="pl-img" style={"background-image: url('#{ad_image_url(@p["image_url"])}');"}>
+              </div>
             <% end %>
             <div class="pl-dim"></div>
             <div class="pl-grain"></div>
@@ -3648,7 +4658,9 @@ defmodule BlocksterV2Web.DesignSystem do
             <%!-- Stage 1: headline words --%>
             <div class="pl-headline-layer">
               <div class="pl-headline">
-                <%= for word <- @headline_words do %><span>{word}</span> <% end %>
+                <%= for word <- @headline_words do %>
+                  <span>{word}</span>
+                <% end %>
               </div>
             </div>
 
@@ -3669,7 +4681,12 @@ defmodule BlocksterV2Web.DesignSystem do
               <div class="pl-cta-btn" style={"background: #{@p["accent_color"] || "#BF0A30"};"}>
                 {@p["cta_text"] || "Learn more"}
                 <svg class="w-3.5 h-3.5" viewBox="0 0 20 20" fill="none">
-                  <path d="M3 10h12m0 0l-4-4m4 4l-4 4" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
+                  <path
+                    d="M3 10h12m0 0l-4-4m4 4l-4 4"
+                    stroke="currentColor"
+                    stroke-width="2.5"
+                    stroke-linecap="round"
+                  />
                 </svg>
               </div>
               <%= if @p["cta_meta"] do %>
@@ -3693,7 +4710,9 @@ defmodule BlocksterV2Web.DesignSystem do
     ~H"""
     <div class={["not-prose my-12 flex justify-center", @class]}>
       <div class="w-full max-w-[560px]">
-        <div class="text-[9px] tracking-[0.16em] uppercase text-neutral-400 mb-2 font-bold text-center">Sponsored</div>
+        <div class="text-[9px] tracking-[0.16em] uppercase text-neutral-400 mb-2 font-bold text-center">
+          Sponsored
+        </div>
         <a
           href={@banner.link_url || "#"}
           target="_blank"
@@ -3723,7 +4742,9 @@ defmodule BlocksterV2Web.DesignSystem do
                   </span>
                 <% end %>
               </div>
-              <div class="text-[8px] font-bold uppercase tracking-wider bg-white/10 px-1.5 py-0.5 rounded">Ad</div>
+              <div class="text-[8px] font-bold uppercase tracking-wider bg-white/10 px-1.5 py-0.5 rounded">
+                Ad
+              </div>
             </div>
 
             <%!-- Optional hero image with gradient overlay --%>
@@ -3737,7 +4758,8 @@ defmodule BlocksterV2Web.DesignSystem do
                 <div
                   class="absolute inset-0 pointer-events-none"
                   style={"background: linear-gradient(180deg, rgba(0,0,0,0.0) 30%, #{@p["bg_color"] || "#0a0a0a"} 100%);"}
-                ></div>
+                >
+                </div>
               </div>
             <% end %>
 
@@ -3781,7 +4803,13 @@ defmodule BlocksterV2Web.DesignSystem do
               >
                 {@p["cta_text"] || "Start Free Trial"}
                 <svg class="w-4 h-4" viewBox="0 0 20 20" fill="none">
-                  <path d="M3 10h12m0 0l-4-4m4 4l-4 4" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+                  <path
+                    d="M3 10h12m0 0l-4-4m4 4l-4 4"
+                    stroke="currentColor"
+                    stroke-width="2.5"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  />
                 </svg>
               </div>
             </div>
@@ -3807,7 +4835,9 @@ defmodule BlocksterV2Web.DesignSystem do
     ~H"""
     <div class={["not-prose my-12 flex justify-center", @class]}>
       <div class="w-full" style="max-width: 440px;">
-        <div class="text-[9px] tracking-[0.16em] uppercase text-neutral-400 mb-2 font-bold text-center">Sponsored</div>
+        <div class="text-[9px] tracking-[0.16em] uppercase text-neutral-400 mb-2 font-bold text-center">
+          Sponsored
+        </div>
         <a
           href={@banner.link_url || "#"}
           target="_blank"
@@ -3817,35 +4847,74 @@ defmodule BlocksterV2Web.DesignSystem do
           phx-value-id={@banner.id}
         >
           <div class="bw-fs-ad-wrap bw-fs-ad-shape-a2">
-            <div class="bw-fs-ad-root" id={"bw-fs-a2c-#{@banner.id}"} phx-hook="FsA2CombinedAd" phx-update="ignore">
+            <div
+              class="bw-fs-ad-root"
+              id={"bw-fs-a2c-#{@banner.id}"}
+              phx-hook="FsA2CombinedAd"
+              phx-update="ignore"
+            >
               <div class="ad adA2 a2-combo">
                 <div class="a-head">
                   <span class="fs-mark">
                     <svg class="fs-full" viewBox="0 0 220 28" aria-hidden="true">
                       <defs>
-                        <linearGradient id={"a2c-grad-#{@banner.id}"} x1="30" y1="14" x2="220" y2="14" gradientUnits="userSpaceOnUse">
-                          <stop offset="0%" stop-color="#22C55E"/>
-                          <stop offset="50%" stop-color="#EAB308"/>
-                          <stop offset="100%" stop-color="#EF4444"/>
+                        <linearGradient
+                          id={"a2c-grad-#{@banner.id}"}
+                          x1="30"
+                          y1="14"
+                          x2="220"
+                          y2="14"
+                          gradientUnits="userSpaceOnUse"
+                        >
+                          <stop offset="0%" stop-color="#22C55E" />
+                          <stop offset="50%" stop-color="#EAB308" />
+                          <stop offset="100%" stop-color="#EF4444" />
                         </linearGradient>
                       </defs>
-                      <rect x="0" y="5" width="18" height="4" rx="2" fill="#22C55E"/>
-                      <rect x="0" y="12" width="13" height="4" rx="2" fill="#EAB308"/>
-                      <rect x="0" y="19" width="8" height="4" rx="2" fill="#EF4444"/>
-                      <text x="28" y="21" font-family="Satoshi,system-ui,sans-serif" font-weight="700" font-size="20" fill={"url(#a2c-grad-#{@banner.id})"}>FATESWAP</text>
+                      <rect x="0" y="5" width="18" height="4" rx="2" fill="#22C55E" />
+                      <rect x="0" y="12" width="13" height="4" rx="2" fill="#EAB308" />
+                      <rect x="0" y="19" width="8" height="4" rx="2" fill="#EF4444" />
+                      <text
+                        x="28"
+                        y="21"
+                        font-family="Satoshi,system-ui,sans-serif"
+                        font-weight="700"
+                        font-size="20"
+                        fill={"url(#a2c-grad-#{@banner.id})"}
+                      >
+                        FATESWAP
+                      </text>
                     </svg>
                     <span class="sep"></span>
                     <span class="dex">Solana DEX</span>
                   </span>
-                  <span class="bal" data-bal><span class="lbl">Bal</span><span class="val">$50</span></span>
+                  <span class="bal" data-bal>
+                    <span class="lbl">Bal</span><span class="val">$50</span>
+                  </span>
                 </div>
                 <div class="a-mode">
                   <button class="buy active" type="button">
-                    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M7 17l10-10M9 7h8v8" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                      <path
+                        d="M7 17l10-10M9 7h8v8"
+                        stroke="currentColor"
+                        stroke-width="3"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                      />
+                    </svg>
                     Buy
                   </button>
                   <button class="sell" type="button">
-                    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M17 7L7 17M15 17H7v-8" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                      <path
+                        d="M17 7L7 17M15 17H7v-8"
+                        stroke="currentColor"
+                        stroke-width="3"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                      />
+                    </svg>
                     Sell
                   </button>
                 </div>
@@ -3863,12 +4932,20 @@ defmodule BlocksterV2Web.DesignSystem do
                       <p class="panel-title"><span class="num">1</span>Pick a token to buy</p>
                       <div class="t-list">
                         <div class="tok2" data-t="0">
-                          <img class="usdc" src="https://assets.coingecko.com/coins/images/6319/standard/usdc.png" alt="USDC"/>
+                          <img
+                            class="usdc"
+                            src="https://assets.coingecko.com/coins/images/6319/standard/usdc.png"
+                            alt="USDC"
+                          />
                           <span class="nm">USDC <span class="tk">Stablecoin</span></span>
                           <span class="px"><b>$1.00</b>stable</span>
                         </div>
                         <div class="tok2" data-t="1">
-                          <img class="usdc" src="https://ik.imagekit.io/blockster/solana-sol-logo.png" alt="SOL"/>
+                          <img
+                            class="usdc"
+                            src="https://ik.imagekit.io/blockster/solana-sol-logo.png"
+                            alt="SOL"
+                          />
                           <span class="nm">SOL <span class="tk">Solana</span></span>
                           <span class="px"><b>+2.1%</b>$134.22</span>
                         </div>
@@ -3888,20 +4965,38 @@ defmodule BlocksterV2Web.DesignSystem do
                     <div class="a-panel buy-panel" data-panel="1">
                       <p class="panel-title"><span class="num">2</span>Set your discount</p>
                       <div class="p2-hdr">
-                        <img class="usdc" src="https://assets.coingecko.com/coins/images/6319/standard/usdc.png" alt="USDC"/>
+                        <img
+                          class="usdc"
+                          src="https://assets.coingecko.com/coins/images/6319/standard/usdc.png"
+                          alt="USDC"
+                        />
                         <span class="nm">USDC<small>Buying</small></span>
                         <span class="px"><b>$1.00</b>market</span>
                       </div>
                       <div class="p2-line">
-                        Buy <b>USDC</b> at
-                        <span style="display:block;margin-top:4px"><span class="em" data-pct-a2c-buy>50</span><span style="font-size:18px;font-weight:800;color:#E8E4DD;margin-left:4px">% off</span></span>
+                        Buy <b>USDC</b>
+                        at
+                        <span style="display:block;margin-top:4px">
+                          <span class="em" data-pct-a2c-buy>50</span><span style="font-size:18px;font-weight:800;color:#E8E4DD;margin-left:4px">% off</span>
+                        </span>
                         <span class="lbl">below market price</span>
                       </div>
-                      <div class="slider2"><div class="fill"></div><div class="thumb"></div></div>
-                      <div class="p2-tiers"><span>1%</span><span>10%</span><span>25%</span><span>50%</span><span>75%</span><span>90%</span></div>
+                      <div class="slider2">
+                        <div class="fill"></div>
+                        <div class="thumb"></div>
+                      </div>
+                      <div class="p2-tiers">
+                        <span>1%</span><span>10%</span><span>25%</span><span>50%</span><span>75%</span><span>90%</span>
+                      </div>
                       <div class="p2-cmp">
-                        <div class="b"><p class="lbl">You pay</p><span class="v">$50</span><span class="vsub">0.37 SOL</span></div>
-                        <div class="b"><p class="lbl">You get (if filled)</p><span class="v win">$100</span><span class="vsub">of USDC</span></div>
+                        <div class="b">
+                          <p class="lbl">You pay</p>
+                          <span class="v">$50</span><span class="vsub">0.37 SOL</span>
+                        </div>
+                        <div class="b">
+                          <p class="lbl">You get (if filled)</p>
+                          <span class="v win">$100</span><span class="vsub">of USDC</span>
+                        </div>
                       </div>
                     </div>
 
@@ -3909,23 +5004,46 @@ defmodule BlocksterV2Web.DesignSystem do
                       <p class="panel-title"><span class="num">3</span>Place your fate order</p>
                       <div class="rev">
                         <div class="buy-line">
-                          <img class="usdc usdc-sm" style="width:22px;height:22px" src="https://assets.coingecko.com/coins/images/6319/standard/usdc.png" alt="USDC"/>
+                          <img
+                            class="usdc usdc-sm"
+                            style="width:22px;height:22px"
+                            src="https://assets.coingecko.com/coins/images/6319/standard/usdc.png"
+                            alt="USDC"
+                          />
                           <span class="nm">Buying USDC</span>
                           <span class="disc">50% off</span>
                         </div>
-                        <div class="row"><span class="k">You pay</span><span class="v">$50.00</span></div>
-                        <div class="row"><span class="k">You get if filled</span><span class="v win">$100.00 USDC</span></div>
-                        <div class="row"><span class="k">Fill chance</span><span class="v">49.25%</span></div>
-                        <div class="row"><span class="k">Settle</span><span class="v" style="color:#E8E4DD">~2 sec · On-chain</span></div>
+                        <div class="row">
+                          <span class="k">You pay</span><span class="v">$50.00</span>
+                        </div>
+                        <div class="row">
+                          <span class="k">You get if filled</span><span class="v win">$100.00 USDC</span>
+                        </div>
+                        <div class="row">
+                          <span class="k">Fill chance</span><span class="v">49.25%</span>
+                        </div>
+                        <div class="row">
+                          <span class="k">Settle</span><span class="v" style="color:#E8E4DD">~2 sec · On-chain</span>
+                        </div>
                       </div>
                       <div class="cta2">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 13l4 4L19 7" stroke="#0A0A0F" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                          <path
+                            d="M5 13l4 4L19 7"
+                            stroke="#0A0A0F"
+                            stroke-width="3"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                          />
+                        </svg>
                         Buy USDC at 50% Discount
                       </div>
                     </div>
 
                     <div class="a-panel buy-panel" data-panel="3">
-                      <p class="panel-title"><span class="num">4</span><span class="dot"></span>Revealing fate</p>
+                      <p class="panel-title">
+                        <span class="num">4</span><span class="dot"></span>Revealing fate
+                      </p>
                       <div class="reveal">
                         <div class="cnum">
                           <span class="n" data-fate-a2c-buy>00.00</span>
@@ -3935,7 +5053,9 @@ defmodule BlocksterV2Web.DesignSystem do
                         <div class="bar2">
                           <div class="fill"></div>
                           <div class="unfill"></div>
-                          <div class="lbl"><span class="l">FILLED</span><span class="r">NOT FILLED</span></div>
+                          <div class="lbl">
+                            <span class="l">FILLED</span><span class="r">NOT FILLED</span>
+                          </div>
                           <div class="need"></div>
                         </div>
                       </div>
@@ -3943,7 +5063,15 @@ defmodule BlocksterV2Web.DesignSystem do
 
                     <div class="a-panel p5b buy-panel" data-panel="4">
                       <span class="stamp">
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 13l4 4L19 7" stroke="#86EFAC" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                          <path
+                            d="M5 13l4 4L19 7"
+                            stroke="#86EFAC"
+                            stroke-width="3"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                          />
+                        </svg>
                         Order Filled
                       </span>
                       <div class="eq">
@@ -3953,7 +5081,11 @@ defmodule BlocksterV2Web.DesignSystem do
                       </div>
                       <div class="receipt">
                         <div class="got">
-                          <img class="usdc" src="https://assets.coingecko.com/coins/images/6319/standard/usdc.png" alt="USDC"/>
+                          <img
+                            class="usdc"
+                            src="https://assets.coingecko.com/coins/images/6319/standard/usdc.png"
+                            alt="USDC"
+                          />
                           <span class="big">$100</span>
                           <span class="tk">USDC</span>
                         </div>
@@ -3965,20 +5097,38 @@ defmodule BlocksterV2Web.DesignSystem do
                     <div class="a-panel sell-panel" data-panel="5">
                       <p class="panel-title"><span class="num">1</span>Set your premium</p>
                       <div class="p2-hdr">
-                        <img class="usdc" src="https://assets.coingecko.com/coins/images/6319/standard/usdc.png" alt="USDC"/>
+                        <img
+                          class="usdc"
+                          src="https://assets.coingecko.com/coins/images/6319/standard/usdc.png"
+                          alt="USDC"
+                        />
                         <span class="nm">USDC<small>Selling</small></span>
                         <span class="px"><b>$1.00</b>market</span>
                       </div>
                       <div class="p2-line">
-                        Sell <b>USDC</b> at
-                        <span style="display:block;margin-top:4px"><span class="em" data-pct-a2c-sell>100</span><span style="font-size:18px;font-weight:800;color:#E8E4DD;margin-left:4px">% premium</span></span>
+                        Sell <b>USDC</b>
+                        at
+                        <span style="display:block;margin-top:4px">
+                          <span class="em" data-pct-a2c-sell>100</span><span style="font-size:18px;font-weight:800;color:#E8E4DD;margin-left:4px">% premium</span>
+                        </span>
                         <span class="lbl">above market price</span>
                       </div>
-                      <div class="slider2"><div class="fill"></div><div class="thumb"></div></div>
-                      <div class="p2-tiers"><span>1%</span><span>25%</span><span>50%</span><span>100%</span><span>250%</span><span>900%</span></div>
+                      <div class="slider2">
+                        <div class="fill"></div>
+                        <div class="thumb"></div>
+                      </div>
+                      <div class="p2-tiers">
+                        <span>1%</span><span>25%</span><span>50%</span><span>100%</span><span>250%</span><span>900%</span>
+                      </div>
                       <div class="p2-cmp">
-                        <div class="b"><p class="lbl">You stake</p><span class="v">$100</span><span class="vsub">of USDC</span></div>
-                        <div class="b"><p class="lbl">You get (if filled)</p><span class="v win">$200</span><span class="vsub">paid in SOL</span></div>
+                        <div class="b">
+                          <p class="lbl">You stake</p>
+                          <span class="v">$100</span><span class="vsub">of USDC</span>
+                        </div>
+                        <div class="b">
+                          <p class="lbl">You get (if filled)</p>
+                          <span class="v win">$200</span><span class="vsub">paid in SOL</span>
+                        </div>
                       </div>
                     </div>
 
@@ -3986,23 +5136,46 @@ defmodule BlocksterV2Web.DesignSystem do
                       <p class="panel-title"><span class="num">2</span>Place your fate order</p>
                       <div class="rev">
                         <div class="buy-line">
-                          <img class="usdc usdc-sm" style="width:22px;height:22px" src="https://assets.coingecko.com/coins/images/6319/standard/usdc.png" alt="USDC"/>
+                          <img
+                            class="usdc usdc-sm"
+                            style="width:22px;height:22px"
+                            src="https://assets.coingecko.com/coins/images/6319/standard/usdc.png"
+                            alt="USDC"
+                          />
                           <span class="nm">Selling USDC</span>
                           <span class="disc">100% premium</span>
                         </div>
-                        <div class="row"><span class="k">You stake</span><span class="v">$100.00 USDC</span></div>
-                        <div class="row"><span class="k">You get if filled</span><span class="v win">$200.00</span></div>
-                        <div class="row"><span class="k">Fill chance</span><span class="v">49.25%</span></div>
-                        <div class="row"><span class="k">Settle</span><span class="v" style="color:#E8E4DD">~2 sec · On-chain</span></div>
+                        <div class="row">
+                          <span class="k">You stake</span><span class="v">$100.00 USDC</span>
+                        </div>
+                        <div class="row">
+                          <span class="k">You get if filled</span><span class="v win">$200.00</span>
+                        </div>
+                        <div class="row">
+                          <span class="k">Fill chance</span><span class="v">49.25%</span>
+                        </div>
+                        <div class="row">
+                          <span class="k">Settle</span><span class="v" style="color:#E8E4DD">~2 sec · On-chain</span>
+                        </div>
                       </div>
                       <div class="cta2">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 13l4 4L19 7" stroke="#0A0A0F" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                          <path
+                            d="M5 13l4 4L19 7"
+                            stroke="#0A0A0F"
+                            stroke-width="3"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                          />
+                        </svg>
                         Sell USDC at 100% premium
                       </div>
                     </div>
 
                     <div class="a-panel sell-panel" data-panel="7">
-                      <p class="panel-title"><span class="num">3</span><span class="dot"></span>Revealing fate</p>
+                      <p class="panel-title">
+                        <span class="num">3</span><span class="dot"></span>Revealing fate
+                      </p>
                       <div class="reveal">
                         <div class="cnum">
                           <span class="n" data-fate-a2c-sell>00.00</span>
@@ -4012,7 +5185,9 @@ defmodule BlocksterV2Web.DesignSystem do
                         <div class="bar2">
                           <div class="fill"></div>
                           <div class="unfill"></div>
-                          <div class="lbl"><span class="l">FILLED</span><span class="r">NOT FILLED</span></div>
+                          <div class="lbl">
+                            <span class="l">FILLED</span><span class="r">NOT FILLED</span>
+                          </div>
                           <div class="need"></div>
                         </div>
                       </div>
@@ -4020,7 +5195,15 @@ defmodule BlocksterV2Web.DesignSystem do
 
                     <div class="a-panel p5b sell-panel" data-panel="8">
                       <span class="stamp">
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 13l4 4L19 7" stroke="#86EFAC" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                          <path
+                            d="M5 13l4 4L19 7"
+                            stroke="#86EFAC"
+                            stroke-width="3"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                          />
+                        </svg>
                         Order Filled
                       </span>
                       <div class="eq">
@@ -4030,7 +5213,11 @@ defmodule BlocksterV2Web.DesignSystem do
                       </div>
                       <div class="receipt">
                         <div class="got">
-                          <img class="usdc" src="https://ik.imagekit.io/blockster/solana-sol-logo.png" alt="SOL"/>
+                          <img
+                            class="usdc"
+                            src="https://ik.imagekit.io/blockster/solana-sol-logo.png"
+                            alt="SOL"
+                          />
                           <span class="big">$200</span>
                           <span class="tk">paid out</span>
                         </div>
@@ -4043,8 +5230,14 @@ defmodule BlocksterV2Web.DesignSystem do
 
                 <div class="hand" aria-hidden="true">
                   <svg viewBox="0 0 20 28" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M 6 2 C 6 1 7 0 8 0 C 9 0 10 1 10 2 L 10 11 L 11 11 L 11 6 C 11 5 12 4 13 4 C 14 4 15 5 15 6 L 15 11 L 16 11 L 16 8 C 16 7 17 6 18 6 C 19 6 20 7 20 8 L 20 19 C 20 24 16 28 11 28 L 9 28 C 5 28 2 25 1 21 L 0 17 C 0 15 2 14.5 3.5 15.5 L 6 17 Z"
-                      fill="#FFFFFF" stroke="#111111" stroke-width="1.2" stroke-linejoin="round" stroke-linecap="round"/>
+                    <path
+                      d="M 6 2 C 6 1 7 0 8 0 C 9 0 10 1 10 2 L 10 11 L 11 11 L 11 6 C 11 5 12 4 13 4 C 14 4 15 5 15 6 L 15 11 L 16 11 L 16 8 C 16 7 17 6 18 6 C 19 6 20 7 20 8 L 20 19 C 20 24 16 28 11 28 L 9 28 C 5 28 2 25 1 21 L 0 17 C 0 15 2 14.5 3.5 15.5 L 6 17 Z"
+                      fill="#FFFFFF"
+                      stroke="#111111"
+                      stroke-width="1.2"
+                      stroke-linejoin="round"
+                      stroke-linecap="round"
+                    />
                   </svg>
                 </div>
 
@@ -4068,7 +5261,9 @@ defmodule BlocksterV2Web.DesignSystem do
     ~H"""
     <div class={["not-prose my-12 flex justify-center", @class]}>
       <div class="w-full" style="max-width: 440px;">
-        <div class="text-[9px] tracking-[0.16em] uppercase text-neutral-400 mb-2 font-bold text-center">Sponsored</div>
+        <div class="text-[9px] tracking-[0.16em] uppercase text-neutral-400 mb-2 font-bold text-center">
+          Sponsored
+        </div>
         <a
           href={@banner.link_url || "#"}
           target="_blank"
@@ -4078,7 +5273,12 @@ defmodule BlocksterV2Web.DesignSystem do
           phx-value-id={@banner.id}
         >
           <div class="bw-fs-ad-wrap bw-fs-ad-shape-c">
-            <div class="bw-fs-ad-root" id={"bw-fs-c-#{@banner.id}"} phx-hook="FsKineticAd" phx-update="ignore">
+            <div
+              class="bw-fs-ad-root"
+              id={"bw-fs-c-#{@banner.id}"}
+              phx-hook="FsKineticAd"
+              phx-update="ignore"
+            >
               <div class="ad adC">
                 <div class="c-glow"></div>
                 <div class="c-wrap">
@@ -4086,16 +5286,32 @@ defmodule BlocksterV2Web.DesignSystem do
                     <span class="fs-mark">
                       <svg class="fs-full" viewBox="0 0 220 28" aria-hidden="true">
                         <defs>
-                          <linearGradient id={"c-grad-#{@banner.id}"} x1="30" y1="14" x2="220" y2="14" gradientUnits="userSpaceOnUse">
-                            <stop offset="0%" stop-color="#22C55E"/>
-                            <stop offset="50%" stop-color="#EAB308"/>
-                            <stop offset="100%" stop-color="#EF4444"/>
+                          <linearGradient
+                            id={"c-grad-#{@banner.id}"}
+                            x1="30"
+                            y1="14"
+                            x2="220"
+                            y2="14"
+                            gradientUnits="userSpaceOnUse"
+                          >
+                            <stop offset="0%" stop-color="#22C55E" />
+                            <stop offset="50%" stop-color="#EAB308" />
+                            <stop offset="100%" stop-color="#EF4444" />
                           </linearGradient>
                         </defs>
-                        <rect x="0" y="5" width="18" height="4" rx="2" fill="#22C55E"/>
-                        <rect x="0" y="12" width="13" height="4" rx="2" fill="#EAB308"/>
-                        <rect x="0" y="19" width="8" height="4" rx="2" fill="#EF4444"/>
-                        <text x="28" y="21" font-family="Satoshi,system-ui,sans-serif" font-weight="700" font-size="20" fill={"url(#c-grad-#{@banner.id})"}>FATESWAP</text>
+                        <rect x="0" y="5" width="18" height="4" rx="2" fill="#22C55E" />
+                        <rect x="0" y="12" width="13" height="4" rx="2" fill="#EAB308" />
+                        <rect x="0" y="19" width="8" height="4" rx="2" fill="#EF4444" />
+                        <text
+                          x="28"
+                          y="21"
+                          font-family="Satoshi,system-ui,sans-serif"
+                          font-weight="700"
+                          font-size="20"
+                          fill={"url(#c-grad-#{@banner.id})"}
+                        >
+                          FATESWAP
+                        </text>
                       </svg>
                       <span class="sep"></span>
                       <span class="dex">Solana DEX</span>
@@ -4133,7 +5349,15 @@ defmodule BlocksterV2Web.DesignSystem do
 
                   <div class="c-filled">
                     <div class="stamp">
-                      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 13l4 4L19 7" stroke="#86EFAC" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                        <path
+                          d="M5 13l4 4L19 7"
+                          stroke="#86EFAC"
+                          stroke-width="3.5"
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                        />
+                      </svg>
                     </div>
                     <div class="txt">
                       <span class="k">Order Filled</span>
@@ -4160,7 +5384,17 @@ defmodule BlocksterV2Web.DesignSystem do
   def ad_banner(assigns) do
     ~H"""
     <%= if @banner.image_url do %>
-      <a href={@banner.link_url || "#"} target="_blank" rel="noopener" class={["block rounded-lg overflow-hidden hover:shadow-lg transition-shadow cursor-pointer", @class]} phx-click="track_ad_click" phx-value-id={@banner.id}>
+      <a
+        href={@banner.link_url || "#"}
+        target="_blank"
+        rel="noopener"
+        class={[
+          "block rounded-lg overflow-hidden hover:shadow-lg transition-shadow cursor-pointer",
+          @class
+        ]}
+        phx-click="track_ad_click"
+        phx-value-id={@banner.id}
+      >
         <img src={@banner.image_url} alt={@banner.name} class="w-full" loading="lazy" />
       </a>
     <% end %>
@@ -4188,13 +5422,39 @@ defmodule BlocksterV2Web.DesignSystem do
     <div class={["block bg-white border border-neutral-200/70 rounded-2xl overflow-hidden", @class]}>
       <div class="flex items-center gap-1.5 px-3 py-2 border-b border-neutral-100 text-[9px] font-bold tracking-[0.16em] uppercase text-neutral-400">
         <span class="w-1.5 h-1.5 rounded-full bg-[#7D00FF] shrink-0"></span>
-        <svg class="w-[11px] h-[11px] text-neutral-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+        <svg
+          class="w-[11px] h-[11px] text-neutral-400 shrink-0"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+        >
+          <rect x="3" y="4" width="18" height="18" rx="2" /><line x1="16" y1="2" x2="16" y2="6" /><line
+            x1="8"
+            y1="2"
+            x2="8"
+            y2="6"
+          /><line x1="3" y1="10" x2="21" y2="10" />
+        </svg>
         Event
       </div>
       <div class="p-3">
         <div class="bg-neutral-50 border border-neutral-200/70 rounded-lg p-4 mb-3 text-center">
           <div class="w-8 h-8 rounded-lg bg-[#7D00FF]/10 grid place-items-center mx-auto mb-2">
-            <svg class="w-4 h-4 text-[#7D00FF]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+            <svg
+              class="w-4 h-4 text-[#7D00FF]"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <rect x="3" y="4" width="18" height="18" rx="2" /><line x1="16" y1="2" x2="16" y2="6" /><line
+                x1="8"
+                y1="2"
+                x2="8"
+                y2="6"
+              /><line x1="3" y1="10" x2="21" y2="10" />
+            </svg>
           </div>
           <div class="text-[11px] font-bold text-neutral-700 mb-1">Coming soon</div>
           <div class="text-[9px] text-neutral-400 leading-snug">Events launch soon</div>
@@ -4213,13 +5473,29 @@ defmodule BlocksterV2Web.DesignSystem do
       <div class="h-[3px] w-full bg-gradient-to-r from-[#FF6B35] to-[#C73E1D]"></div>
       <div class="flex items-center gap-1.5 px-3 py-2 border-b border-neutral-100 text-[9px] font-bold tracking-[0.16em] uppercase text-neutral-400">
         <span class="w-1.5 h-1.5 rounded-full bg-[#FF6B35] shrink-0"></span>
-        <svg class="w-[11px] h-[11px] text-neutral-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+        <svg
+          class="w-[11px] h-[11px] text-neutral-400 shrink-0"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+        >
+          <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+        </svg>
         Token sale
       </div>
       <div class="p-3">
         <div class="bg-neutral-50 border border-neutral-200/70 rounded-lg p-4 mb-3 text-center">
           <div class="w-8 h-8 rounded-lg bg-[#FF6B35]/10 grid place-items-center mx-auto mb-2">
-            <svg class="w-4 h-4 text-[#FF6B35]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+            <svg
+              class="w-4 h-4 text-[#FF6B35]"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+            </svg>
           </div>
           <div class="text-[11px] font-bold text-neutral-700 mb-1">Coming soon</div>
           <div class="text-[9px] text-neutral-400 leading-snug">First sale launches soon</div>
@@ -4234,13 +5510,34 @@ defmodule BlocksterV2Web.DesignSystem do
 
   def discover_card(%{variant: "airdrop"} = assigns) do
     ~H"""
-    <.link navigate="/airdrop" class={["block bg-white border border-neutral-200/70 rounded-2xl overflow-hidden hover:shadow-md hover:border-neutral-300/70 transition-all", @class]}>
+    <.link
+      navigate="/airdrop"
+      class={[
+        "block bg-white border border-neutral-200/70 rounded-2xl overflow-hidden hover:shadow-md hover:border-neutral-300/70 transition-all",
+        @class
+      ]}
+    >
       <div class="flex items-center gap-1.5 px-3 py-2 border-b border-neutral-100 text-[9px] font-bold tracking-[0.16em] uppercase text-neutral-400">
         <span class="w-1.5 h-1.5 rounded-full bg-[#CAFC00] shrink-0"></span>
-        <svg class="w-[11px] h-[11px] text-neutral-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 12 20 22 4 22 4 12"/><rect x="2" y="7" width="20" height="5"/><line x1="12" y1="22" x2="12" y2="7"/><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/></svg>
+        <svg
+          class="w-[11px] h-[11px] text-neutral-400 shrink-0"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+        >
+          <polyline points="20 12 20 22 4 22 4 12" /><rect x="2" y="7" width="20" height="5" /><line
+            x1="12"
+            y1="22"
+            x2="12"
+            y2="7"
+          /><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z" /><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z" />
+        </svg>
         Airdrop
         <%= if @round do %>
-          <span class="ml-auto font-mono font-medium text-[8px] tracking-[0.04em] normal-case text-neutral-400">round {@round.round_id}</span>
+          <span class="ml-auto font-mono font-medium text-[8px] tracking-[0.04em] normal-case text-neutral-400">
+            round {@round.round_id}
+          </span>
         <% end %>
       </div>
       <div class="p-3">
@@ -4268,7 +5565,15 @@ defmodule BlocksterV2Web.DesignSystem do
           </div>
           <span class="flex items-center justify-center gap-1 w-full bg-[#0a0a0a] hover:bg-[#1a1a22] text-white text-[10px] font-bold py-[7px] rounded-full transition-colors">
             Redeem BUX to enter
-            <svg class="w-2.5 h-2.5" viewBox="0 0 20 20" fill="none"><path d="M3 10h12m0 0l-4-4m4 4l-4 4" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <svg class="w-2.5 h-2.5" viewBox="0 0 20 20" fill="none">
+              <path
+                d="M3 10h12m0 0l-4-4m4 4l-4 4"
+                stroke="currentColor"
+                stroke-width="2.5"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+            </svg>
           </span>
         <% else %>
           <div class="bg-neutral-50 border border-neutral-200/70 rounded-lg p-4 mb-3 text-center">
@@ -4277,7 +5582,15 @@ defmodule BlocksterV2Web.DesignSystem do
           </div>
           <span class="flex items-center justify-center gap-1 w-full bg-[#0a0a0a] hover:bg-[#1a1a22] text-white text-[10px] font-bold py-[7px] rounded-full transition-colors">
             View airdrop
-            <svg class="w-2.5 h-2.5" viewBox="0 0 20 20" fill="none"><path d="M3 10h12m0 0l-4-4m4 4l-4 4" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <svg class="w-2.5 h-2.5" viewBox="0 0 20 20" fill="none">
+              <path
+                d="M3 10h12m0 0l-4-4m4 4l-4 4"
+                stroke="currentColor"
+                stroke-width="2.5"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+            </svg>
           </span>
         <% end %>
       </div>
@@ -4323,7 +5636,10 @@ defmodule BlocksterV2Web.DesignSystem do
       <div class="p-4">
         <%= if @hub_name do %>
           <div class="flex items-center gap-1.5 mb-2">
-            <div class="w-4 h-4 rounded grid place-items-center shrink-0" style={"background: #{@hub_color || "#0a0a0a"}"}>
+            <div
+              class="w-4 h-4 rounded grid place-items-center shrink-0"
+              style={"background: #{@hub_color || "#0a0a0a"}"}
+            >
               <div class="w-1.5 h-1.5 rounded-full bg-white"></div>
             </div>
             <span class="text-[9px] uppercase tracking-[0.12em] text-neutral-500">{@hub_name}</span>
@@ -4346,7 +5662,11 @@ defmodule BlocksterV2Web.DesignSystem do
           </div>
           <%= if @bux_reward do %>
             <div class="flex items-center gap-1 bg-[#CAFC00] text-black px-1.5 py-0.5 rounded-full font-bold tabular-nums">
-              <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="" class="w-2.5 h-2.5 rounded-full" />
+              <img
+                src="https://ik.imagekit.io/blockster/blockster-icon.png"
+                alt=""
+                class="w-2.5 h-2.5 rounded-full"
+              />
               {format_reward(@bux_reward)}
             </div>
           <% end %>
@@ -4362,13 +5682,23 @@ defmodule BlocksterV2Web.DesignSystem do
   # identity block, stats row, CTAs, and frosted-glass live activity widget.
   # Used on the hub show page (/hub/:slug).
 
-  attr :hub, :map, required: true, doc: "Hub struct with color_primary/secondary, name, description, logo_url, token"
+  attr :hub, :map,
+    required: true,
+    doc: "Hub struct with color_primary/secondary, name, description, logo_url, token"
+
   attr :post_count, :integer, default: 0
   attr :follower_count, :integer, default: 0
   attr :user_follows_hub, :boolean, default: false
   attr :current_user, :any, default: nil
-  attr :top_earning_post, :any, default: nil, doc: "Hub post with the highest total_distributed BUX (used for Latest Activity)"
-  attr :active_pool_total, :integer, default: 0, doc: "Sum of remaining BUX still available to earn across all hub posts"
+
+  attr :top_earning_post, :any,
+    default: nil,
+    doc: "Hub post with the highest total_distributed BUX (used for Latest Activity)"
+
+  attr :active_pool_total, :integer,
+    default: 0,
+    doc: "Sum of remaining BUX still available to earn across all hub posts"
+
   attr :total_bux_paid, :integer, default: 0
   attr :class, :string, default: nil
   attr :rest, :global
@@ -4381,9 +5711,17 @@ defmodule BlocksterV2Web.DesignSystem do
       {@rest}
     >
       <%!-- Dot pattern overlay --%>
-      <div class="absolute inset-0 pointer-events-none" style="background-image: radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.08) 1.5px, transparent 1.5px); background-size: 32px 32px;"></div>
+      <div
+        class="absolute inset-0 pointer-events-none"
+        style="background-image: radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.08) 1.5px, transparent 1.5px); background-size: 32px 32px;"
+      >
+      </div>
       <%!-- Top-right blur glow --%>
-      <div class="absolute top-0 right-0 w-1/2 h-full pointer-events-none" style="background: radial-gradient(ellipse at top right, rgba(255,255,255,0.12), transparent 60%);"></div>
+      <div
+        class="absolute top-0 right-0 w-1/2 h-full pointer-events-none"
+        style="background: radial-gradient(ellipse at top right, rgba(255,255,255,0.12), transparent 60%);"
+      >
+      </div>
 
       <div class="max-w-[1280px] mx-auto px-4 py-5 md:px-6 md:py-12 relative">
         <%!-- Breadcrumb --%>
@@ -4399,7 +5737,11 @@ defmodule BlocksterV2Web.DesignSystem do
             <div class="flex items-center gap-3 md:gap-5 mb-3 md:mb-6">
               <div class="w-12 h-12 md:w-20 md:h-20 rounded-xl md:rounded-2xl bg-white/15 backdrop-blur grid place-items-center ring-1 ring-white/25 shadow-2xl shrink-0">
                 <%= if @hub.logo_url do %>
-                  <img src={@hub.logo_url} alt={@hub.name} class="w-7 h-7 md:w-12 md:h-12 object-contain rounded-md md:rounded-lg" />
+                  <img
+                    src={@hub.logo_url}
+                    alt={@hub.name}
+                    class="w-7 h-7 md:w-12 md:h-12 object-contain rounded-md md:rounded-lg"
+                  />
                 <% else %>
                   <span class="text-[16px] md:text-[24px] font-bold text-white">
                     {String.first(@hub.token || @hub.name)}
@@ -4408,9 +5750,13 @@ defmodule BlocksterV2Web.DesignSystem do
               </div>
               <div>
                 <div class="flex items-center gap-2 mb-0.5 md:mb-1">
-                  <span class="text-[9px] md:text-[10px] uppercase tracking-[0.16em] text-white/85 font-bold">{@hub.name} Hub</span>
+                  <span class="text-[9px] md:text-[10px] uppercase tracking-[0.16em] text-white/85 font-bold">
+                    {@hub.name} Hub
+                  </span>
                 </div>
-                <h1 class="font-bold text-[32px] md:text-[68px] tracking-[-0.025em] leading-[0.95]">{@hub.name}</h1>
+                <h1 class="font-bold text-[32px] md:text-[68px] tracking-[-0.025em] leading-[0.95]">
+                  {@hub.name}
+                </h1>
               </div>
             </div>
 
@@ -4424,26 +5770,56 @@ defmodule BlocksterV2Web.DesignSystem do
             <%!-- Stats row --%>
             <div class="flex items-center flex-wrap gap-x-5 gap-y-2 md:gap-x-8 md:gap-y-3 mb-4 md:mb-7">
               <div>
-                <div class="font-mono font-bold text-[20px] md:text-[28px] text-white leading-none">{compact_number(@post_count)}</div>
-                <div class="text-[9px] md:text-[10px] uppercase tracking-[0.14em] text-white/75 mt-1 md:mt-1.5">Posts</div>
+                <div class="font-mono font-bold text-[20px] md:text-[28px] text-white leading-none">
+                  {compact_number(@post_count)}
+                </div>
+                <div class="text-[9px] md:text-[10px] uppercase tracking-[0.14em] text-white/75 mt-1 md:mt-1.5">
+                  Posts
+                </div>
               </div>
               <div class="w-px h-7 md:h-10 bg-white/25"></div>
               <div>
-                <div class="font-mono font-bold text-[20px] md:text-[28px] text-white leading-none">{compact_number(@follower_count)}</div>
-                <div class="text-[9px] md:text-[10px] uppercase tracking-[0.14em] text-white/75 mt-1 md:mt-1.5">Followers</div>
+                <div class="font-mono font-bold text-[20px] md:text-[28px] text-white leading-none">
+                  {compact_number(@follower_count)}
+                </div>
+                <div class="text-[9px] md:text-[10px] uppercase tracking-[0.14em] text-white/75 mt-1 md:mt-1.5">
+                  Followers
+                </div>
               </div>
             </div>
 
             <%!-- CTAs + social icons --%>
             <div class="flex items-center flex-wrap gap-2 md:gap-3">
               <%= if @user_follows_hub do %>
-                <button phx-click="toggle_follow" class="inline-flex items-center gap-2 bg-white text-black px-5 py-3 rounded-full text-[14px] font-bold hover:bg-white/90 transition-colors cursor-pointer">
-                  <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path fill-rule="evenodd" d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12Zm13.36-1.814a.75.75 0 1 0-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 0 0-1.06 1.06l2.25 2.25a.75.75 0 0 0 1.14-.094l3.75-5.25Z" clip-rule="evenodd" /></svg>
+                <button
+                  phx-click="toggle_follow"
+                  class="inline-flex items-center gap-2 bg-white text-black px-5 py-3 rounded-full text-[14px] font-bold hover:bg-white/90 transition-colors cursor-pointer"
+                >
+                  <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                    <path
+                      fill-rule="evenodd"
+                      d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12Zm13.36-1.814a.75.75 0 1 0-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 0 0-1.06 1.06l2.25 2.25a.75.75 0 0 0 1.14-.094l3.75-5.25Z"
+                      clip-rule="evenodd"
+                    />
+                  </svg>
                   Following
                 </button>
               <% else %>
-                <button phx-click="toggle_follow" class="inline-flex items-center gap-2 bg-[#CAFC00] text-black px-5 py-3 rounded-full text-[14px] font-bold hover:bg-white transition-colors cursor-pointer">
-                  <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+                <button
+                  phx-click="toggle_follow"
+                  class="inline-flex items-center gap-2 bg-[#CAFC00] text-black px-5 py-3 rounded-full text-[14px] font-bold hover:bg-white transition-colors cursor-pointer"
+                >
+                  <svg
+                    class="w-4 h-4"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2.5"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <path d="M12 5v14M5 12h14" />
+                  </svg>
                   Follow Hub
                 </button>
               <% end %>
@@ -4451,48 +5827,123 @@ defmodule BlocksterV2Web.DesignSystem do
               <%!-- Social icons --%>
               <div class="flex items-center gap-1 ml-2">
                 <%= if @hub.website_url do %>
-                  <a href={@hub.website_url} target="_blank" class="w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur grid place-items-center transition-colors">
-                    <svg class="w-4 h-4 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/></svg>
+                  <a
+                    href={@hub.website_url}
+                    target="_blank"
+                    class="w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur grid place-items-center transition-colors"
+                  >
+                    <svg
+                      class="w-4 h-4 text-white"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    >
+                      <circle cx="12" cy="12" r="10" /><line x1="2" y1="12" x2="22" y2="12" /><path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z" />
+                    </svg>
                   </a>
                 <% end %>
                 <%= if @hub.twitter_url do %>
-                  <a href={@hub.twitter_url} target="_blank" class="w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur grid place-items-center transition-colors">
-                    <svg class="w-4 h-4 text-white" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+                  <a
+                    href={@hub.twitter_url}
+                    target="_blank"
+                    class="w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur grid place-items-center transition-colors"
+                  >
+                    <svg class="w-4 h-4 text-white" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+                    </svg>
                   </a>
                 <% end %>
                 <%= if @hub.telegram_url do %>
-                  <a href={@hub.telegram_url} target="_blank" class="w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur grid place-items-center transition-colors">
-                    <svg class="w-4 h-4 text-white" viewBox="0 0 24 24" fill="currentColor"><path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.464.141a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/></svg>
+                  <a
+                    href={@hub.telegram_url}
+                    target="_blank"
+                    class="w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur grid place-items-center transition-colors"
+                  >
+                    <svg class="w-4 h-4 text-white" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.464.141a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z" />
+                    </svg>
                   </a>
                 <% end %>
                 <%= if @hub.discord_url do %>
-                  <a href={@hub.discord_url} target="_blank" class="w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur grid place-items-center transition-colors">
-                    <svg class="w-4 h-4 text-white" viewBox="0 0 24 24" fill="currentColor"><path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028 14.09 14.09 0 0 0 1.226-1.994.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/></svg>
+                  <a
+                    href={@hub.discord_url}
+                    target="_blank"
+                    class="w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur grid place-items-center transition-colors"
+                  >
+                    <svg class="w-4 h-4 text-white" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028 14.09 14.09 0 0 0 1.226-1.994.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z" />
+                    </svg>
                   </a>
                 <% end %>
                 <%= if @hub.instagram_url do %>
-                  <a href={@hub.instagram_url} target="_blank" class="w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur grid place-items-center transition-colors">
-                    <svg class="w-4 h-4 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/></svg>
+                  <a
+                    href={@hub.instagram_url}
+                    target="_blank"
+                    class="w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur grid place-items-center transition-colors"
+                  >
+                    <svg
+                      class="w-4 h-4 text-white"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    >
+                      <rect x="2" y="2" width="20" height="20" rx="5" ry="5" /><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z" /><line
+                        x1="17.5"
+                        y1="6.5"
+                        x2="17.51"
+                        y2="6.5"
+                      />
+                    </svg>
                   </a>
                 <% end %>
                 <%= if @hub.linkedin_url do %>
-                  <a href={@hub.linkedin_url} target="_blank" class="w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur grid place-items-center transition-colors">
-                    <svg class="w-4 h-4 text-white" viewBox="0 0 24 24" fill="currentColor"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/></svg>
+                  <a
+                    href={@hub.linkedin_url}
+                    target="_blank"
+                    class="w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur grid place-items-center transition-colors"
+                  >
+                    <svg class="w-4 h-4 text-white" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z" />
+                    </svg>
                   </a>
                 <% end %>
                 <%= if @hub.tiktok_url do %>
-                  <a href={@hub.tiktok_url} target="_blank" class="w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur grid place-items-center transition-colors">
-                    <svg class="w-4 h-4 text-white" viewBox="0 0 24 24" fill="currentColor"><path d="M12.525.02c1.31-.02 2.61-.01 3.91-.02.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.05-2.89-.35-4.2-.97-.57-.26-1.1-.59-1.62-.93-.01 2.92.01 5.84-.02 8.75-.08 1.4-.54 2.79-1.35 3.94-1.31 1.92-3.58 3.17-5.91 3.21-1.43.08-2.86-.31-4.08-1.03-2.02-1.19-3.44-3.37-3.65-5.71-.02-.5-.03-1-.01-1.49.18-1.9 1.12-3.72 2.58-4.96 1.66-1.44 3.98-2.13 6.15-1.72.02 1.48-.04 2.96-.04 4.44-.99-.32-2.15-.23-3.02.37-.63.41-1.11 1.04-1.36 1.75-.21.51-.15 1.07-.14 1.61.24 1.64 1.82 3.02 3.5 2.87 1.12-.01 2.19-.66 2.77-1.61.19-.33.4-.67.41-1.06.1-1.79.06-3.57.07-5.36.01-4.03-.01-8.05.02-12.07z"/></svg>
+                  <a
+                    href={@hub.tiktok_url}
+                    target="_blank"
+                    class="w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur grid place-items-center transition-colors"
+                  >
+                    <svg class="w-4 h-4 text-white" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M12.525.02c1.31-.02 2.61-.01 3.91-.02.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.05-2.89-.35-4.2-.97-.57-.26-1.1-.59-1.62-.93-.01 2.92.01 5.84-.02 8.75-.08 1.4-.54 2.79-1.35 3.94-1.31 1.92-3.58 3.17-5.91 3.21-1.43.08-2.86-.31-4.08-1.03-2.02-1.19-3.44-3.37-3.65-5.71-.02-.5-.03-1-.01-1.49.18-1.9 1.12-3.72 2.58-4.96 1.66-1.44 3.98-2.13 6.15-1.72.02 1.48-.04 2.96-.04 4.44-.99-.32-2.15-.23-3.02.37-.63.41-1.11 1.04-1.36 1.75-.21.51-.15 1.07-.14 1.61.24 1.64 1.82 3.02 3.5 2.87 1.12-.01 2.19-.66 2.77-1.61.19-.33.4-.67.41-1.06.1-1.79.06-3.57.07-5.36.01-4.03-.01-8.05.02-12.07z" />
+                    </svg>
                   </a>
                 <% end %>
                 <%= if @hub.reddit_url do %>
-                  <a href={@hub.reddit_url} target="_blank" class="w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur grid place-items-center transition-colors">
-                    <svg class="w-4 h-4 text-white" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0zm5.01 4.744c.688 0 1.25.561 1.25 1.249a1.25 1.25 0 0 1-2.498.056l-2.597-.547-.8 3.747c1.824.07 3.48.632 4.674 1.488.308-.309.73-.491 1.207-.491.968 0 1.754.786 1.754 1.754 0 .716-.435 1.333-1.01 1.614a3.111 3.111 0 0 1 .042.52c0 2.694-3.13 4.87-7.004 4.87-3.874 0-7.004-2.176-7.004-4.87 0-.183.015-.366.043-.534A1.748 1.748 0 0 1 4.028 12c0-.968.786-1.754 1.754-1.754.463 0 .898.196 1.207.49 1.207-.883 2.878-1.43 4.744-1.487l.885-4.182a.342.342 0 0 1 .14-.197.35.35 0 0 1 .238-.042l2.906.617a1.214 1.214 0 0 1 1.108-.701zM9.25 12C8.561 12 8 12.562 8 13.25c0 .687.561 1.248 1.25 1.248.687 0 1.248-.561 1.248-1.249 0-.688-.561-1.249-1.249-1.249zm5.5 0c-.687 0-1.248.561-1.248 1.25 0 .687.561 1.248 1.249 1.248.688 0 1.249-.561 1.249-1.249 0-.687-.562-1.249-1.25-1.249zm-5.466 3.99a.327.327 0 0 0-.231.094.33.33 0 0 0 0 .463c.842.842 2.484.913 2.961.913.477 0 2.105-.056 2.961-.913a.361.361 0 0 0 .029-.463.33.33 0 0 0-.464 0c-.547.533-1.684.73-2.512.73-.828 0-1.979-.196-2.512-.73a.326.326 0 0 0-.232-.095z"/></svg>
+                  <a
+                    href={@hub.reddit_url}
+                    target="_blank"
+                    class="w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur grid place-items-center transition-colors"
+                  >
+                    <svg class="w-4 h-4 text-white" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M12 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0zm5.01 4.744c.688 0 1.25.561 1.25 1.249a1.25 1.25 0 0 1-2.498.056l-2.597-.547-.8 3.747c1.824.07 3.48.632 4.674 1.488.308-.309.73-.491 1.207-.491.968 0 1.754.786 1.754 1.754 0 .716-.435 1.333-1.01 1.614a3.111 3.111 0 0 1 .042.52c0 2.694-3.13 4.87-7.004 4.87-3.874 0-7.004-2.176-7.004-4.87 0-.183.015-.366.043-.534A1.748 1.748 0 0 1 4.028 12c0-.968.786-1.754 1.754-1.754.463 0 .898.196 1.207.49 1.207-.883 2.878-1.43 4.744-1.487l.885-4.182a.342.342 0 0 1 .14-.197.35.35 0 0 1 .238-.042l2.906.617a1.214 1.214 0 0 1 1.108-.701zM9.25 12C8.561 12 8 12.562 8 13.25c0 .687.561 1.248 1.25 1.248.687 0 1.248-.561 1.248-1.249 0-.688-.561-1.249-1.249-1.249zm5.5 0c-.687 0-1.248.561-1.248 1.25 0 .687.561 1.248 1.249 1.248.688 0 1.249-.561 1.249-1.249 0-.687-.562-1.249-1.25-1.249zm-5.466 3.99a.327.327 0 0 0-.231.094.33.33 0 0 0 0 .463c.842.842 2.484.913 2.961.913.477 0 2.105-.056 2.961-.913a.361.361 0 0 0 .029-.463.33.33 0 0 0-.464 0c-.547.533-1.684.73-2.512.73-.828 0-1.979-.196-2.512-.73a.326.326 0 0 0-.232-.095z" />
+                    </svg>
                   </a>
                 <% end %>
                 <%= if @hub.youtube_url do %>
-                  <a href={@hub.youtube_url} target="_blank" class="w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur grid place-items-center transition-colors">
-                    <svg class="w-4 h-4 text-white" viewBox="0 0 24 24" fill="currentColor"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>
+                  <a
+                    href={@hub.youtube_url}
+                    target="_blank"
+                    class="w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur grid place-items-center transition-colors"
+                  >
+                    <svg class="w-4 h-4 text-white" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z" />
+                    </svg>
                   </a>
                 <% end %>
               </div>
@@ -4507,37 +5958,67 @@ defmodule BlocksterV2Web.DesignSystem do
               <div class="flex items-center justify-between mb-4">
                 <div class="flex items-center gap-1.5">
                   <span class="w-1.5 h-1.5 rounded-full bg-[#CAFC00] animate-pulse"></span>
-                  <span class="text-[9px] font-bold uppercase tracking-[0.14em] text-white/85">Latest Activity</span>
+                  <span class="text-[9px] font-bold uppercase tracking-[0.14em] text-white/85">
+                    Latest Activity
+                  </span>
                 </div>
                 <span class="text-[9px] font-mono text-white/45">live</span>
               </div>
               <div class="space-y-3.5">
                 <div class="flex items-center gap-3">
                   <div class="w-7 h-7 rounded-full bg-[#CAFC00] grid place-items-center text-[10px] font-bold text-black shrink-0">
-                    <svg class="w-3 h-3" viewBox="0 0 20 20" fill="currentColor"><path d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z"/></svg>
+                    <svg class="w-3 h-3" viewBox="0 0 20 20" fill="currentColor">
+                      <path d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" />
+                    </svg>
                   </div>
                   <div class="flex-1 min-w-0">
-                    <div class="text-[11px] text-white/85 truncate">{compact_number(@total_bux_paid)} BUX rewarded</div>
-                    <div class="text-[9px] text-white/45 font-mono">to readers across all stories</div>
+                    <div class="text-[11px] text-white/85 truncate">
+                      {compact_number(@total_bux_paid)} BUX rewarded
+                    </div>
+                    <div class="text-[9px] text-white/45 font-mono">
+                      to readers across all stories
+                    </div>
                   </div>
                 </div>
                 <div class="flex items-center gap-3">
                   <div class="w-7 h-7 rounded-full bg-white/15 grid place-items-center shrink-0">
-                    <svg class="w-3 h-3 text-white" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/></svg>
+                    <svg class="w-3 h-3 text-white" viewBox="0 0 20 20" fill="currentColor">
+                      <path
+                        fill-rule="evenodd"
+                        d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
+                        clip-rule="evenodd"
+                      />
+                    </svg>
                   </div>
                   <div class="flex-1 min-w-0">
-                    <div class="text-[11px] text-white/85 truncate">{compact_number(@active_pool_total)} BUX up for grabs</div>
+                    <div class="text-[11px] text-white/85 truncate">
+                      {compact_number(@active_pool_total)} BUX up for grabs
+                    </div>
                     <div class="text-[9px] text-white/45 font-mono">in active reward pools</div>
                   </div>
                 </div>
                 <%= if @top_earning_post do %>
-                  <a href={"/" <> @top_earning_post.slug} class="flex items-center gap-3 group cursor-pointer">
+                  <a
+                    href={"/" <> @top_earning_post.slug}
+                    class="flex items-center gap-3 group cursor-pointer"
+                  >
                     <div class="w-7 h-7 rounded-full bg-white/15 grid place-items-center shrink-0">
-                      <svg class="w-3 h-3 text-white" viewBox="0 0 20 20" fill="currentColor"><path d="M2.166 4.999A11.954 11.954 0 0010 1.944 11.954 11.954 0 0017.834 5c.11.65.166 1.32.166 2.001 0 5.225-3.34 9.67-8 11.317C5.34 16.67 2 12.225 2 7c0-.682.057-1.35.166-2.001zm11.541 3.708a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
+                      <svg class="w-3 h-3 text-white" viewBox="0 0 20 20" fill="currentColor">
+                        <path
+                          d="M2.166 4.999A11.954 11.954 0 0010 1.944 11.954 11.954 0 0017.834 5c.11.65.166 1.32.166 2.001 0 5.225-3.34 9.67-8 11.317C5.34 16.67 2 12.225 2 7c0-.682.057-1.35.166-2.001zm11.541 3.708a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                          clip-rule="evenodd"
+                        />
+                      </svg>
                     </div>
                     <div class="flex-1 min-w-0">
-                      <div class="text-[11px] text-white/85 truncate group-hover:text-white transition-colors">{@top_earning_post.title}</div>
-                      <div class="text-[9px] text-white/45 font-mono">top story · {compact_number(trunc(Map.get(@top_earning_post, :bux_balance, 0) || 0))} BUX paid</div>
+                      <div class="text-[11px] text-white/85 truncate group-hover:text-white transition-colors">
+                        {@top_earning_post.title}
+                      </div>
+                      <div class="text-[9px] text-white/45 font-mono">
+                        top story · {compact_number(
+                          trunc(Map.get(@top_earning_post, :bux_balance, 0) || 0)
+                        )} BUX paid
+                      </div>
                     </div>
                   </a>
                 <% end %>

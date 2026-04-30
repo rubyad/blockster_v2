@@ -119,7 +119,9 @@ defmodule BlocksterV2Web.DesignSystem.HeaderTest do
         """)
 
       assert html =~ "My profile"
-      assert html =~ ~s(phx-click="disconnect_wallet")
+      # Disconnect button switched from phx-click to onclick on 2026-04-30 so
+      # it survives the brief LV-reconnect window after iOS Safari backgrounding.
+      assert html =~ "window.handleWalletDisconnect"
       assert html =~ "/member/marcus"
     end
 

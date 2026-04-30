@@ -913,34 +913,50 @@ window.toggleDropdown = function(dropdownId) {
   }
 };
 
-// Global function to handle wallet disconnect (legacy — prefer phx-click="disconnect_wallet")
+// Wallet-disconnect handler. Used as the onclick on the dropdown's
+// "Disconnect" button so it works even when the LV websocket is
+// briefly disconnected (e.g., page just resumed from iOS Safari
+// backgrounding) — phx-click events are dropped during that window
+// and the user has to tap twice. JS path is independent of LV.
 window.handleWalletDisconnect = async function() {
   try {
-    // Clear Solana wallet localStorage
+    // Wallet Standard + legacy EVM localStorage.
     localStorage.removeItem('blockster_wallet');
-    // Clear legacy EVM localStorage
     localStorage.removeItem('walletAddress');
     localStorage.removeItem('smartAccountAddress');
 
-    // Call backend session clear
+    // Web3Auth modal + SFA session flags. Without clearing these,
+    // the corresponding hook's silent-reconnect on next page load
+    // re-derives the keypair and re-installs the signer — user
+    // appears signed-out for a moment and then gets auto-signed-in.
+    localStorage.removeItem('blockster_web3auth_session');
+    localStorage.removeItem('blockster_web3auth_provider');
+    localStorage.removeItem('blockster_web3auth_sfa_session');
+    localStorage.removeItem('blockster_web3auth_sfa_provider');
+    sessionStorage.removeItem('blockster_web3auth_redirect_provider');
+
+    // In-flight email-OTP state (so the resume hook doesn't re-open
+    // the modal after we land back on /).
+    localStorage.removeItem('blockster:email_otp_pending');
+
+    // In-memory signer + wallet refs.
+    if (window.__signer) window.__signer = null;
+    if (window.__solanaWallet) window.__solanaWallet = null;
+
+    // Call backend session clear. keepalive: true so the request
+    // completes even if window.location.href = '/' below fires before
+    // the await resolves on slow mobile networks.
     const csrf = document.querySelector("meta[name='csrf-token']")?.content;
     if (csrf) {
       await fetch('/api/auth/session', {
         method: 'DELETE',
-        headers: { 'x-csrf-token': csrf }
-      });
+        headers: { 'x-csrf-token': csrf },
+        keepalive: true,
+      }).catch(() => {});
     }
-
-    // Also try legacy logout endpoint
-    await fetch('/api/auth/logout', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' }
-    }).catch(() => {});
-
-    // Redirect to homepage
-    window.location.href = '/';
   } catch (error) {
     console.error('Disconnect error:', error);
+  } finally {
     window.location.href = '/';
   }
 };
