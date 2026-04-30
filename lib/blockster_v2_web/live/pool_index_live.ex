@@ -135,22 +135,14 @@ defmodule BlocksterV2Web.PoolIndexLive do
     :mnesia.dirty_index_read(:pool_activities, vault_type, :vault_type)
     |> Enum.sort_by(fn record -> elem(record, 1) end, :desc)
     |> Enum.take(25)
-    |> Enum.map(fn record ->
-      # Tuple layout: {:pool_activities, id, type, vault_type, amount, wallet,
-      # created_at, tx_sig}. Pre-migration rows have 7 elems and no tx_sig.
-      type = elem(record, 2)
-      amount = elem(record, 4)
-      wallet = elem(record, 5)
-      created_at = elem(record, 6)
-      tx_sig = if tuple_size(record) >= 8, do: elem(record, 7), else: nil
-
+    |> Enum.map(fn {:pool_activities, _id, type, _vt, amount, wallet, created_at} ->
       %{
         "type" => type,
         "pool" => vault_type,
         "wallet" => wallet,
         "amount_raw" => amount,
         "amount" => format_lp_amount(amount, type, vault_type),
-        "tx_sig" => tx_sig,
+        "tx_sig" => nil,
         "time" => time_ago(created_at),
         "_created_at" => created_at || 0
       }

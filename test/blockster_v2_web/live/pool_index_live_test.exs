@@ -32,7 +32,7 @@ defmodule BlocksterV2Web.PoolIndexLiveTest do
 
     tables = [
       {:pool_activities, :set,
-       [:id, :type, :vault_type, :amount, :wallet, :created_at, :tx_sig],
+       [:id, :type, :vault_type, :amount, :wallet, :created_at],
        [:vault_type]},
       {:coin_flip_games, :set,
        [

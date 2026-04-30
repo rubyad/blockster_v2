@@ -321,7 +321,7 @@ defmodule BlocksterV2Web.PoolDetailLive do
 
     record =
       {:pool_activities, System.unique_integer([:monotonic, :positive]), action, vault_type,
-       amount_raw, truncate_wallet(wallet), now, sig}
+       amount_raw, truncate_wallet(wallet), now}
 
     :mnesia.dirty_write(record)
 
@@ -1230,16 +1230,7 @@ defmodule BlocksterV2Web.PoolDetailLive do
     :mnesia.dirty_index_read(:pool_activities, vault_type, :vault_type)
     |> Enum.sort_by(fn record -> elem(record, 1) end, :desc)
     |> Enum.take(200)
-    |> Enum.map(fn record ->
-      # Tuple layout: {:pool_activities, id, type, vault_type, amount, wallet,
-      # created_at, tx_sig}. Pre-migration rows have 7 elems and no tx_sig —
-      # guard the access so they render without a clickable link.
-      type = elem(record, 2)
-      amount = elem(record, 4)
-      wallet = elem(record, 5)
-      created_at = elem(record, 6)
-      tx_sig = if tuple_size(record) >= 8, do: elem(record, 7), else: nil
-
+    |> Enum.map(fn {:pool_activities, _id, type, _vt, amount, wallet, created_at} ->
       token = String.upcase(vault_type)
       decimals = if vault_type == "sol", do: 4, else: 2
       amount_str = format_amount(amount, decimals)
@@ -1252,7 +1243,7 @@ defmodule BlocksterV2Web.PoolDetailLive do
         "profit" => "#{amount_str} #{token}",
         "wallet" => wallet,
         "full_wallet" => nil,
-        "tx_sig" => tx_sig,
+        "tx_sig" => nil,
         "time" => time_ago(created_at),
         "_created_at" => created_at || 0
       }
