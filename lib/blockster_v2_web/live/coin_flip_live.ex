@@ -42,28 +42,29 @@ defmodule BlocksterV2Web.CoinFlipLive do
       balances = %{"BUX" => bux_balance, "SOL" => sol_balance}
 
       # Initialize game on connected mount only (LiveView mounts twice)
-      socket = if wallet_address != nil and connected?(socket) do
-        Phoenix.PubSub.subscribe(BlocksterV2.PubSub, "bux_balance:#{current_user.id}")
-        Phoenix.PubSub.subscribe(BlocksterV2.PubSub, "coin_flip_settlement:#{current_user.id}")
+      socket =
+        if wallet_address != nil and connected?(socket) do
+          Phoenix.PubSub.subscribe(BlocksterV2.PubSub, "bux_balance:#{current_user.id}")
+          Phoenix.PubSub.subscribe(BlocksterV2.PubSub, "coin_flip_settlement:#{current_user.id}")
 
-        # Check for expired bets periodically (every 30s)
-        Process.send_after(self(), :check_expired_bets, 1000)
+          # Check for expired bets periodically (every 30s)
+          Process.send_after(self(), :check_expired_bets, 1000)
 
-        socket
-        |> assign(:onchain_ready, false)
-        |> assign(:wallet_address, wallet_address)
-        |> assign(:onchain_initializing, true)
-        |> assign(:init_retry_count, 0)
-        |> start_async(:init_game, fn ->
-          CoinFlipGame.get_or_init_game(current_user.id, wallet_address)
-        end)
-      else
-        socket
-        |> assign(:onchain_ready, false)
-        |> assign(:wallet_address, wallet_address)
-        |> assign(:onchain_initializing, false)
-        |> assign(:init_retry_count, 0)
-      end
+          socket
+          |> assign(:onchain_ready, false)
+          |> assign(:wallet_address, wallet_address)
+          |> assign(:onchain_initializing, true)
+          |> assign(:init_retry_count, 0)
+          |> start_async(:init_game, fn ->
+            CoinFlipGame.get_or_init_game(current_user.id, wallet_address)
+          end)
+        else
+          socket
+          |> assign(:onchain_ready, false)
+          |> assign(:wallet_address, wallet_address)
+          |> assign(:onchain_initializing, false)
+          |> assign(:init_retry_count, 0)
+        end
 
       error_msg = if wallet_address, do: nil, else: "No wallet connected"
 
@@ -111,15 +112,17 @@ defmodule BlocksterV2Web.CoinFlipLive do
         |> assign(settlement_sig: nil)
         |> assign(next_game_session: nil)
 
-      socket = if connected?(socket) do
-        user_id = current_user.id
-        socket
-        |> start_async(:fetch_house_balance, fn -> fetch_house_balance_async("SOL", 1) end)
-        |> start_async(:fetch_pool_balances, fn -> fetch_pool_balances_async() end)
-        |> start_async(:load_recent_games, fn -> load_recent_games(user_id, limit: 30) end)
-      else
-        socket
-      end
+      socket =
+        if connected?(socket) do
+          user_id = current_user.id
+
+          socket
+          |> start_async(:fetch_house_balance, fn -> fetch_house_balance_async("SOL", 1) end)
+          |> start_async(:fetch_pool_balances, fn -> fetch_pool_balances_async() end)
+          |> start_async(:load_recent_games, fn -> load_recent_games(user_id, limit: 30) end)
+        else
+          socket
+        end
 
       {:ok, socket}
     else
@@ -203,7 +206,7 @@ defmodule BlocksterV2Web.CoinFlipLive do
         show_search_modal={Map.get(assigns, :show_search_modal, false)}
         connecting={Map.get(assigns, :connecting, false)}
         show_why_earn_bux={true}
-  announcement_banner={assigns[:announcement_banner]}
+        announcement_banner={assigns[:announcement_banner]}
         display_token={assigns[:header_token] || assigns[:selected_token] || "SOL"}
       />
 
@@ -219,7 +222,9 @@ defmodule BlocksterV2Web.CoinFlipLive do
                Tokens move here so the difficulty row can start as close to
                the top of the card as possible. --%>
           <div class="md:hidden flex items-center justify-between gap-3">
-            <h1 class="text-[28px] leading-[0.96] font-bold tracking-[-0.022em] text-[#141414]">Coin Flip</h1>
+            <h1 class="text-[28px] leading-[0.96] font-bold tracking-[-0.022em] text-[#141414]">
+              Coin Flip
+            </h1>
             <div class="flex items-center gap-1.5 shrink-0 pb-0.5">
               <%= for token <- @tokens do %>
                 <button
@@ -228,15 +233,26 @@ defmodule BlocksterV2Web.CoinFlipLive do
                   phx-value-token={token}
                   class={[
                     "flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-[11px] font-bold transition-colors cursor-pointer",
-                    if(@selected_token == token, do: "bg-[#0a0a0a] text-white", else: "bg-white border border-neutral-200 text-neutral-500")
+                    if(@selected_token == token,
+                      do: "bg-[#0a0a0a] text-white",
+                      else: "bg-white border border-neutral-200 text-neutral-500"
+                    )
                   ]}
                 >
                   <%= if token == "SOL" do %>
-                    <img src="https://ik.imagekit.io/blockster/solana-sol-logo.png" alt="SOL" class="w-3.5 h-3.5 rounded-full" />
+                    <img
+                      src="https://ik.imagekit.io/blockster/solana-sol-logo.png"
+                      alt="SOL"
+                      class="w-3.5 h-3.5 rounded-full"
+                    />
                   <% else %>
-                    <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="BUX" class="w-3.5 h-3.5 rounded-full" />
+                    <img
+                      src="https://ik.imagekit.io/blockster/blockster-icon.png"
+                      alt="BUX"
+                      class="w-3.5 h-3.5 rounded-full"
+                    />
                   <% end %>
-                  <%= token %>
+                  {token}
                 </button>
               <% end %>
             </div>
@@ -248,37 +264,80 @@ defmodule BlocksterV2Web.CoinFlipLive do
               <BlocksterV2Web.DesignSystem.eyebrow class="mb-3">
                 Provably-fair · On-chain · Sub-1% house edge
               </BlocksterV2Web.DesignSystem.eyebrow>
-              <h1 class="text-[80px] mb-3 leading-[0.96] font-bold tracking-[-0.022em] text-[#141414]">Coin Flip</h1>
+              <h1 class="text-[80px] mb-3 leading-[0.96] font-bold tracking-[-0.022em] text-[#141414]">
+                Coin Flip
+              </h1>
               <p class="text-[16px] leading-[1.5] text-neutral-600 max-w-[520px]">
                 Self-custodial and provably fair. Every bet is a trustless on-chain transaction with instant payouts, funded by our peer-to-peer bankroll.
               </p>
               <div class="mt-3 flex items-center gap-4 text-[12px] font-mono">
-                <.link navigate={~p"/docs/coin-flip"} class="text-neutral-500 hover:text-[#141414] transition-colors cursor-pointer">How Coin Flip works ↗</.link>
-                <.link navigate={~p"/docs/provably-fair"} class="text-neutral-500 hover:text-[#141414] transition-colors cursor-pointer">Verify a game ↗</.link>
-                <.link navigate={~p"/docs/security-audit"} class="text-neutral-500 hover:text-[#141414] transition-colors cursor-pointer">Security audit ↗</.link>
+                <.link
+                  navigate={~p"/docs/coin-flip"}
+                  class="text-neutral-500 hover:text-[#141414] transition-colors cursor-pointer"
+                >
+                  How Coin Flip works ↗
+                </.link>
+                <.link
+                  navigate={~p"/docs/provably-fair"}
+                  class="text-neutral-500 hover:text-[#141414] transition-colors cursor-pointer"
+                >
+                  Verify a game ↗
+                </.link>
+                <.link
+                  navigate={~p"/docs/security-audit"}
+                  class="text-neutral-500 hover:text-[#141414] transition-colors cursor-pointer"
+                >
+                  Security audit ↗
+                </.link>
               </div>
             </div>
             <div class="col-span-12 md:col-span-5">
               <div class="grid grid-cols-3 gap-3">
                 <div class="bg-white rounded-2xl border border-neutral-200/70 p-4 text-right shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
-                  <div class="text-[9px] uppercase tracking-[0.14em] text-neutral-500 mb-1">SOL Pool</div>
-                  <div class="flex items-center justify-end gap-1.5 font-mono font-bold text-[18px] text-[#141414]">
-                    <img src="https://ik.imagekit.io/blockster/solana-sol-logo.png" alt="SOL" class="w-5 h-5 shrink-0" />
-                    <span class="truncate"><%= format_balance(@sol_house_balance) %></span>
+                  <div class="text-[9px] uppercase tracking-[0.14em] text-neutral-500 mb-1">
+                    SOL Pool
                   </div>
-                  <.link navigate={~p"/pool/sol"} class="text-[10px] text-[#22C55E] font-mono hover:underline">View pool ↗</.link>
+                  <div class="flex items-center justify-end gap-1.5 font-mono font-bold text-[18px] text-[#141414]">
+                    <img
+                      src="https://ik.imagekit.io/blockster/solana-sol-logo.png"
+                      alt="SOL"
+                      class="w-5 h-5 shrink-0"
+                    />
+                    <span class="truncate">{format_balance(@sol_house_balance)}</span>
+                  </div>
+                  <.link
+                    navigate={~p"/pool/sol"}
+                    class="text-[10px] text-[#22C55E] font-mono hover:underline"
+                  >
+                    View pool ↗
+                  </.link>
                 </div>
                 <div class="bg-white rounded-2xl border border-neutral-200/70 p-4 text-right shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
-                  <div class="text-[9px] uppercase tracking-[0.14em] text-neutral-500 mb-1">BUX Pool</div>
-                  <div class="flex items-center justify-end gap-1.5 font-mono font-bold text-[18px] text-[#141414]">
-                    <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="BUX" class="w-5 h-5 shrink-0" />
-                    <span class="truncate"><%= format_balance_compact(@bux_house_balance) %></span>
+                  <div class="text-[9px] uppercase tracking-[0.14em] text-neutral-500 mb-1">
+                    BUX Pool
                   </div>
-                  <.link navigate={~p"/pool/bux"} class="text-[10px] text-[#22C55E] font-mono hover:underline">View pool ↗</.link>
+                  <div class="flex items-center justify-end gap-1.5 font-mono font-bold text-[18px] text-[#141414]">
+                    <img
+                      src="https://ik.imagekit.io/blockster/blockster-icon.png"
+                      alt="BUX"
+                      class="w-5 h-5 shrink-0"
+                    />
+                    <span class="truncate">{format_balance_compact(@bux_house_balance)}</span>
+                  </div>
+                  <.link
+                    navigate={~p"/pool/bux"}
+                    class="text-[10px] text-[#22C55E] font-mono hover:underline"
+                  >
+                    View pool ↗
+                  </.link>
                 </div>
                 <div class="bg-white rounded-2xl border border-neutral-200/70 p-4 text-right shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
-                  <div class="text-[9px] uppercase tracking-[0.14em] text-neutral-500 mb-1">House Edge</div>
-                  <div class="font-mono font-bold text-[18px] text-[#141414]">0.92<span class="text-[12px] text-neutral-500">%</span></div>
+                  <div class="text-[9px] uppercase tracking-[0.14em] text-neutral-500 mb-1">
+                    House Edge
+                  </div>
+                  <div class="font-mono font-bold text-[18px] text-[#141414]">
+                    0.92<span class="text-[12px] text-neutral-500">%</span>
+                  </div>
                   <span class="text-[10px] text-neutral-500 font-mono">verified</span>
                 </div>
               </div>
@@ -293,17 +352,20 @@ defmodule BlocksterV2Web.CoinFlipLive do
         ══════════════════════════════════════════════════════ --%>
         <section id="ds-play-game" class="pb-8">
           <div class="grid grid-cols-12 gap-6 items-start">
-
             <%!-- ─── GAME CARD (col-span-8) ─── --%>
             <div class={[
               "col-span-12 lg:col-span-8 bg-white rounded-2xl overflow-hidden",
               cond do
-                @game_state == :result and @won == true -> "border border-[#22C55E]/30 shadow-[0_30px_60px_-20px_rgba(34,197,94,0.20)] relative"
-                @game_state == :result and @won == false -> "border border-[#EF4444]/25 shadow-[0_30px_60px_-20px_rgba(239,68,68,0.15)]"
-                true -> "border border-neutral-200/70 shadow-[0_1px_3px_rgba(0,0,0,0.04)]"
+                @game_state == :result and @won == true ->
+                  "border border-[#22C55E]/30 shadow-[0_30px_60px_-20px_rgba(34,197,94,0.20)] relative"
+
+                @game_state == :result and @won == false ->
+                  "border border-[#EF4444]/25 shadow-[0_30px_60px_-20px_rgba(239,68,68,0.15)]"
+
+                true ->
+                  "border border-neutral-200/70 shadow-[0_1px_3px_rgba(0,0,0,0.04)]"
               end
             ]}>
-
               <%= if @game_state == :idle do %>
                 <%!-- STATE 1: Place bet --%>
 
@@ -311,10 +373,26 @@ defmodule BlocksterV2Web.CoinFlipLive do
                 <%= if @has_expired_bet do %>
                   <div class="bg-amber-50 border-b border-amber-200 px-5 py-2.5 md:px-6 md:py-3 flex items-center justify-between gap-3">
                     <div class="flex items-center gap-2 text-[12px] md:text-sm text-amber-800 min-w-0">
-                      <svg class="w-4 h-4 text-amber-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+                      <svg
+                        class="w-4 h-4 text-amber-500 shrink-0"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                        stroke-width="2"
+                      >
+                        <path
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                          d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                        />
+                      </svg>
                       <span class="truncate">Stuck bet &gt; 5 min.</span>
                     </div>
-                    <button type="button" phx-click="reclaim_stuck_bet" class="shrink-0 px-3 py-1.5 bg-[#0a0a0a] text-white text-[11px] font-bold rounded-full hover:bg-[#1a1a22] transition-all cursor-pointer">
+                    <button
+                      type="button"
+                      phx-click="reclaim_stuck_bet"
+                      class="shrink-0 px-3 py-1.5 bg-[#0a0a0a] text-white text-[11px] font-bold rounded-full hover:bg-[#1a1a22] transition-all cursor-pointer"
+                    >
                       Reclaim
                     </button>
                   </div>
@@ -332,15 +410,27 @@ defmodule BlocksterV2Web.CoinFlipLive do
                         phx-value-token={token}
                         class={[
                           "flex items-center gap-1.5 md:gap-2 px-2.5 md:px-3 py-1.5 md:py-2 rounded-full text-[11px] md:text-[12px] font-bold transition-colors cursor-pointer",
-                          if(@selected_token == token, do: "bg-[#0a0a0a] text-white", else: "bg-white border border-neutral-200 text-neutral-500 hover:border-[#141414] hover:text-[#141414]")
+                          if(@selected_token == token,
+                            do: "bg-[#0a0a0a] text-white",
+                            else:
+                              "bg-white border border-neutral-200 text-neutral-500 hover:border-[#141414] hover:text-[#141414]"
+                          )
                         ]}
                       >
                         <%= if token == "SOL" do %>
-                          <img src="https://ik.imagekit.io/blockster/solana-sol-logo.png" alt="SOL" class="w-3.5 h-3.5 md:w-4 md:h-4 rounded-full" />
+                          <img
+                            src="https://ik.imagekit.io/blockster/solana-sol-logo.png"
+                            alt="SOL"
+                            class="w-3.5 h-3.5 md:w-4 md:h-4 rounded-full"
+                          />
                         <% else %>
-                          <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="BUX" class="w-3.5 h-3.5 md:w-4 md:h-4 rounded-full" />
+                          <img
+                            src="https://ik.imagekit.io/blockster/blockster-icon.png"
+                            alt="BUX"
+                            class="w-3.5 h-3.5 md:w-4 md:h-4 rounded-full"
+                          />
                         <% end %>
-                        <%= token %>
+                        {token}
                       </button>
                     <% end %>
                   </div>
@@ -349,13 +439,16 @@ defmodule BlocksterV2Web.CoinFlipLive do
                       <span class="text-neutral-500 hidden md:inline">Your balance: </span>
                       <span class="text-neutral-500 md:hidden">You: </span>
                       <span class="font-mono font-bold text-[#141414]">
-                        <%= format_balance(Map.get(@balances, @selected_token, 0)) %>
+                        {format_balance(Map.get(@balances, @selected_token, 0))}
                       </span>
                     </div>
                     <div>
                       <span class="text-neutral-500">House: </span>
-                      <.link navigate={~p"/pool/#{String.downcase(@selected_token)}"} class="font-mono font-bold text-[#141414] hover:text-[#22C55E] transition-colors">
-                        <%= format_balance(@house_balance) %> ↗
+                      <.link
+                        navigate={~p"/pool/#{String.downcase(@selected_token)}"}
+                        class="font-mono font-bold text-[#141414] hover:text-[#22C55E] transition-colors"
+                      >
+                        {format_balance(@house_balance)} ↗
                       </.link>
                     </div>
                   </div>
@@ -365,15 +458,30 @@ defmodule BlocksterV2Web.CoinFlipLive do
                      full 9-col grid on desktop. --%>
                 <div class="px-4 pt-4 pb-2 md:px-6 md:pt-5">
                   <div class="flex items-center justify-between mb-2 md:mb-3 gap-2">
-                    <div class="text-[10px] font-bold uppercase tracking-[0.14em] text-neutral-500">Difficulty</div>
+                    <div class="text-[10px] font-bold uppercase tracking-[0.14em] text-neutral-500">
+                      Difficulty
+                    </div>
                     <%!-- Desktop shows hint; mobile shows live house balance here
                          since the balance row above is hidden on mobile. --%>
-                    <div class="text-[10px] text-neutral-500 hidden sm:block">Higher difficulty = bigger payout · lower odds</div>
-                    <.link navigate={~p"/pool/#{String.downcase(@selected_token)}"} class="md:hidden text-[10px] text-neutral-500 shrink-0 whitespace-nowrap hover:text-[#141414] transition-colors">
-                      House <span class="font-mono font-bold text-[#141414]"><%= format_balance(@house_balance) %> <%= @selected_token %></span> ↗
+                    <div class="text-[10px] text-neutral-500 hidden sm:block">
+                      Higher difficulty = bigger payout · lower odds
+                    </div>
+                    <.link
+                      navigate={~p"/pool/#{String.downcase(@selected_token)}"}
+                      class="md:hidden text-[10px] text-neutral-500 shrink-0 whitespace-nowrap hover:text-[#141414] transition-colors"
+                    >
+                      House
+                      <span class="font-mono font-bold text-[#141414]">
+                        {format_balance(@house_balance)} {@selected_token}
+                      </span>
+                      ↗
                     </.link>
                   </div>
-                  <div id="difficulty-grid" phx-hook="ScrollToCenter" class="flex md:grid md:grid-cols-9 gap-1.5 overflow-x-auto scrollbar-hide md:overflow-visible -mx-4 px-4 md:mx-0 md:px-0">
+                  <div
+                    id="difficulty-grid"
+                    phx-hook="ScrollToCenter"
+                    class="flex md:grid md:grid-cols-9 gap-1.5 overflow-x-auto scrollbar-hide md:overflow-visible -mx-4 px-4 md:mx-0 md:px-0"
+                  >
                     <%= for opt <- @difficulty_options do %>
                       <% is_active = @selected_difficulty == opt.level %>
                       <button
@@ -383,17 +491,27 @@ defmodule BlocksterV2Web.CoinFlipLive do
                         data-selected={if is_active, do: "true", else: "false"}
                         class={[
                           "py-2 px-1 rounded-xl border text-center transition-all cursor-pointer shrink-0 min-w-[60px] md:min-w-0 md:py-2.5",
-                          if(is_active, do: "bg-[#0a0a0a] border-[#0a0a0a] text-white", else: "bg-white border-neutral-200 text-neutral-500 hover:border-[#141414] hover:text-[#141414]")
+                          if(is_active,
+                            do: "bg-[#0a0a0a] border-[#0a0a0a] text-white",
+                            else:
+                              "bg-white border-neutral-200 text-neutral-500 hover:border-[#141414] hover:text-[#141414]"
+                          )
                         ]}
                       >
-                        <span class={["block text-[8px] tracking-[0.1em] uppercase mb-0.5", if(is_active, do: "opacity-55", else: "opacity-55")]}>
-                          <%= if opt.mode == :win_one, do: "Win one", else: "Win all" %>
+                        <span class={[
+                          "block text-[8px] tracking-[0.1em] uppercase mb-0.5",
+                          if(is_active, do: "opacity-55", else: "opacity-55")
+                        ]}>
+                          {if opt.mode == :win_one, do: "Win one", else: "Win all"}
                         </span>
                         <span class="block font-mono text-[13px] font-bold">
-                          <%= opt.multiplier %>×
+                          {opt.multiplier}×
                         </span>
-                        <span class={["block font-mono text-[9px] mt-0.5", if(is_active, do: "text-[#CAFC00]", else: "text-neutral-400")]}>
-                          <%= opt.predictions %> flip<%= if opt.predictions > 1, do: "s" %>
+                        <span class={[
+                          "block font-mono text-[9px] mt-0.5",
+                          if(is_active, do: "text-[#CAFC00]", else: "text-neutral-400")
+                        ]}>
+                          {opt.predictions} flip{if opt.predictions > 1, do: "s"}
                         </span>
                       </button>
                     <% end %>
@@ -407,18 +525,40 @@ defmodule BlocksterV2Web.CoinFlipLive do
                        the MAX chip sits in this header row so the user can see
                        their cap without looking at the input. --%>
                   <div class="flex items-center justify-between mb-2 md:mb-3 gap-2">
-                    <div class="text-[10px] font-bold uppercase tracking-[0.14em] text-neutral-500">Bet amount</div>
+                    <div class="text-[10px] font-bold uppercase tracking-[0.14em] text-neutral-500">
+                      Bet amount
+                    </div>
                     <%!-- Desktop: ½ / 2× / MAX stack --%>
                     <div class="hidden md:flex items-center gap-1.5">
-                      <button type="button" phx-click="halve_bet" class="px-2.5 py-1 rounded-full bg-neutral-100 border border-neutral-200 font-mono text-[10px] font-bold text-neutral-500 hover:border-[#141414] hover:text-[#141414] hover:bg-white transition-all cursor-pointer">½</button>
-                      <button type="button" phx-click="double_bet" class="px-2.5 py-1 rounded-full bg-neutral-100 border border-neutral-200 font-mono text-[10px] font-bold text-neutral-500 hover:border-[#141414] hover:text-[#141414] hover:bg-white transition-all cursor-pointer">2×</button>
-                      <button type="button" phx-click="set_max_bet" class="px-2.5 py-1 rounded-full bg-[#0a0a0a] border border-[#0a0a0a] font-mono text-[10px] font-bold text-[#CAFC00] cursor-pointer">
-                        MAX <%= format_bet_amount(@max_bet) %>
+                      <button
+                        type="button"
+                        phx-click="halve_bet"
+                        class="px-2.5 py-1 rounded-full bg-neutral-100 border border-neutral-200 font-mono text-[10px] font-bold text-neutral-500 hover:border-[#141414] hover:text-[#141414] hover:bg-white transition-all cursor-pointer"
+                      >
+                        ½
+                      </button>
+                      <button
+                        type="button"
+                        phx-click="double_bet"
+                        class="px-2.5 py-1 rounded-full bg-neutral-100 border border-neutral-200 font-mono text-[10px] font-bold text-neutral-500 hover:border-[#141414] hover:text-[#141414] hover:bg-white transition-all cursor-pointer"
+                      >
+                        2×
+                      </button>
+                      <button
+                        type="button"
+                        phx-click="set_max_bet"
+                        class="px-2.5 py-1 rounded-full bg-[#0a0a0a] border border-[#0a0a0a] font-mono text-[10px] font-bold text-[#CAFC00] cursor-pointer"
+                      >
+                        MAX {format_bet_amount(@max_bet)}
                       </button>
                     </div>
                     <%!-- Mobile: MAX button only, alongside the label --%>
-                    <button type="button" phx-click="set_max_bet" class="md:hidden px-2.5 py-1 rounded-full bg-[#0a0a0a] border border-[#0a0a0a] font-mono text-[10px] font-bold text-[#CAFC00] cursor-pointer shrink-0 whitespace-nowrap">
-                      MAX <%= format_bet_amount(@max_bet) %>
+                    <button
+                      type="button"
+                      phx-click="set_max_bet"
+                      class="md:hidden px-2.5 py-1 rounded-full bg-[#0a0a0a] border border-[#0a0a0a] font-mono text-[10px] font-bold text-[#CAFC00] cursor-pointer shrink-0 whitespace-nowrap"
+                    >
+                      MAX {format_bet_amount(@max_bet)}
                     </button>
                   </div>
                   <div class="bg-neutral-50 border border-neutral-200 rounded-2xl px-4 py-3 md:px-5 md:py-4 flex items-center gap-2 md:gap-3">
@@ -434,10 +574,24 @@ defmodule BlocksterV2Web.CoinFlipLive do
                     <%!-- Mobile: ½ / 2× still inline next to input for one-hand tweaks;
                          MAX lives with the label row above. --%>
                     <div class="flex md:hidden items-center gap-1 shrink-0">
-                      <button type="button" phx-click="halve_bet" class="px-2 py-1 rounded-full bg-white border border-neutral-200 font-mono text-[10px] font-bold text-neutral-500 cursor-pointer">½</button>
-                      <button type="button" phx-click="double_bet" class="px-2 py-1 rounded-full bg-white border border-neutral-200 font-mono text-[10px] font-bold text-neutral-500 cursor-pointer">2×</button>
+                      <button
+                        type="button"
+                        phx-click="halve_bet"
+                        class="px-2 py-1 rounded-full bg-white border border-neutral-200 font-mono text-[10px] font-bold text-neutral-500 cursor-pointer"
+                      >
+                        ½
+                      </button>
+                      <button
+                        type="button"
+                        phx-click="double_bet"
+                        class="px-2 py-1 rounded-full bg-white border border-neutral-200 font-mono text-[10px] font-bold text-neutral-500 cursor-pointer"
+                      >
+                        2×
+                      </button>
                     </div>
-                    <div class="text-[12px] md:text-[14px] text-neutral-500 shrink-0"><%= @selected_token %></div>
+                    <div class="text-[12px] md:text-[14px] text-neutral-500 shrink-0">
+                      {@selected_token}
+                    </div>
                   </div>
                   <%!-- Quick presets — desktop only. On mobile the ½/2×/MAX controls
                        plus free-form input cover the same ground without a second row. --%>
@@ -449,10 +603,14 @@ defmodule BlocksterV2Web.CoinFlipLive do
                         phx-value-amount={preset}
                         class={[
                           "px-2.5 py-1 rounded-full border font-mono text-[10px] font-bold transition-all cursor-pointer",
-                          if(@bet_amount == preset, do: "bg-[#0a0a0a] border-[#0a0a0a] text-white", else: "bg-neutral-100 border-neutral-200 text-neutral-500 hover:border-[#141414] hover:text-[#141414] hover:bg-white")
+                          if(@bet_amount == preset,
+                            do: "bg-[#0a0a0a] border-[#0a0a0a] text-white",
+                            else:
+                              "bg-neutral-100 border-neutral-200 text-neutral-500 hover:border-[#141414] hover:text-[#141414] hover:bg-white"
+                          )
                         ]}
                       >
-                        <%= format_bet_amount(preset) %>
+                        {format_bet_amount(preset)}
                       </button>
                     <% end %>
                   </div>
@@ -463,17 +621,25 @@ defmodule BlocksterV2Web.CoinFlipLive do
                 <div class="px-4 pt-3 md:px-6 md:pt-5">
                   <div class="bg-[#22C55E]/[0.08] border border-[#22C55E]/25 rounded-xl md:rounded-2xl p-3 md:p-5 flex items-start justify-between gap-3">
                     <div class="min-w-0">
-                      <div class="text-[9px] md:text-[10px] font-bold uppercase tracking-[0.14em] text-[#15803d] mb-0.5 md:mb-1">Potential profit</div>
+                      <div class="text-[9px] md:text-[10px] font-bold uppercase tracking-[0.14em] text-[#15803d] mb-0.5 md:mb-1">
+                        Potential profit
+                      </div>
                       <div class="font-mono font-bold text-[22px] md:text-[32px] text-[#15803d] leading-none">
-                        + <%= format_balance(@bet_amount * get_multiplier(@selected_difficulty) - @bet_amount) %> <%= @selected_token %>
+                        + {format_balance(
+                          @bet_amount * get_multiplier(@selected_difficulty) - @bet_amount
+                        )} {@selected_token}
                       </div>
                       <div class="text-[10px] md:text-[11px] text-[#15803d]/70 mt-1 truncate">
-                        Payout: <%= format_balance(@bet_amount * get_multiplier(@selected_difficulty)) %> <%= @selected_token %>
+                        Payout: {format_balance(@bet_amount * get_multiplier(@selected_difficulty))} {@selected_token}
                       </div>
                     </div>
                     <div class="text-right shrink-0">
-                      <div class="text-[9px] md:text-[10px] font-bold uppercase tracking-[0.14em] text-neutral-500 mb-0.5 md:mb-1">Multiplier</div>
-                      <div class="font-mono font-bold text-[22px] md:text-[32px] text-[#141414] leading-none"><%= get_multiplier(@selected_difficulty) %>×</div>
+                      <div class="text-[9px] md:text-[10px] font-bold uppercase tracking-[0.14em] text-neutral-500 mb-0.5 md:mb-1">
+                        Multiplier
+                      </div>
+                      <div class="font-mono font-bold text-[22px] md:text-[32px] text-[#141414] leading-none">
+                        {get_multiplier(@selected_difficulty)}×
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -482,7 +648,7 @@ defmodule BlocksterV2Web.CoinFlipLive do
                 <%= if @error_message do %>
                   <div class="px-6 pt-4">
                     <div class="bg-red-50 border border-red-200 rounded-xl p-3 text-red-700 text-xs">
-                      <%= @error_message %>
+                      {@error_message}
                     </div>
                   </div>
                 <% end %>
@@ -491,8 +657,13 @@ defmodule BlocksterV2Web.CoinFlipLive do
                 <div class="px-4 pt-3 md:px-6 md:pt-6">
                   <div class="flex items-center justify-between mb-2 md:mb-3 gap-2">
                     <div class="text-[10px] font-bold uppercase tracking-[0.14em] text-neutral-500">
-                      Pick your side · <%= get_predictions_needed(@selected_difficulty) %> flip<%= if get_predictions_needed(@selected_difficulty) > 1, do: "s" %>
-                      <%= if get_mode(@selected_difficulty) == :win_one, do: " · win one", else: " · win all" %>
+                      Pick your side · {get_predictions_needed(@selected_difficulty)} flip{if get_predictions_needed(
+                                                                                                @selected_difficulty
+                                                                                              ) > 1,
+                                                                                              do: "s"}
+                      {if get_mode(@selected_difficulty) == :win_one,
+                        do: " · win one",
+                        else: " · win all"}
                     </div>
                     <div class="text-[10px] text-neutral-500 max-w-[220px] text-right hidden sm:block">
                       Click a coin to cycle through 🚀 / 💩. SHA256(server:client:nonce) determines every flip.
@@ -510,23 +681,34 @@ defmodule BlocksterV2Web.CoinFlipLive do
                           sizes.outer,
                           "rounded-full flex items-center justify-center transition-all cursor-pointer shadow-md",
                           case Enum.at(@predictions, i - 1) do
-                            :heads -> "casino-chip-heads"
-                            :tails -> "casino-chip-tails"
-                            _ -> "bg-white border-2 border-dashed border-neutral-300 hover:border-[#141414]"
+                            :heads ->
+                              "casino-chip-heads"
+
+                            :tails ->
+                              "casino-chip-tails"
+
+                            _ ->
+                              "bg-white border-2 border-dashed border-neutral-300 hover:border-[#141414]"
                           end
                         ]}
                       >
                         <%= case Enum.at(@predictions, i - 1) do %>
                           <% :heads -> %>
-                            <div class={[sizes.inner, "rounded-full bg-coin-heads flex items-center justify-center border-2 border-white shadow-inner"]}>
+                            <div class={[
+                              sizes.inner,
+                              "rounded-full bg-coin-heads flex items-center justify-center border-2 border-white shadow-inner"
+                            ]}>
                               <span class={sizes.emoji}>🚀</span>
                             </div>
                           <% :tails -> %>
-                            <div class={[sizes.inner, "rounded-full bg-gray-700 flex items-center justify-center border-2 border-white shadow-inner"]}>
+                            <div class={[
+                              sizes.inner,
+                              "rounded-full bg-gray-700 flex items-center justify-center border-2 border-white shadow-inner"
+                            ]}>
                               <span class={sizes.emoji}>💩</span>
                             </div>
                           <% _ -> %>
-                            <span class="text-neutral-400 text-sm font-bold"><%= i %></span>
+                            <span class="text-neutral-400 text-sm font-bold">{i}</span>
                         <% end %>
                       </button>
                     <% end %>
@@ -542,7 +724,9 @@ defmodule BlocksterV2Web.CoinFlipLive do
                     <summary class="cursor-pointer px-3 py-2 md:px-4 md:py-3 flex items-center justify-between list-none">
                       <div class="flex items-center gap-2">
                         <div class="w-1.5 h-1.5 rounded-full bg-[#22C55E] pulse-dot"></div>
-                        <span class="text-[11px] font-bold text-[#141414]">Provably fair · Server seed locked</span>
+                        <span class="text-[11px] font-bold text-[#141414]">
+                          Provably fair · Server seed locked
+                        </span>
                       </div>
                       <span class="text-[10px] text-neutral-500">View commitment hash</span>
                     </summary>
@@ -551,13 +735,21 @@ defmodule BlocksterV2Web.CoinFlipLive do
                         <span class="text-neutral-500 shrink-0">Server commitment</span>
                         <%= if @server_seed_hash do %>
                           <a
-                            href={BlocksterV2Web.Solscan.account_url("49up2uzZANpjTC3sgggbZazdHBii2vY9mVK3vk5dT2tm")}
+                            href={
+                              BlocksterV2Web.Solscan.account_url(
+                                "49up2uzZANpjTC3sgggbZazdHBii2vY9mVK3vk5dT2tm"
+                              )
+                            }
                             target="_blank"
                             rel="noopener"
                             class="text-[#141414] hover:text-[#7D00FF] hover:underline truncate"
                             title={"View Bankroll Program on Solscan · " <> @server_seed_hash}
                           >
-                            <%= String.slice(@server_seed_hash, 0, 8) %>…<%= String.slice(@server_seed_hash, -6, 6) %> ↗
+                            {String.slice(@server_seed_hash, 0, 8)}…{String.slice(
+                              @server_seed_hash,
+                              -6,
+                              6
+                            )} ↗
                           </a>
                           <button
                             type="button"
@@ -567,8 +759,18 @@ defmodule BlocksterV2Web.CoinFlipLive do
                             class="shrink-0 p-1 text-neutral-400 hover:text-neutral-600 hover:bg-neutral-100 rounded cursor-pointer transition-colors"
                             title="Copy hash"
                           >
-                            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                            <svg
+                              class="w-3.5 h-3.5"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                              stroke="currentColor"
+                            >
+                              <path
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                                stroke-width="2"
+                                d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+                              />
                             </svg>
                           </button>
                         <% else %>
@@ -577,9 +779,11 @@ defmodule BlocksterV2Web.CoinFlipLive do
                       </div>
                       <div class="flex items-center justify-between text-[10px] font-mono">
                         <span class="text-neutral-500">Game nonce</span>
-                        <span class="text-[#141414]">#<%= @nonce %></span>
+                        <span class="text-[#141414]">#{@nonce}</span>
                       </div>
-                      <div class="text-[10px] text-neutral-500 mt-2">After settlement the server seed is revealed so you can independently verify the result.</div>
+                      <div class="text-[10px] text-neutral-500 mt-2">
+                        After settlement the server seed is revealed so you can independently verify the result.
+                      </div>
                     </div>
                   </details>
                 </div>
@@ -593,18 +797,25 @@ defmodule BlocksterV2Web.CoinFlipLive do
                     class="w-full bg-[#0a0a0a] text-white py-3 md:py-4 rounded-2xl text-[14px] md:text-[15px] font-bold hover:bg-[#1a1a22] transition-colors flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <%= if Enum.all?(@predictions, &(!is_nil(&1))) do %>
-                      Place Bet · <%= format_bet_amount(@bet_amount) %> <%= @selected_token %>
-                      <svg class="w-4 h-4" viewBox="0 0 20 20" fill="none"><path d="M3 10h12m0 0l-4-4m4 4l-4 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                      Place Bet · {format_bet_amount(@bet_amount)} {@selected_token}
+                      <svg class="w-4 h-4" viewBox="0 0 20 20" fill="none">
+                        <path
+                          d="M3 10h12m0 0l-4-4m4 4l-4 4"
+                          stroke="currentColor"
+                          stroke-width="2"
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                        />
+                      </svg>
                     <% else %>
                       <%= if get_predictions_needed(@selected_difficulty) == 1 do %>
                         Make your prediction
                       <% else %>
-                        Select all <%= get_predictions_needed(@selected_difficulty) %> predictions
+                        Select all {get_predictions_needed(@selected_difficulty)} predictions
                       <% end %>
                     <% end %>
                   </button>
                 </div>
-
               <% end %>
 
               <%= if @game_state in [:awaiting_tx, :flipping, :showing_result] do %>
@@ -614,48 +825,97 @@ defmodule BlocksterV2Web.CoinFlipLive do
                 <div class="px-4 pt-3 pb-3 md:px-6 md:pt-5 md:pb-4 border-b border-neutral-100 flex items-center justify-between flex-wrap gap-2 md:gap-3">
                   <div class="flex items-center gap-2 md:gap-3">
                     <%= if @selected_token == "SOL" do %>
-                      <img src="https://ik.imagekit.io/blockster/solana-sol-logo.png" alt="SOL" class="w-7 h-7 md:w-9 md:h-9 rounded-full" />
+                      <img
+                        src="https://ik.imagekit.io/blockster/solana-sol-logo.png"
+                        alt="SOL"
+                        class="w-7 h-7 md:w-9 md:h-9 rounded-full"
+                      />
                     <% else %>
-                      <img src="https://ik.imagekit.io/blockster/blockster-icon.png" alt="BUX" class="w-7 h-7 md:w-9 md:h-9 rounded-full" />
+                      <img
+                        src="https://ik.imagekit.io/blockster/blockster-icon.png"
+                        alt="BUX"
+                        class="w-7 h-7 md:w-9 md:h-9 rounded-full"
+                      />
                     <% end %>
                     <div>
-                      <div class="text-[9px] md:text-[10px] uppercase tracking-[0.14em] text-neutral-500">Bet placed</div>
-                      <div class="font-mono font-bold text-[16px] md:text-[20px] text-[#141414] leading-none"><%= format_balance(@current_bet) %> <%= @selected_token %></div>
+                      <div class="text-[9px] md:text-[10px] uppercase tracking-[0.14em] text-neutral-500">
+                        Bet placed
+                      </div>
+                      <div class="font-mono font-bold text-[16px] md:text-[20px] text-[#141414] leading-none">
+                        {format_balance(@current_bet)} {@selected_token}
+                      </div>
                     </div>
                   </div>
                   <div class="flex items-center gap-2 md:gap-3 text-[10px] md:text-[11px]">
-                    <div class="text-neutral-500"><span class="hidden md:inline">Multiplier </span><span class="md:hidden">×</span><span class="font-mono font-bold text-[#141414]"><%= get_multiplier(@selected_difficulty) %>×</span></div>
-                    <div class="text-neutral-500"><span class="hidden md:inline">Potential </span><span class="font-mono font-bold text-[#22C55E]">+ <%= format_balance(@current_bet * get_multiplier(@selected_difficulty) - @current_bet) %> <%= @selected_token %></span></div>
+                    <div class="text-neutral-500">
+                      <span class="hidden md:inline">Multiplier </span><span class="md:hidden">×</span><span class="font-mono font-bold text-[#141414]"><%= get_multiplier(@selected_difficulty) %>×</span>
+                    </div>
+                    <div class="text-neutral-500">
+                      <span class="hidden md:inline">Potential </span><span class="font-mono font-bold text-[#22C55E]">+ <%= format_balance(@current_bet * get_multiplier(@selected_difficulty) - @current_bet) %> <%= @selected_token %></span>
+                    </div>
                   </div>
                 </div>
 
                 <%!-- Spinning coin area --%>
                 <div class="px-4 pt-6 pb-4 md:px-6 md:pt-12 md:pb-8 grid place-items-center relative">
                   <div class="absolute inset-0 pointer-events-none">
-                    <div class="absolute top-8 left-12 w-32 h-32 bg-[#facc15]/15 rounded-full blur-3xl"></div>
-                    <div class="absolute bottom-8 right-12 w-40 h-40 bg-[#7D00FF]/10 rounded-full blur-3xl"></div>
+                    <div class="absolute top-8 left-12 w-32 h-32 bg-[#facc15]/15 rounded-full blur-3xl">
+                    </div>
+                    <div class="absolute bottom-8 right-12 w-40 h-40 bg-[#7D00FF]/10 rounded-full blur-3xl">
+                    </div>
                   </div>
                   <% num_flips = get_predictions_needed(@selected_difficulty) %>
                   <% big_sizes = get_coin_size_classes(1) %>
                   <div class="relative">
                     <%= if @game_state == :awaiting_tx do %>
                       <div class="w-28 h-28 md:w-44 md:h-44 rounded-full grid place-items-center bg-purple-100 animate-pulse">
-                        <svg class="w-10 h-10 md:w-16 md:h-16 text-purple-600 animate-spin" fill="none" viewBox="0 0 24 24">
-                          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        <svg
+                          class="w-10 h-10 md:w-16 md:h-16 text-purple-600 animate-spin"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                        >
+                          <circle
+                            class="opacity-25"
+                            cx="12"
+                            cy="12"
+                            r="10"
+                            stroke="currentColor"
+                            stroke-width="4"
+                          >
+                          </circle>
+                          <path
+                            class="opacity-75"
+                            fill="currentColor"
+                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                          >
+                          </path>
                         </svg>
                       </div>
                     <% end %>
                     <%= if @game_state == :flipping do %>
-                      <div class={["coin-container", big_sizes.outer, "relative perspective-1000"]} id={"coin-flip-#{@flip_id}"} phx-hook="CoinFlip" data-flip-index={@current_flip}>
-                        <div class="coin w-full h-full absolute animate-flip-continuous" style="transform-style: preserve-3d;">
+                      <div
+                        class={["coin-container", big_sizes.outer, "relative perspective-1000"]}
+                        id={"coin-flip-#{@flip_id}"}
+                        phx-hook="CoinFlip"
+                        data-flip-index={@current_flip}
+                      >
+                        <div
+                          class="coin w-full h-full absolute animate-flip-continuous"
+                          style="transform-style: preserve-3d;"
+                        >
                           <div class="coin-face coin-heads absolute w-full h-full rounded-full flex items-center justify-center backface-hidden casino-chip-heads">
-                            <div class={[big_sizes.inner, "rounded-full bg-coin-heads flex items-center justify-center border-2 border-white shadow-inner"]}>
+                            <div class={[
+                              big_sizes.inner,
+                              "rounded-full bg-coin-heads flex items-center justify-center border-2 border-white shadow-inner"
+                            ]}>
                               <span class={big_sizes.emoji}>🚀</span>
                             </div>
                           </div>
                           <div class="coin-face coin-tails absolute w-full h-full rounded-full flex items-center justify-center backface-hidden rotate-y-180 casino-chip-tails">
-                            <div class={[big_sizes.inner, "rounded-full bg-gray-700 flex items-center justify-center border-2 border-white shadow-inner"]}>
+                            <div class={[
+                              big_sizes.inner,
+                              "rounded-full bg-gray-700 flex items-center justify-center border-2 border-white shadow-inner"
+                            ]}>
                               <span class={big_sizes.emoji}>💩</span>
                             </div>
                           </div>
@@ -665,68 +925,120 @@ defmodule BlocksterV2Web.CoinFlipLive do
                     <%= if @game_state == :showing_result do %>
                       <% result = Enum.at(@results, @current_flip - 1) %>
                       <div class={["coin-container", big_sizes.outer, "relative perspective-1000"]}>
-                        <div class="w-full h-full absolute" style={"transform-style: preserve-3d; transform: rotateY(#{if result == :heads, do: "0deg", else: "180deg"});"}>
+                        <div
+                          class="w-full h-full absolute"
+                          style={"transform-style: preserve-3d; transform: rotateY(#{if result == :heads, do: "0deg", else: "180deg"});"}
+                        >
                           <div class="coin-face coin-heads absolute w-full h-full rounded-full flex items-center justify-center backface-hidden casino-chip-heads">
-                            <div class={[big_sizes.inner, "rounded-full bg-coin-heads flex items-center justify-center border-2 border-white shadow-inner"]}>
+                            <div class={[
+                              big_sizes.inner,
+                              "rounded-full bg-coin-heads flex items-center justify-center border-2 border-white shadow-inner"
+                            ]}>
                               <span class={big_sizes.emoji}>🚀</span>
                             </div>
                           </div>
                           <div class="coin-face coin-tails absolute w-full h-full rounded-full flex items-center justify-center backface-hidden rotate-y-180 casino-chip-tails">
-                            <div class={[big_sizes.inner, "rounded-full bg-gray-700 flex items-center justify-center border-2 border-white shadow-inner"]}>
+                            <div class={[
+                              big_sizes.inner,
+                              "rounded-full bg-gray-700 flex items-center justify-center border-2 border-white shadow-inner"
+                            ]}>
                               <span class={big_sizes.emoji}>💩</span>
                             </div>
                           </div>
                         </div>
                       </div>
                     <% end %>
-                    <div class="absolute -inset-4 rounded-full border-2 border-dashed border-neutral-200 animate-spin" style="animation-duration: 8s;"></div>
+                    <div
+                      class="absolute -inset-4 rounded-full border-2 border-dashed border-neutral-200 animate-spin"
+                      style="animation-duration: 8s;"
+                    >
+                    </div>
                   </div>
                   <div class="mt-4 md:mt-8 text-center">
                     <div class="text-[10px] font-bold uppercase tracking-[0.16em] text-[#141414] flex items-center justify-center gap-2">
                       <span class="w-1.5 h-1.5 rounded-full bg-[#22C55E] pulse-dot"></span>
                       <%= cond do %>
-                        <% @game_state == :awaiting_tx -> %> Confirming transaction
-                        <% @game_state == :showing_result -> %> Flip <%= @current_flip %> of <%= num_flips %>
-                        <% true -> %> Flipping coin · <%= @current_flip %> of <%= num_flips %>
+                        <% @game_state == :awaiting_tx -> %>
+                          Confirming transaction
+                        <% @game_state == :showing_result -> %>
+                          Flip {@current_flip} of {num_flips}
+                        <% true -> %>
+                          Flipping coin · {@current_flip} of {num_flips}
                       <% end %>
                     </div>
-                    <div class="text-[11px] md:text-[12px] text-neutral-500 mt-1 md:mt-1.5">Confirming on Solana · ~0.4s</div>
+                    <div class="text-[11px] md:text-[12px] text-neutral-500 mt-1 md:mt-1.5">
+                      Confirming on Solana · ~0.4s
+                    </div>
                   </div>
                 </div>
 
                 <%!-- Predictions / results stacked --%>
                 <div class="px-4 pt-1 pb-4 md:px-6 md:pt-2 md:pb-6">
                   <div class="bg-neutral-50 border border-neutral-200 rounded-2xl p-3 space-y-3 md:p-5 md:space-y-5">
-                    <% mini_sizes = %{outer: "w-10 h-10 md:w-12 md:h-12", inner: "w-7 h-7 md:w-8 md:h-8", emoji: "text-base md:text-lg"} %>
+                    <% mini_sizes = %{
+                      outer: "w-10 h-10 md:w-12 md:h-12",
+                      inner: "w-7 h-7 md:w-8 md:h-8",
+                      emoji: "text-base md:text-lg"
+                    } %>
                     <div>
-                      <div class="text-[10px] font-bold uppercase tracking-[0.14em] text-neutral-500 mb-3 text-center">Your predictions</div>
+                      <div class="text-[10px] font-bold uppercase tracking-[0.14em] text-neutral-500 mb-3 text-center">
+                        Your predictions
+                      </div>
                       <div class="flex items-center justify-center gap-3 flex-wrap">
                         <%= for i <- 1..num_flips do %>
                           <% pred = Enum.at(@predictions, i - 1) %>
-                          <div class={[mini_sizes.outer, "rounded-full flex items-center justify-center shadow-md", if(pred == :heads, do: "casino-chip-heads", else: "casino-chip-tails")]}>
-                            <div class={[mini_sizes.inner, "rounded-full flex items-center justify-center border-2 border-white shadow-inner", if(pred == :heads, do: "bg-coin-heads", else: "bg-gray-700")]}>
-                              <span class={mini_sizes.emoji}><%= if pred == :heads, do: "🚀", else: "💩" %></span>
+                          <div class={[
+                            mini_sizes.outer,
+                            "rounded-full flex items-center justify-center shadow-md",
+                            if(pred == :heads, do: "casino-chip-heads", else: "casino-chip-tails")
+                          ]}>
+                            <div class={[
+                              mini_sizes.inner,
+                              "rounded-full flex items-center justify-center border-2 border-white shadow-inner",
+                              if(pred == :heads, do: "bg-coin-heads", else: "bg-gray-700")
+                            ]}>
+                              <span class={mini_sizes.emoji}>
+                                {if pred == :heads, do: "🚀", else: "💩"}
+                              </span>
                             </div>
                           </div>
                         <% end %>
                       </div>
                     </div>
                     <div>
-                      <div class="text-[10px] font-bold uppercase tracking-[0.14em] text-neutral-500 mb-3 text-center">Results</div>
+                      <div class="text-[10px] font-bold uppercase tracking-[0.14em] text-neutral-500 mb-3 text-center">
+                        Results
+                      </div>
                       <div class="flex items-center justify-center gap-3 flex-wrap">
                         <%= for i <- 1..num_flips do %>
                           <% result = Enum.at(@results, i - 1) %>
                           <% pred = Enum.at(@predictions, i - 1) %>
-                          <% revealed = (i < @current_flip) or (i == @current_flip and @game_state == :showing_result) %>
+                          <% revealed =
+                            i < @current_flip or
+                              (i == @current_flip and @game_state == :showing_result) %>
                           <%= if revealed and result != nil do %>
                             <% matched = result == pred %>
-                            <div class={[mini_sizes.outer, "rounded-full flex items-center justify-center shadow-md ring-2 ring-offset-2 ring-offset-neutral-50", if(result == :heads, do: "casino-chip-heads", else: "casino-chip-tails"), if(matched, do: "ring-[#22C55E]", else: "ring-[#EF4444]")]}>
-                              <div class={[mini_sizes.inner, "rounded-full flex items-center justify-center border-2 border-white shadow-inner", if(result == :heads, do: "bg-coin-heads", else: "bg-gray-700")]}>
-                                <span class={mini_sizes.emoji}><%= if result == :heads, do: "🚀", else: "💩" %></span>
+                            <div class={[
+                              mini_sizes.outer,
+                              "rounded-full flex items-center justify-center shadow-md ring-2 ring-offset-2 ring-offset-neutral-50",
+                              if(result == :heads, do: "casino-chip-heads", else: "casino-chip-tails"),
+                              if(matched, do: "ring-[#22C55E]", else: "ring-[#EF4444]")
+                            ]}>
+                              <div class={[
+                                mini_sizes.inner,
+                                "rounded-full flex items-center justify-center border-2 border-white shadow-inner",
+                                if(result == :heads, do: "bg-coin-heads", else: "bg-gray-700")
+                              ]}>
+                                <span class={mini_sizes.emoji}>
+                                  {if result == :heads, do: "🚀", else: "💩"}
+                                </span>
                               </div>
                             </div>
                           <% else %>
-                            <div class={[mini_sizes.outer, "rounded-full flex items-center justify-center bg-white border-2 border-dashed border-neutral-300"]}>
+                            <div class={[
+                              mini_sizes.outer,
+                              "rounded-full flex items-center justify-center bg-white border-2 border-dashed border-neutral-300"
+                            ]}>
                               <span class="text-neutral-400 text-sm">?</span>
                             </div>
                           <% end %>
@@ -743,7 +1055,13 @@ defmodule BlocksterV2Web.CoinFlipLive do
                       <span class="w-1 h-1 rounded-full bg-[#22C55E]"></span>
                       <span class="text-neutral-500">Tx submitted </span>
                       <%= if @bet_sig do %>
-                        <a href={BlocksterV2Web.Solscan.tx_url(@bet_sig)} target="_blank" class="text-[#141414] hover:underline">· <%= String.slice(@bet_sig, 0, 4) %>…<%= String.slice(@bet_sig, -4, 4) %> ↗</a>
+                        <a
+                          href={BlocksterV2Web.Solscan.tx_url(@bet_sig)}
+                          target="_blank"
+                          class="text-[#141414] hover:underline"
+                        >
+                          · {String.slice(@bet_sig, 0, 4)}…{String.slice(@bet_sig, -4, 4)} ↗
+                        </a>
                       <% end %>
                     </div>
                     <div class="flex items-center gap-1.5">
@@ -754,7 +1072,6 @@ defmodule BlocksterV2Web.CoinFlipLive do
                     </div>
                   </div>
                 </div>
-
               <% end %>
 
               <%= if @game_state == :result do %>
@@ -763,7 +1080,12 @@ defmodule BlocksterV2Web.CoinFlipLive do
                 <%= if @won and length(@confetti_pieces) > 0 do %>
                   <div class="confetti-fullpage fixed inset-0 pointer-events-none z-50 overflow-hidden">
                     <%= for piece <- @confetti_pieces do %>
-                      <div class="confetti-emoji" style={"--x-start: #{piece.x_start}%; --x-end: #{piece.x_end}%; --x-drift: #{piece.x_drift}vw; --rotation: #{piece.rotation}deg; --delay: #{piece.delay}ms; --duration: #{piece.duration}ms;"}><%= piece.emoji %></div>
+                      <div
+                        class="confetti-emoji"
+                        style={"--x-start: #{piece.x_start}%; --x-end: #{piece.x_end}%; --x-drift: #{piece.x_drift}vw; --rotation: #{piece.rotation}deg; --delay: #{piece.delay}ms; --duration: #{piece.duration}ms;"}
+                      >
+                        {piece.emoji}
+                      </div>
                     <% end %>
                   </div>
                 <% end %>
@@ -777,53 +1099,98 @@ defmodule BlocksterV2Web.CoinFlipLive do
                        actually landed in their wallet. Losses are unchanged —
                        the balance already moved at bet placement. --%>
                   <div class="bg-gradient-to-r from-[#22C55E]/12 via-[#CAFC00]/15 to-[#22C55E]/12 border-b border-[#22C55E]/25 px-4 py-4 md:px-6 md:py-6 text-center">
-                    <div class="text-[9px] md:text-[10px] font-bold uppercase tracking-[0.18em] text-[#15803d] mb-1 md:mb-2">You Won</div>
+                    <div class="text-[9px] md:text-[10px] font-bold uppercase tracking-[0.18em] text-[#15803d] mb-1 md:mb-2">
+                      You Won
+                    </div>
                     <%= if @settlement_status == :settled do %>
                       <div class="font-mono font-bold text-[36px] md:text-[64px] text-[#15803d] leading-none tracking-tight">
-                        + <%= format_balance(@payout - @placed_stake) %> <%= @selected_token %>
+                        + {format_balance(@payout - @placed_stake)} {@selected_token}
                       </div>
                       <div class="text-[11px] md:text-[12px] text-[#15803d]/70 mt-1 md:mt-2">
-                        Total payout <%= format_balance(@payout) %> <%= @selected_token %> · <%= get_multiplier(@selected_difficulty) %>× multiplier
+                        Total payout {format_balance(@payout)} {@selected_token} · {get_multiplier(
+                          @selected_difficulty
+                        )}× multiplier
                       </div>
                     <% else %>
                       <div class="font-mono font-bold text-[36px] md:text-[64px] text-[#15803d]/40 leading-none tracking-tight">
-                        + <%= format_balance(@payout - @placed_stake) %> <%= @selected_token %>
+                        + {format_balance(@payout - @placed_stake)} {@selected_token}
                       </div>
                       <div class="inline-flex items-center gap-2 mt-1 md:mt-2 text-[10px] md:text-[11px] uppercase tracking-[0.14em] text-[#15803d]/70 font-bold">
-                        <svg class="animate-spin w-3 h-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/></svg>
+                        <svg
+                          class="animate-spin w-3 h-3"
+                          xmlns="http://www.w3.org/2000/svg"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                        >
+                          <circle
+                            class="opacity-25"
+                            cx="12"
+                            cy="12"
+                            r="10"
+                            stroke="currentColor"
+                            stroke-width="4"
+                          /><path
+                            class="opacity-75"
+                            fill="currentColor"
+                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                          />
+                        </svg>
                         Confirming on chain…
                       </div>
                     <% end %>
                   </div>
                 <% else %>
                   <div class="bg-gradient-to-r from-[#EF4444]/8 to-[#EF4444]/8 border-b border-[#EF4444]/20 px-4 py-4 md:px-6 md:py-6 text-center">
-                    <div class="text-[9px] md:text-[10px] font-bold uppercase tracking-[0.18em] text-[#7f1d1d] mb-1 md:mb-2">No win this time</div>
-                    <div class="font-mono font-bold text-[32px] md:text-[48px] text-[#7f1d1d] leading-none tracking-tight">
-                      − <%= format_balance(@placed_stake) %> <%= @selected_token %>
+                    <div class="text-[9px] md:text-[10px] font-bold uppercase tracking-[0.18em] text-[#7f1d1d] mb-1 md:mb-2">
+                      No win this time
                     </div>
-                    <div class="text-[11px] md:text-[12px] text-[#7f1d1d]/70 mt-1 md:mt-2">Stake returned to bankroll</div>
+                    <div class="font-mono font-bold text-[32px] md:text-[48px] text-[#7f1d1d] leading-none tracking-tight">
+                      − {format_balance(@placed_stake)} {@selected_token}
+                    </div>
+                    <div class="text-[11px] md:text-[12px] text-[#7f1d1d]/70 mt-1 md:mt-2">
+                      Stake returned to bankroll
+                    </div>
                   </div>
                 <% end %>
 
                 <%!-- Predictions vs Results grid (large) --%>
                 <% num_flips = get_predictions_needed(@selected_difficulty) %>
-                <% big_sizes = %{outer: "w-11 h-11 sm:w-16 sm:h-16", inner: "w-8 h-8 sm:w-12 sm:h-12", emoji: "text-base sm:text-2xl"} %>
+                <% big_sizes = %{
+                  outer: "w-11 h-11 sm:w-16 sm:h-16",
+                  inner: "w-8 h-8 sm:w-12 sm:h-12",
+                  emoji: "text-base sm:text-2xl"
+                } %>
                 <div class="px-4 pt-3 pb-3 space-y-3 md:px-6 md:pt-8 md:pb-6 md:space-y-6">
                   <div>
-                    <div class="text-[10px] font-bold uppercase tracking-[0.14em] text-neutral-500 mb-3 text-center">Your predictions</div>
+                    <div class="text-[10px] font-bold uppercase tracking-[0.14em] text-neutral-500 mb-3 text-center">
+                      Your predictions
+                    </div>
                     <div class="flex items-center justify-center gap-3 flex-wrap">
                       <%= for i <- 1..num_flips do %>
                         <% pred = Enum.at(@predictions, i - 1) %>
-                        <div class={[big_sizes.outer, "rounded-full flex items-center justify-center shadow-md", if(pred == :heads, do: "casino-chip-heads", else: "casino-chip-tails")]}>
-                          <div class={[big_sizes.inner, "rounded-full flex items-center justify-center border-2 border-white shadow-inner", if(pred == :heads, do: "bg-coin-heads", else: "bg-gray-700")]}>
-                            <span class={big_sizes.emoji}><%= if pred == :heads, do: "🚀", else: "💩" %></span>
+                        <div class={[
+                          big_sizes.outer,
+                          "rounded-full flex items-center justify-center shadow-md",
+                          if(pred == :heads, do: "casino-chip-heads", else: "casino-chip-tails")
+                        ]}>
+                          <div class={[
+                            big_sizes.inner,
+                            "rounded-full flex items-center justify-center border-2 border-white shadow-inner",
+                            if(pred == :heads, do: "bg-coin-heads", else: "bg-gray-700")
+                          ]}>
+                            <span class={big_sizes.emoji}>
+                              {if pred == :heads, do: "🚀", else: "💩"}
+                            </span>
                           </div>
                         </div>
                       <% end %>
                     </div>
                   </div>
                   <div>
-                    <div class={["text-[10px] font-bold uppercase tracking-[0.14em] mb-3 text-center", if(@won, do: "text-[#15803d]", else: "text-[#7f1d1d]")]}>
+                    <div class={[
+                      "text-[10px] font-bold uppercase tracking-[0.14em] mb-3 text-center",
+                      if(@won, do: "text-[#15803d]", else: "text-[#7f1d1d]")
+                    ]}>
                       Results
                     </div>
                     <div class="flex items-center justify-center gap-3 flex-wrap">
@@ -837,18 +1204,35 @@ defmodule BlocksterV2Web.CoinFlipLive do
                              "?" so the UI never reveals an un-flipped coin. --%>
                         <%= cond do %>
                           <% i > @current_flip -> %>
-                            <div class={[big_sizes.outer, "rounded-full flex items-center justify-center bg-neutral-100 border border-dashed border-neutral-300"]}>
+                            <div class={[
+                              big_sizes.outer,
+                              "rounded-full flex items-center justify-center bg-neutral-100 border border-dashed border-neutral-300"
+                            ]}>
                               <span class="text-neutral-400 font-mono font-bold text-xl">?</span>
                             </div>
                           <% result -> %>
                             <% matched = result == pred %>
-                            <div class={[big_sizes.outer, "rounded-full flex items-center justify-center shadow-md ring-2 ring-offset-2 ring-offset-white", if(result == :heads, do: "casino-chip-heads", else: "casino-chip-tails"), if(matched, do: "ring-[#22C55E]", else: "ring-[#EF4444]")]}>
-                              <div class={[big_sizes.inner, "rounded-full flex items-center justify-center border-2 border-white shadow-inner", if(result == :heads, do: "bg-coin-heads", else: "bg-gray-700")]}>
-                                <span class={big_sizes.emoji}><%= if result == :heads, do: "🚀", else: "💩" %></span>
+                            <div class={[
+                              big_sizes.outer,
+                              "rounded-full flex items-center justify-center shadow-md ring-2 ring-offset-2 ring-offset-white",
+                              if(result == :heads, do: "casino-chip-heads", else: "casino-chip-tails"),
+                              if(matched, do: "ring-[#22C55E]", else: "ring-[#EF4444]")
+                            ]}>
+                              <div class={[
+                                big_sizes.inner,
+                                "rounded-full flex items-center justify-center border-2 border-white shadow-inner",
+                                if(result == :heads, do: "bg-coin-heads", else: "bg-gray-700")
+                              ]}>
+                                <span class={big_sizes.emoji}>
+                                  {if result == :heads, do: "🚀", else: "💩"}
+                                </span>
                               </div>
                             </div>
                           <% true -> %>
-                            <div class={[big_sizes.outer, "rounded-full flex items-center justify-center bg-neutral-100"]}>
+                            <div class={[
+                              big_sizes.outer,
+                              "rounded-full flex items-center justify-center bg-neutral-100"
+                            ]}>
                               <span class="text-neutral-400">-</span>
                             </div>
                         <% end %>
@@ -861,59 +1245,163 @@ defmodule BlocksterV2Web.CoinFlipLive do
                 <div class="px-4 pb-4 md:px-6 md:pb-6">
                   <div class={[
                     "rounded-2xl p-3 md:p-5 flex flex-col md:flex-row md:items-center md:justify-between gap-3 md:gap-3",
-                    if(@won, do: "bg-[#22C55E]/[0.08] border border-[#22C55E]/25", else: "bg-neutral-50 border border-neutral-200")
+                    if(@won,
+                      do: "bg-[#22C55E]/[0.08] border border-[#22C55E]/25",
+                      else: "bg-neutral-50 border border-neutral-200"
+                    )
                   ]}>
                     <div class="flex items-center gap-3 min-w-0">
                       <%= case @settlement_status do %>
                         <% :settled -> %>
                           <div class="w-9 h-9 rounded-full bg-[#22C55E] grid place-items-center">
-                            <svg class="w-5 h-5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                            <svg
+                              class="w-5 h-5 text-white"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              stroke-width="2.5"
+                              stroke-linecap="round"
+                              stroke-linejoin="round"
+                            >
+                              <polyline points="20 6 9 17 4 12" />
+                            </svg>
                           </div>
                           <div>
-                            <div class={["text-[10px] font-bold uppercase tracking-[0.14em] mb-0.5", if(@won, do: "text-[#15803d]", else: "text-neutral-500")]}>Settled on chain</div>
+                            <div class={[
+                              "text-[10px] font-bold uppercase tracking-[0.14em] mb-0.5",
+                              if(@won, do: "text-[#15803d]", else: "text-neutral-500")
+                            ]}>
+                              Settled on chain
+                            </div>
                             <%= if @settlement_sig do %>
-                              <a href={BlocksterV2Web.Solscan.tx_url(@settlement_sig)} target="_blank" class={["text-[12px] font-mono hover:underline", if(@won, do: "text-[#15803d]", else: "text-[#141414]")]}>
-                                <%= String.slice(@settlement_sig, 0, 4) %>…<%= String.slice(@settlement_sig, -4, 4) %> ↗
+                              <a
+                                href={BlocksterV2Web.Solscan.tx_url(@settlement_sig)}
+                                target="_blank"
+                                class={[
+                                  "text-[12px] font-mono hover:underline",
+                                  if(@won, do: "text-[#15803d]", else: "text-[#141414]")
+                                ]}
+                              >
+                                {String.slice(@settlement_sig, 0, 4)}…{String.slice(
+                                  @settlement_sig,
+                                  -4,
+                                  4
+                                )} ↗
                               </a>
                             <% end %>
                           </div>
                         <% :pending -> %>
                           <div class="w-9 h-9 rounded-full bg-neutral-200 grid place-items-center">
-                            <svg class="w-5 h-5 text-neutral-600 animate-spin" fill="none" viewBox="0 0 24 24">
-                              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                            <svg
+                              class="w-5 h-5 text-neutral-600 animate-spin"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                            >
+                              <circle
+                                class="opacity-25"
+                                cx="12"
+                                cy="12"
+                                r="10"
+                                stroke="currentColor"
+                                stroke-width="4"
+                              >
+                              </circle>
+                              <path
+                                class="opacity-75"
+                                fill="currentColor"
+                                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                              >
+                              </path>
                             </svg>
                           </div>
                           <div>
-                            <div class="text-[10px] font-bold uppercase tracking-[0.14em] text-neutral-500 mb-0.5">Settling on chain</div>
-                            <div class="text-[11px] text-neutral-500">This usually takes under a second</div>
+                            <div class="text-[10px] font-bold uppercase tracking-[0.14em] text-neutral-500 mb-0.5">
+                              Settling on chain
+                            </div>
+                            <div class="text-[11px] text-neutral-500">
+                              This usually takes under a second
+                            </div>
                           </div>
                         <% :timeout -> %>
                           <div class="w-9 h-9 rounded-full bg-amber-100 grid place-items-center">
-                            <svg class="w-5 h-5 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-                          </div>
-                          <div>
-                            <div class="text-[10px] font-bold uppercase tracking-[0.14em] text-amber-700 mb-0.5">Settlement still pending</div>
-                            <div class="text-[11px] text-amber-700/70">Check Recent games — the background settler is retrying</div>
-                          </div>
-                        <% :failed -> %>
-                          <div class="w-9 h-9 rounded-full bg-amber-100 grid place-items-center">
-                            <svg class="w-5 h-5 text-amber-600 animate-spin" fill="none" viewBox="0 0 24 24">
-                              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                            <svg
+                              class="w-5 h-5 text-amber-600"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                              stroke="currentColor"
+                              stroke-width="2"
+                              stroke-linecap="round"
+                              stroke-linejoin="round"
+                            >
+                              <circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" />
                             </svg>
                           </div>
                           <div>
-                            <div class="text-[10px] font-bold uppercase tracking-[0.14em] text-amber-700 mb-0.5">Retrying settlement</div>
-                            <div class="text-[11px] text-amber-700/70">Auto-retry every 60s · reclaim available after 5 min</div>
+                            <div class="text-[10px] font-bold uppercase tracking-[0.14em] text-amber-700 mb-0.5">
+                              Settlement still pending
+                            </div>
+                            <div class="text-[11px] text-amber-700/70">
+                              Check Recent games — the background settler is retrying
+                            </div>
+                          </div>
+                        <% :failed -> %>
+                          <div class="w-9 h-9 rounded-full bg-amber-100 grid place-items-center">
+                            <svg
+                              class="w-5 h-5 text-amber-600 animate-spin"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                            >
+                              <circle
+                                class="opacity-25"
+                                cx="12"
+                                cy="12"
+                                r="10"
+                                stroke="currentColor"
+                                stroke-width="4"
+                              >
+                              </circle>
+                              <path
+                                class="opacity-75"
+                                fill="currentColor"
+                                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                              >
+                              </path>
+                            </svg>
+                          </div>
+                          <div>
+                            <div class="text-[10px] font-bold uppercase tracking-[0.14em] text-amber-700 mb-0.5">
+                              Retrying settlement
+                            </div>
+                            <div class="text-[11px] text-amber-700/70">
+                              Auto-retry every 60s · reclaim available after 5 min
+                            </div>
                           </div>
                         <% :manual_review -> %>
                           <div class="w-9 h-9 rounded-full bg-red-100 grid place-items-center">
-                            <svg class="w-5 h-5 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                            <svg
+                              class="w-5 h-5 text-red-600"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                              stroke="currentColor"
+                              stroke-width="2"
+                              stroke-linecap="round"
+                              stroke-linejoin="round"
+                            >
+                              <circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line
+                                x1="12"
+                                y1="16"
+                                x2="12.01"
+                                y2="16"
+                              />
+                            </svg>
                           </div>
                           <div>
-                            <div class="text-[10px] font-bold uppercase tracking-[0.14em] text-red-700 mb-0.5">Needs manual review</div>
-                            <div class="text-[11px] text-red-700/70">This bet hit an on-chain commitment mismatch — contact support or use Reclaim after 5 min</div>
+                            <div class="text-[10px] font-bold uppercase tracking-[0.14em] text-red-700 mb-0.5">
+                              Needs manual review
+                            </div>
+                            <div class="text-[11px] text-red-700/70">
+                              This bet hit an on-chain commitment mismatch — contact support or use Reclaim after 5 min
+                            </div>
                           </div>
                         <% _ -> %>
                       <% end %>
@@ -923,65 +1411,104 @@ defmodule BlocksterV2Web.CoinFlipLive do
                          content-width pills. --%>
                     <div class="flex items-center gap-2 w-full md:w-auto shrink-0">
                       <%= if @onchain_game_id do %>
-                        <button type="button" phx-click="show_fairness_modal" phx-value-game-id={@onchain_game_id} class={[
-                          "flex-1 md:flex-initial px-3 md:px-4 py-2 md:py-2.5 rounded-full text-[11px] md:text-[12px] font-bold transition-colors cursor-pointer border whitespace-nowrap",
-                          if(@won, do: "bg-white border-[#22C55E]/30 text-[#15803d] hover:border-[#15803d]", else: "bg-white border-neutral-300 text-neutral-700 hover:border-[#141414]")
-                        ]}>
+                        <button
+                          type="button"
+                          phx-click="show_fairness_modal"
+                          phx-value-game-id={@onchain_game_id}
+                          class={[
+                            "flex-1 md:flex-initial px-3 md:px-4 py-2 md:py-2.5 rounded-full text-[11px] md:text-[12px] font-bold transition-colors cursor-pointer border whitespace-nowrap",
+                            if(@won,
+                              do:
+                                "bg-white border-[#22C55E]/30 text-[#15803d] hover:border-[#15803d]",
+                              else:
+                                "bg-white border-neutral-300 text-neutral-700 hover:border-[#141414]"
+                            )
+                          ]}
+                        >
                           Verify fairness
                         </button>
                       <% end %>
                       <%= if @settlement_status in [:settled, :failed, :timeout, :manual_review] do %>
-                        <button type="button" phx-click="reset_game" class="flex-1 md:flex-initial bg-[#0a0a0a] text-white px-3 md:px-5 py-2 md:py-2.5 rounded-full text-[11px] md:text-[12px] font-bold hover:bg-[#1a1a22] transition-colors flex items-center justify-center gap-1.5 md:gap-2 cursor-pointer whitespace-nowrap">
-                          <%= cond do
+                        <button
+                          type="button"
+                          phx-click="reset_game"
+                          class="flex-1 md:flex-initial bg-[#0a0a0a] text-white px-3 md:px-5 py-2 md:py-2.5 rounded-full text-[11px] md:text-[12px] font-bold hover:bg-[#1a1a22] transition-colors flex items-center justify-center gap-1.5 md:gap-2 cursor-pointer whitespace-nowrap"
+                        >
+                          {cond do
                             @settlement_status == :settled and @won -> "Play again"
                             @settlement_status == :settled -> "Try again"
                             true -> "Place another bet"
-                          end %>
-                          <svg class="w-3 h-3 md:w-3.5 md:h-3.5" viewBox="0 0 20 20" fill="none"><path d="M3 10h12m0 0l-4-4m4 4l-4 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                          end}
+                          <svg class="w-3 h-3 md:w-3.5 md:h-3.5" viewBox="0 0 20 20" fill="none">
+                            <path
+                              d="M3 10h12m0 0l-4-4m4 4l-4 4"
+                              stroke="currentColor"
+                              stroke-width="2"
+                              stroke-linecap="round"
+                              stroke-linejoin="round"
+                            />
+                          </svg>
                         </button>
                       <% end %>
                     </div>
                   </div>
                 </div>
               <% end %>
-
             </div>
 
             <%!-- ─── SIDEBAR (col-span-4) ─── --%>
             <div class="col-span-12 lg:col-span-4 space-y-4">
-
               <%= if @game_state == :idle do %>
                 <%!-- Your stats card --%>
                 <div class="bg-white rounded-2xl border border-neutral-200/70 shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-5">
-                  <div class="text-[10px] font-bold uppercase tracking-[0.14em] text-neutral-500 mb-4">Your stats</div>
+                  <div class="text-[10px] font-bold uppercase tracking-[0.14em] text-neutral-500 mb-4">
+                    Your stats
+                  </div>
                   <%= if @user_stats do %>
                     <div class="grid grid-cols-2 gap-3">
                       <div>
-                        <div class="font-mono font-bold text-[20px] text-[#141414] leading-none"><%= @user_stats.total_games %></div>
-                        <div class="text-[10px] text-neutral-500 mt-1 uppercase tracking-wider">Bets placed</div>
+                        <div class="font-mono font-bold text-[20px] text-[#141414] leading-none">
+                          {@user_stats.total_games}
+                        </div>
+                        <div class="text-[10px] text-neutral-500 mt-1 uppercase tracking-wider">
+                          Bets placed
+                        </div>
                       </div>
                       <div>
                         <div class="font-mono font-bold text-[20px] text-[#141414] leading-none">
-                          <%= @user_stats.total_wins %><span class="text-[12px] text-neutral-400">/<%= @user_stats.total_games %></span>
+                          {@user_stats.total_wins}<span class="text-[12px] text-neutral-400">/<%= @user_stats.total_games %></span>
                         </div>
                         <div class="text-[10px] text-neutral-500 mt-1 uppercase tracking-wider">
-                          Win rate · <%= if @user_stats.total_games > 0, do: "#{round(@user_stats.total_wins / @user_stats.total_games * 100)}%", else: "—" %>
+                          Win rate · {if @user_stats.total_games > 0,
+                            do: "#{round(@user_stats.total_wins / @user_stats.total_games * 100)}%",
+                            else: "—"}
                         </div>
                       </div>
                       <div>
                         <% net = @user_stats.total_won - @user_stats.total_lost %>
-                        <div class={["font-mono font-bold text-[20px] leading-none", if(net >= 0, do: "text-[#22C55E]", else: "text-[#EF4444]")]}>
-                          <%= if net >= 0, do: "+ ", else: "− " %><%= format_balance(abs(net)) %>
+                        <div class={[
+                          "font-mono font-bold text-[20px] leading-none",
+                          if(net >= 0, do: "text-[#22C55E]", else: "text-[#EF4444]")
+                        ]}>
+                          {if net >= 0, do: "+ ", else: "− "}{format_balance(abs(net))}
                         </div>
-                        <div class="text-[10px] text-neutral-500 mt-1 uppercase tracking-wider">Net <%= @selected_token %></div>
+                        <div class="text-[10px] text-neutral-500 mt-1 uppercase tracking-wider">
+                          Net {@selected_token}
+                        </div>
                       </div>
                       <div>
-                        <div class="font-mono font-bold text-[20px] text-[#141414] leading-none"><%= format_balance(@user_stats.biggest_win) %></div>
-                        <div class="text-[10px] text-neutral-500 mt-1 uppercase tracking-wider">Best win</div>
+                        <div class="font-mono font-bold text-[20px] text-[#141414] leading-none">
+                          {format_balance(@user_stats.biggest_win)}
+                        </div>
+                        <div class="text-[10px] text-neutral-500 mt-1 uppercase tracking-wider">
+                          Best win
+                        </div>
                       </div>
                     </div>
                   <% else %>
-                    <div class="text-[11px] text-neutral-500">No stats yet. Place your first bet to start tracking.</div>
+                    <div class="text-[11px] text-neutral-500">
+                      No stats yet. Place your first bet to start tracking.
+                    </div>
                   <% end %>
                 </div>
 
@@ -990,80 +1517,114 @@ defmodule BlocksterV2Web.CoinFlipLive do
                      the fold still shows its own empty-state so new users
                      aren't greeted with two parallel empty panels. --%>
                 <%= unless Enum.empty?(@recent_games) do %>
-                <div class="bg-white rounded-2xl border border-neutral-200/70 shadow-[0_1px_3px_rgba(0,0,0,0.04)] overflow-hidden">
-                  <div class="px-5 py-3 border-b border-neutral-100 flex items-center justify-between">
-                    <div class="flex items-center gap-1.5">
-                      <span class="w-1.5 h-1.5 rounded-full bg-[#22C55E] pulse-dot"></span>
-                      <span class="text-[10px] font-bold uppercase tracking-[0.14em] text-neutral-500">Your recent games</span>
-                    </div>
-                    <span class="text-[9px] font-mono text-neutral-400">last 5</span>
-                  </div>
-                  <div class="divide-y divide-neutral-100">
-                    <%= for game <- Enum.take(@recent_games, 5) do %>
-                      <div class="px-5 py-3 flex items-center justify-between">
-                        <div class="flex items-center gap-2">
-                          <img src={if game.vault_type in ["sol", :sol], do: "https://ik.imagekit.io/blockster/solana-sol-logo.png", else: "https://ik.imagekit.io/blockster/blockster-icon.png"} class="w-5 h-5 rounded-full" />
-                          <span class="text-[11px] font-mono text-neutral-500">
-                            <%= format_balance(game.bet_amount) %> <%= String.upcase(to_string(game.vault_type)) %>
-                          </span>
-                        </div>
-                        <div class="text-right">
-                          <div class={["font-mono font-bold text-[12px]", if(game.won, do: "text-[#22C55E]", else: "text-[#EF4444]")]}>
-                            <%= if game.won, do: "+ #{format_balance(game.payout - game.bet_amount)}", else: "− #{format_balance(game.bet_amount)}" %>
-                          </div>
-                          <div class="text-[9px] font-mono text-neutral-400"><%= game.multiplier %>×</div>
-                        </div>
+                  <div class="bg-white rounded-2xl border border-neutral-200/70 shadow-[0_1px_3px_rgba(0,0,0,0.04)] overflow-hidden">
+                    <div class="px-5 py-3 border-b border-neutral-100 flex items-center justify-between">
+                      <div class="flex items-center gap-1.5">
+                        <span class="w-1.5 h-1.5 rounded-full bg-[#22C55E] pulse-dot"></span>
+                        <span class="text-[10px] font-bold uppercase tracking-[0.14em] text-neutral-500">
+                          Your recent games
+                        </span>
                       </div>
-                    <% end %>
+                      <span class="text-[9px] font-mono text-neutral-400">last 5</span>
+                    </div>
+                    <div class="divide-y divide-neutral-100">
+                      <%= for game <- Enum.take(@recent_games, 5) do %>
+                        <div class="px-5 py-3 flex items-center justify-between">
+                          <div class="flex items-center gap-2">
+                            <img
+                              src={
+                                if game.vault_type in ["sol", :sol],
+                                  do: "https://ik.imagekit.io/blockster/solana-sol-logo.png",
+                                  else: "https://ik.imagekit.io/blockster/blockster-icon.png"
+                              }
+                              class="w-5 h-5 rounded-full"
+                            />
+                            <span class="text-[11px] font-mono text-neutral-500">
+                              {format_balance(game.bet_amount)} {String.upcase(
+                                to_string(game.vault_type)
+                              )}
+                            </span>
+                          </div>
+                          <div class="text-right">
+                            <div class={[
+                              "font-mono font-bold text-[12px]",
+                              if(game.won, do: "text-[#22C55E]", else: "text-[#EF4444]")
+                            ]}>
+                              {if game.won,
+                                do: "+ #{format_balance(game.payout - game.bet_amount)}",
+                                else: "− #{format_balance(game.bet_amount)}"}
+                            </div>
+                            <div class="text-[9px] font-mono text-neutral-400">
+                              {game.multiplier}×
+                            </div>
+                          </div>
+                        </div>
+                      <% end %>
+                    </div>
                   </div>
-                </div>
                 <% end %>
 
                 <%!-- Two modes legend — desktop only; mobile users see the
                      mode label on each difficulty tile. --%>
                 <div class="hidden lg:block bg-neutral-50 border border-neutral-200/70 rounded-2xl p-5">
-                  <div class="text-[10px] font-bold uppercase tracking-[0.14em] text-neutral-500 mb-3">Two modes</div>
+                  <div class="text-[10px] font-bold uppercase tracking-[0.14em] text-neutral-500 mb-3">
+                    Two modes
+                  </div>
                   <div class="space-y-3 text-[11px] text-neutral-600 leading-snug">
                     <div>
                       <div class="text-[#141414] font-bold text-[12px] mb-0.5">Win One</div>
-                      <div>Win if <strong class="text-[#141414]">any one</strong> of N flips matches your prediction. Lower payout, much higher odds.</div>
+                      <div>
+                        Win if <strong class="text-[#141414]">any one</strong>
+                        of N flips matches your prediction. Lower payout, much higher odds.
+                      </div>
                     </div>
                     <div>
                       <div class="text-[#141414] font-bold text-[12px] mb-0.5">Win All</div>
-                      <div>Win only if <strong class="text-[#141414]">all N flips</strong> match. Higher payout, lower odds. 31.68× is a 5-in-a-row streak.</div>
+                      <div>
+                        Win only if <strong class="text-[#141414]">all N flips</strong>
+                        match. Higher payout, lower odds. 31.68× is a 5-in-a-row streak.
+                      </div>
                     </div>
                   </div>
                 </div>
-
               <% end %>
 
               <%= if @game_state in [:awaiting_tx, :flipping, :showing_result] do %>
                 <%!-- This bet card --%>
                 <div class="bg-white rounded-2xl border border-neutral-200/70 shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-5">
-                  <div class="text-[10px] font-bold uppercase tracking-[0.14em] text-neutral-500 mb-4">This bet</div>
+                  <div class="text-[10px] font-bold uppercase tracking-[0.14em] text-neutral-500 mb-4">
+                    This bet
+                  </div>
                   <div class="space-y-3 text-[12px]">
                     <div class="flex items-center justify-between">
                       <span class="text-neutral-500">Token</span>
-                      <span class="text-[#141414] font-bold"><%= @selected_token %></span>
+                      <span class="text-[#141414] font-bold">{@selected_token}</span>
                     </div>
                     <div class="flex items-center justify-between">
                       <span class="text-neutral-500">Stake</span>
-                      <span class="font-mono font-bold text-[#141414]"><%= format_balance(@current_bet) %></span>
+                      <span class="font-mono font-bold text-[#141414]">
+                        {format_balance(@current_bet)}
+                      </span>
                     </div>
                     <div class="flex items-center justify-between">
                       <span class="text-neutral-500">Difficulty</span>
                       <span class="text-[#141414] font-bold">
-                        <%= if get_mode(@selected_difficulty) == :win_one, do: "Win one", else: "Win all" %>
-                        · <%= get_predictions_needed(@selected_difficulty) %> flip<%= if get_predictions_needed(@selected_difficulty) > 1, do: "s" %>
+                        {if get_mode(@selected_difficulty) == :win_one, do: "Win one", else: "Win all"} · {get_predictions_needed(
+                          @selected_difficulty
+                        )} flip{if get_predictions_needed(@selected_difficulty) > 1, do: "s"}
                       </span>
                     </div>
                     <div class="flex items-center justify-between">
                       <span class="text-neutral-500">Multiplier</span>
-                      <span class="font-mono font-bold text-[#141414]"><%= get_multiplier(@selected_difficulty) %>×</span>
+                      <span class="font-mono font-bold text-[#141414]">
+                        {get_multiplier(@selected_difficulty)}×
+                      </span>
                     </div>
                     <div class="flex items-center justify-between pt-2 border-t border-neutral-100">
                       <span class="text-neutral-500">Potential payout</span>
-                      <span class="font-mono font-bold text-[#22C55E]"><%= format_balance(@current_bet * get_multiplier(@selected_difficulty)) %> <%= @selected_token %></span>
+                      <span class="font-mono font-bold text-[#22C55E]">
+                        {format_balance(@current_bet * get_multiplier(@selected_difficulty))} {@selected_token}
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -1072,14 +1633,20 @@ defmodule BlocksterV2Web.CoinFlipLive do
                 <div class="bg-white rounded-2xl border border-neutral-200/70 shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-5">
                   <div class="flex items-center gap-1.5 mb-3">
                     <span class="w-1.5 h-1.5 rounded-full bg-[#22C55E] pulse-dot"></span>
-                    <span class="text-[10px] font-bold uppercase tracking-[0.14em] text-neutral-500">Provably fair · Live</span>
+                    <span class="text-[10px] font-bold uppercase tracking-[0.14em] text-neutral-500">
+                      Provably fair · Live
+                    </span>
                   </div>
                   <div class="space-y-2 text-[10px] font-mono">
                     <div class="flex items-center justify-between gap-3">
                       <span class="text-neutral-500 shrink-0">Commit hash</span>
                       <%= if @server_seed_hash do %>
                         <span class="text-[#141414] truncate" title={@server_seed_hash}>
-                          <%= String.slice(@server_seed_hash, 0, 6) %>…<%= String.slice(@server_seed_hash, -4, 4) %>
+                          {String.slice(@server_seed_hash, 0, 6)}…{String.slice(
+                            @server_seed_hash,
+                            -4,
+                            4
+                          )}
                         </span>
                       <% else %>
                         <span class="text-neutral-400 italic">—</span>
@@ -1087,7 +1654,7 @@ defmodule BlocksterV2Web.CoinFlipLive do
                     </div>
                     <div class="flex items-center justify-between">
                       <span class="text-neutral-500">Game nonce</span>
-                      <span class="text-[#141414]">#<%= @nonce %></span>
+                      <span class="text-[#141414]">#{@nonce}</span>
                     </div>
                     <div class="flex items-center justify-between">
                       <span class="text-neutral-500">Server seed</span>
@@ -1100,50 +1667,77 @@ defmodule BlocksterV2Web.CoinFlipLive do
               <%= if @game_state == :result do %>
                 <div class="bg-white rounded-2xl border border-neutral-200/70 shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-5">
                   <div class="text-[10px] font-bold uppercase tracking-[0.14em] text-neutral-500 mb-4">
-                    <%= if @won, do: "Your stats updated", else: "Recap" %>
+                    {if @won, do: "Your stats updated", else: "Recap"}
                   </div>
                   <%= if @won do %>
                     <%= if @user_stats do %>
                       <div class="space-y-3 text-[12px]">
                         <div class="flex items-center justify-between">
-                          <span class="text-neutral-500">Net <%= @selected_token %></span>
+                          <span class="text-neutral-500">Net {@selected_token}</span>
                           <% net = @user_stats.total_won - @user_stats.total_lost %>
-                          <span class={["font-mono font-bold", if(net >= 0, do: "text-[#22C55E]", else: "text-[#EF4444]")]}>
-                            <%= if net >= 0, do: "+ ", else: "− " %><%= format_balance(abs(net)) %>
+                          <span class={[
+                            "font-mono font-bold",
+                            if(net >= 0, do: "text-[#22C55E]", else: "text-[#EF4444]")
+                          ]}>
+                            {if net >= 0, do: "+ ", else: "− "}{format_balance(abs(net))}
                           </span>
                         </div>
                         <div class="flex items-center justify-between">
                           <span class="text-neutral-500">Win streak</span>
-                          <span class="font-mono font-bold text-[#141414]"><%= @user_stats.current_streak %></span>
+                          <span class="font-mono font-bold text-[#141414]">
+                            {@user_stats.current_streak}
+                          </span>
                         </div>
                         <div class="flex items-center justify-between">
                           <span class="text-neutral-500">Bets placed</span>
-                          <span class="font-mono font-bold text-[#141414]"><%= @user_stats.total_games %></span>
+                          <span class="font-mono font-bold text-[#141414]">
+                            {@user_stats.total_games}
+                          </span>
                         </div>
                         <div class="flex items-center justify-between">
                           <span class="text-neutral-500">Win rate</span>
                           <span class="font-mono font-bold text-[#141414]">
-                            <%= if @user_stats.total_games > 0, do: "#{round(@user_stats.total_wins / @user_stats.total_games * 100)}%", else: "—" %>
+                            {if @user_stats.total_games > 0,
+                              do: "#{round(@user_stats.total_wins / @user_stats.total_games * 100)}%",
+                              else: "—"}
                           </span>
                         </div>
                       </div>
                     <% end %>
                     <div class="mt-4 pt-4 border-t border-neutral-100">
-                      <div class="text-[10px] uppercase tracking-[0.14em] text-neutral-500 mb-2">House contributed</div>
-                      <div class="font-mono font-bold text-[14px] text-[#141414]">+ <%= format_balance(@payout - @placed_stake) %> <%= @selected_token %> <span class="text-[10px] text-neutral-500">to your balance</span></div>
+                      <div class="text-[10px] uppercase tracking-[0.14em] text-neutral-500 mb-2">
+                        House contributed
+                      </div>
+                      <div class="font-mono font-bold text-[14px] text-[#141414]">
+                        + {format_balance(@payout - @placed_stake)} {@selected_token}
+                        <span class="text-[10px] text-neutral-500">to your balance</span>
+                      </div>
                     </div>
                   <% else %>
                     <% lp_token = "#{@selected_token}-LP" %>
                     <% pool_path = if @selected_token == "SOL", do: ~p"/pool/sol", else: ~p"/pool/bux" %>
                     <p class="text-[12px] text-neutral-600 leading-[1.55]">
-                      Your <strong class="text-[#141414]"><%= format_balance(@placed_stake) %> <%= @selected_token %></strong> stake went to the <%= @selected_token %> bankroll. Every <strong class="text-[#141414]"><%= lp_token %></strong> holder just earned a share — flip the table by providing liquidity yourself.
+                      Your
+                      <strong class="text-[#141414]">
+                        {format_balance(@placed_stake)} {@selected_token}
+                      </strong>
+                      stake went to the {@selected_token} bankroll. Every
+                      <strong class="text-[#141414]">{lp_token}</strong>
+                      holder just earned a share — flip the table by providing liquidity yourself.
                     </p>
                     <div class="mt-4 pt-4 border-t border-neutral-100">
-                      <div class="text-[10px] uppercase tracking-[0.14em] text-neutral-500 mb-2">Bankroll received</div>
-                      <div class="font-mono font-bold text-[14px] text-[#141414]">+ <%= format_balance(@placed_stake) %> <%= @selected_token %></div>
+                      <div class="text-[10px] uppercase tracking-[0.14em] text-neutral-500 mb-2">
+                        Bankroll received
+                      </div>
+                      <div class="font-mono font-bold text-[14px] text-[#141414]">
+                        + {format_balance(@placed_stake)} {@selected_token}
+                      </div>
                     </div>
-                    <.link navigate={pool_path} class="inline-flex items-center gap-2 text-[11px] font-bold text-[#7D00FF] hover:text-[#5A00B8] transition-colors mt-3 cursor-pointer">
-                      Provide <%= @selected_token %> liquidity →
+                    <.link
+                      navigate={pool_path}
+                      class="inline-flex items-center gap-2 text-[11px] font-bold text-[#7D00FF] hover:text-[#5A00B8] transition-colors mt-3 cursor-pointer"
+                    >
+                      Provide {@selected_token} liquidity →
                     </.link>
                   <% end %>
                 </div>
@@ -1157,10 +1751,15 @@ defmodule BlocksterV2Web.CoinFlipLive do
              compact sidebar "Your recent games" card above, which
              stacks right below the game card on small viewports.
         ══════════════════════════════════════════════════════ --%>
-        <section id="ds-play-recent" class="hidden md:block pt-12 pb-12 border-t border-neutral-200/70 mt-8">
+        <section
+          id="ds-play-recent"
+          class="hidden md:block pt-12 pb-12 border-t border-neutral-200/70 mt-8"
+        >
           <div class="flex items-baseline justify-between mb-6 flex-wrap gap-3">
             <div>
-              <BlocksterV2Web.DesignSystem.eyebrow class="mb-1">Your last bets</BlocksterV2Web.DesignSystem.eyebrow>
+              <BlocksterV2Web.DesignSystem.eyebrow class="mb-1">
+                Your last bets
+              </BlocksterV2Web.DesignSystem.eyebrow>
               <h2 class="text-[28px] font-bold tracking-[-0.018em] text-[#141414]">Recent games</h2>
             </div>
           </div>
@@ -1171,9 +1770,15 @@ defmodule BlocksterV2Web.CoinFlipLive do
             <% end %>
             <%= cond do %>
               <% !assigns[:games_loading] and Enum.empty?(@recent_games) -> %>
-                <div class="px-5 py-8 text-center text-neutral-400 text-[12px]">No games played yet</div>
+                <div class="px-5 py-8 text-center text-neutral-400 text-[12px]">
+                  No games played yet
+                </div>
               <% length(@recent_games) > 0 -> %>
-                <div id="recent-games-scroll" class="overflow-x-auto max-h-[520px] overflow-y-auto" phx-hook="InfiniteScroll">
+                <div
+                  id="recent-games-scroll"
+                  class="overflow-x-auto max-h-[520px] overflow-y-auto"
+                  phx-hook="InfiniteScroll"
+                >
                   <table class="w-full min-w-[720px]">
                     <thead class="sticky top-0 z-10 bg-neutral-50/70">
                       <tr class="border-b border-neutral-100 text-[10px] uppercase tracking-[0.14em] text-neutral-500 font-bold">
@@ -1189,57 +1794,115 @@ defmodule BlocksterV2Web.CoinFlipLive do
                     </thead>
                     <tbody class="divide-y divide-neutral-100">
                       <%= for game <- @recent_games do %>
-                        <tr id={"game-#{game.game_id}"} class={["hover:bg-neutral-50 transition-colors", if(game.won, do: "bg-[#22C55E]/[0.03]", else: "bg-[#EF4444]/[0.03]")]}>
+                        <tr
+                          id={"game-#{game.game_id}"}
+                          class={[
+                            "hover:bg-neutral-50 transition-colors",
+                            if(game.won, do: "bg-[#22C55E]/[0.03]", else: "bg-[#EF4444]/[0.03]")
+                          ]}
+                        >
                           <td class="px-5 py-3 font-mono text-[11px] text-neutral-500">
                             <%= if game.commitment_sig do %>
-                              <a href={BlocksterV2Web.Solscan.tx_url(game.commitment_sig)} target="_blank" class="hover:text-[#141414] hover:underline cursor-pointer">#<%= game.nonce %></a>
+                              <a
+                                href={BlocksterV2Web.Solscan.tx_url(game.commitment_sig)}
+                                target="_blank"
+                                class="hover:text-[#141414] hover:underline cursor-pointer"
+                              >
+                                #{game.nonce}
+                              </a>
                             <% else %>
-                              #<%= game.nonce %>
+                              #{game.nonce}
                             <% end %>
                           </td>
                           <td class="px-5 py-3">
                             <div class="flex items-center gap-1.5">
-                              <img src={if game.vault_type in ["sol", :sol], do: "https://ik.imagekit.io/blockster/solana-sol-logo.png", else: "https://ik.imagekit.io/blockster/blockster-icon.png"} class="w-3.5 h-3.5 rounded-full" />
-                              <span class="font-mono text-[12px] text-[#141414]"><%= format_balance(game.bet_amount) %></span>
-                              <span class="text-[10px] text-neutral-500"><%= String.upcase(to_string(game.vault_type)) %></span>
+                              <img
+                                src={
+                                  if game.vault_type in ["sol", :sol],
+                                    do: "https://ik.imagekit.io/blockster/solana-sol-logo.png",
+                                    else: "https://ik.imagekit.io/blockster/blockster-icon.png"
+                                }
+                                class="w-3.5 h-3.5 rounded-full"
+                              />
+                              <span class="font-mono text-[12px] text-[#141414]">
+                                {format_balance(game.bet_amount)}
+                              </span>
+                              <span class="text-[10px] text-neutral-500">
+                                {String.upcase(to_string(game.vault_type))}
+                              </span>
                             </div>
                           </td>
                           <td class="px-5 py-3">
                             <div class="flex items-center gap-0.5">
                               <%= for pred <- (game.predictions || []) do %>
-                                <span class="text-[14px]"><%= if pred == :heads, do: "🚀", else: "💩" %></span>
+                                <span class="text-[14px]">
+                                  {if pred == :heads, do: "🚀", else: "💩"}
+                                </span>
                               <% end %>
                             </div>
                           </td>
                           <td class="px-5 py-3">
                             <div class="flex items-center gap-0.5">
                               <%= for result <- (game.results || []) do %>
-                                <span class="text-[14px]"><%= if result == :heads, do: "🚀", else: "💩" %></span>
+                                <span class="text-[14px]">
+                                  {if result == :heads, do: "🚀", else: "💩"}
+                                </span>
                               <% end %>
                             </div>
                           </td>
-                          <td class="px-5 py-3 font-mono text-[11px] text-[#141414]"><%= game.multiplier %>×</td>
+                          <td class="px-5 py-3 font-mono text-[11px] text-[#141414]">
+                            {game.multiplier}×
+                          </td>
                           <td class="px-5 py-3 text-center">
                             <%= if game.won do %>
-                              <span class="bg-[#22C55E]/15 text-[#15803d] text-[10px] font-bold uppercase px-1.5 py-0.5 rounded-full">W</span>
+                              <span class="bg-[#22C55E]/15 text-[#15803d] text-[10px] font-bold uppercase px-1.5 py-0.5 rounded-full">
+                                W
+                              </span>
                             <% else %>
-                              <span class="bg-[#EF4444]/15 text-[#7f1d1d] text-[10px] font-bold uppercase px-1.5 py-0.5 rounded-full">L</span>
+                              <span class="bg-[#EF4444]/15 text-[#7f1d1d] text-[10px] font-bold uppercase px-1.5 py-0.5 rounded-full">
+                                L
+                              </span>
                             <% end %>
                           </td>
                           <td class="px-5 py-3 text-right">
                             <%= if game.settlement_sig do %>
-                              <a href={BlocksterV2Web.Solscan.tx_url(game.settlement_sig)} target="_blank" class={["font-mono font-bold text-[12px] hover:underline cursor-pointer", if(game.won, do: "text-[#22C55E]", else: "text-[#EF4444]")]}>
-                                <%= if game.won, do: "+ #{format_balance(game.payout - game.bet_amount)}", else: "− #{format_balance(game.bet_amount)}" %> <%= String.upcase(to_string(game.vault_type)) %>
+                              <a
+                                href={BlocksterV2Web.Solscan.tx_url(game.settlement_sig)}
+                                target="_blank"
+                                class={[
+                                  "font-mono font-bold text-[12px] hover:underline cursor-pointer",
+                                  if(game.won, do: "text-[#22C55E]", else: "text-[#EF4444]")
+                                ]}
+                              >
+                                {if game.won,
+                                  do: "+ #{format_balance(game.payout - game.bet_amount)}",
+                                  else: "− #{format_balance(game.bet_amount)}"} {String.upcase(
+                                  to_string(game.vault_type)
+                                )}
                               </a>
                             <% else %>
-                              <span class={["font-mono font-bold text-[12px]", if(game.won, do: "text-[#22C55E]", else: "text-[#EF4444]")]}>
-                                <%= if game.won, do: "+ #{format_balance(game.payout - game.bet_amount)}", else: "− #{format_balance(game.bet_amount)}" %> <%= String.upcase(to_string(game.vault_type)) %>
+                              <span class={[
+                                "font-mono font-bold text-[12px]",
+                                if(game.won, do: "text-[#22C55E]", else: "text-[#EF4444]")
+                              ]}>
+                                {if game.won,
+                                  do: "+ #{format_balance(game.payout - game.bet_amount)}",
+                                  else: "− #{format_balance(game.bet_amount)}"} {String.upcase(
+                                  to_string(game.vault_type)
+                                )}
                               </span>
                             <% end %>
                           </td>
                           <td class="px-5 py-3 text-right">
                             <%= if game.server_seed && game.commitment_hash && game.nonce do %>
-                              <button type="button" phx-click="show_fairness_modal" phx-value-game-id={game.game_id} class="text-[10px] text-neutral-400 hover:text-[#141414] font-mono cursor-pointer">✓</button>
+                              <button
+                                type="button"
+                                phx-click="show_fairness_modal"
+                                phx-value-game-id={game.game_id}
+                                class="text-[10px] text-neutral-400 hover:text-[#141414] font-mono cursor-pointer"
+                              >
+                                ✓
+                              </button>
                             <% else %>
                               <span class="text-[10px] text-neutral-300">—</span>
                             <% end %>
@@ -1283,13 +1946,24 @@ defmodule BlocksterV2Web.CoinFlipLive do
 
   @impl true
   def handle_event("select_token", %{"token" => token}, socket) do
-    user_stats = if socket.assigns.current_user, do: load_user_stats(socket.assigns.current_user.id, token), else: nil
+    user_stats =
+      if socket.assigns.current_user,
+        do: load_user_stats(socket.assigns.current_user.id, token),
+        else: nil
+
     default_bet = default_bet_amount(socket.assigns.balances, token)
     difficulty = socket.assigns.selected_difficulty
 
     {:noreply,
      socket
-     |> assign(selected_token: token, bet_amount: default_bet, user_stats: user_stats, show_token_dropdown: false, error_message: nil, header_token: token)
+     |> assign(
+       selected_token: token,
+       bet_amount: default_bet,
+       user_stats: user_stats,
+       show_token_dropdown: false,
+       error_message: nil,
+       header_token: token
+     )
      |> start_async(:fetch_house_balance, fn -> fetch_house_balance_async(token, difficulty) end)}
   end
 
@@ -1323,19 +1997,34 @@ defmodule BlocksterV2Web.CoinFlipLive do
 
     socket =
       socket
-      |> assign(selected_difficulty: new_level, predictions: List.duplicate(nil, predictions_needed),
-                results: [], game_state: :idle, current_flip: 0, won: nil, payout: 0,
-                error_message: nil, confetti_pieces: [], show_fairness_modal: false, fairness_game: nil)
-      |> start_async(:fetch_house_balance, fn -> fetch_house_balance_async(selected_token, new_level) end)
+      |> assign(
+        selected_difficulty: new_level,
+        predictions: List.duplicate(nil, predictions_needed),
+        results: [],
+        game_state: :idle,
+        current_flip: 0,
+        won: nil,
+        payout: 0,
+        error_message: nil,
+        confetti_pieces: [],
+        show_fairness_modal: false,
+        fairness_game: nil
+      )
+      |> start_async(:fetch_house_balance, fn ->
+        fetch_house_balance_async(selected_token, new_level)
+      end)
 
-    socket = if wallet_address && user_id do
-      socket
-      |> assign(:onchain_ready, false)
-      |> assign(:onchain_initializing, true)
-      |> start_async(:init_game, fn -> CoinFlipGame.get_or_init_game(user_id, wallet_address) end)
-    else
-      assign(socket, :onchain_ready, false)
-    end
+    socket =
+      if wallet_address && user_id do
+        socket
+        |> assign(:onchain_ready, false)
+        |> assign(:onchain_initializing, true)
+        |> start_async(:init_game, fn ->
+          CoinFlipGame.get_or_init_game(user_id, wallet_address)
+        end)
+      else
+        assign(socket, :onchain_ready, false)
+      end
 
     {:noreply, socket}
   end
@@ -1350,23 +2039,30 @@ defmodule BlocksterV2Web.CoinFlipLive do
         do: socket.assigns.predictions,
         else: List.duplicate(nil, predictions_needed)
 
-    new_value = case Enum.at(current_predictions, index) do
-      nil -> :heads
-      :heads -> :tails
-      :tails -> :heads
-    end
+    new_value =
+      case Enum.at(current_predictions, index) do
+        nil -> :heads
+        :heads -> :tails
+        :tails -> :heads
+      end
 
-    {:noreply, assign(socket, predictions: List.replace_at(current_predictions, index, new_value))}
+    {:noreply,
+     assign(socket, predictions: List.replace_at(current_predictions, index, new_value))}
   end
 
   @impl true
   def handle_event("update_bet_amount", %{"value" => value}, socket) do
     case Float.parse(value) do
-      {amount, _} when amount > 0 -> {:noreply, assign(socket, bet_amount: amount, error_message: nil)}
+      {amount, _} when amount > 0 ->
+        {:noreply, assign(socket, bet_amount: amount, error_message: nil)}
+
       _ ->
         case Integer.parse(value) do
-          {amount, _} when amount > 0 -> {:noreply, assign(socket, bet_amount: amount / 1.0, error_message: nil)}
-          _ -> {:noreply, socket}
+          {amount, _} when amount > 0 ->
+            {:noreply, assign(socket, bet_amount: amount / 1.0, error_message: nil)}
+
+          _ ->
+            {:noreply, socket}
         end
     end
   end
@@ -1374,8 +2070,11 @@ defmodule BlocksterV2Web.CoinFlipLive do
   @impl true
   def handle_event("set_preset", %{"amount" => amount_str}, socket) do
     case Float.parse(amount_str) do
-      {amount, _} when amount > 0 -> {:noreply, assign(socket, bet_amount: amount, error_message: nil)}
-      _ -> {:noreply, socket}
+      {amount, _} when amount > 0 ->
+        {:noreply, assign(socket, bet_amount: amount, error_message: nil)}
+
+      _ ->
+        {:noreply, socket}
     end
   end
 
@@ -1389,14 +2088,17 @@ defmodule BlocksterV2Web.CoinFlipLive do
       max_allowed = min(socket.assigns.max_bet, balance)
       {:noreply, assign(socket, bet_amount: max(min_b, max_allowed), error_message: nil)}
     else
-      {:noreply, assign(socket, bet_amount: max(min_b, socket.assigns.max_bet), error_message: nil)}
+      {:noreply,
+       assign(socket, bet_amount: max(min_b, socket.assigns.max_bet), error_message: nil)}
     end
   end
 
   @impl true
   def handle_event("halve_bet", _params, socket) do
     min_b = min_bet(socket.assigns.selected_token)
-    {:noreply, assign(socket, bet_amount: max(min_b, socket.assigns.bet_amount / 2), error_message: nil)}
+
+    {:noreply,
+     assign(socket, bet_amount: max(min_b, socket.assigns.bet_amount / 2), error_message: nil)}
   end
 
   @impl true
@@ -1434,27 +2136,43 @@ defmodule BlocksterV2Web.CoinFlipLive do
       cond do
         not onchain_ready and Map.get(socket.assigns, :onchain_initializing, false) ->
           current_msg = socket.assigns[:error_message]
-          msg = cond do
-            current_msg && String.contains?(current_msg, "settlement") -> current_msg
-            current_msg && String.contains?(current_msg, "stuck") -> current_msg
-            true -> "Initializing game, please wait..."
-          end
+
+          msg =
+            cond do
+              current_msg && String.contains?(current_msg, "settlement") -> current_msg
+              current_msg && String.contains?(current_msg, "stuck") -> current_msg
+              true -> "Initializing game, please wait..."
+            end
+
           {:noreply, assign(socket, error_message: msg)}
 
         not onchain_ready ->
-          {:noreply, assign(socket, error_message: "Previous bet still settling. Please wait or refresh to reclaim.")}
+          {:noreply,
+           assign(socket,
+             error_message: "Previous bet still settling. Please wait or refresh to reclaim."
+           )}
 
         not all_predictions_made ->
-          {:noreply, assign(socket, error_message: "Please make all #{predictions_needed} predictions")}
+          {:noreply,
+           assign(socket, error_message: "Please make all #{predictions_needed} predictions")}
 
         bet_amount < min_bet(socket.assigns.selected_token) ->
-          {:noreply, assign(socket, error_message: "Minimum bet is #{format_bet_amount(min_bet(socket.assigns.selected_token))} #{socket.assigns.selected_token}")}
+          {:noreply,
+           assign(socket,
+             error_message:
+               "Minimum bet is #{format_bet_amount(min_bet(socket.assigns.selected_token))} #{socket.assigns.selected_token}"
+           )}
 
         bet_amount > balance ->
-          {:noreply, assign(socket, error_message: "Insufficient #{socket.assigns.selected_token} balance")}
+          {:noreply,
+           assign(socket, error_message: "Insufficient #{socket.assigns.selected_token} balance")}
 
         socket.assigns.max_bet > 0 and bet_amount > socket.assigns.max_bet ->
-          {:noreply, assign(socket, error_message: "Bet exceeds max bet of #{format_bet_amount(socket.assigns.max_bet)} #{socket.assigns.selected_token} for this difficulty")}
+          {:noreply,
+           assign(socket,
+             error_message:
+               "Bet exceeds max bet of #{format_bet_amount(socket.assigns.max_bet)} #{socket.assigns.selected_token} for this difficulty"
+           )}
 
         true ->
           user_id = socket.assigns.current_user.id
@@ -1462,22 +2180,37 @@ defmodule BlocksterV2Web.CoinFlipLive do
           game_id = socket.assigns.onchain_game_id
           difficulty = socket.assigns.selected_difficulty
 
-          case CoinFlipGame.calculate_game_result(game_id, predictions, bet_amount, vault_type, difficulty) do
+          case CoinFlipGame.calculate_game_result(
+                 game_id,
+                 predictions,
+                 bet_amount,
+                 vault_type,
+                 difficulty
+               ) do
             {:ok, result} ->
               # Build unsigned place_bet tx for wallet signing
               nonce = socket.assigns.onchain_nonce
               vault_type_str = Atom.to_string(vault_type)
               diff_index = difficulty_to_diff_index(difficulty)
+
               fee_payer_mode =
                 BlocksterV2.BuxMinter.fee_payer_mode_for_user(socket.assigns.current_user)
 
               socket =
                 socket
-                |> assign(current_bet: bet_amount, placed_stake: bet_amount,
-                          results: result.results,
-                          won: result.won, payout: result.payout, game_state: :flipping,
-                          current_flip: 1, flip_id: 1, bet_confirmed: false,
-                          flip_start_time: System.monotonic_time(:millisecond), error_message: nil)
+                |> assign(
+                  current_bet: bet_amount,
+                  placed_stake: bet_amount,
+                  results: result.results,
+                  won: result.won,
+                  payout: result.payout,
+                  game_state: :flipping,
+                  current_flip: 1,
+                  flip_id: 1,
+                  bet_confirmed: false,
+                  flip_start_time: System.monotonic_time(:millisecond),
+                  error_message: nil
+                )
                 |> start_async(:build_bet_tx, fn ->
                   BlocksterV2.BuxMinter.build_place_bet_tx(
                     wallet_address,
@@ -1493,7 +2226,8 @@ defmodule BlocksterV2Web.CoinFlipLive do
               {:noreply, socket}
 
             {:error, reason} ->
-              {:noreply, assign(socket, error_message: "Failed to calculate result: #{inspect(reason)}")}
+              {:noreply,
+               assign(socket, error_message: "Failed to calculate result: #{inspect(reason)}")}
           end
       end
     end
@@ -1506,7 +2240,11 @@ defmodule BlocksterV2Web.CoinFlipLive do
   end
 
   @impl true
-  def handle_event("bet_confirmed", %{"game_id" => _game_id, "tx_hash" => tx_hash} = params, socket) do
+  def handle_event(
+        "bet_confirmed",
+        %{"game_id" => _game_id, "tx_hash" => tx_hash} = params,
+        socket
+      ) do
     user_id = socket.assigns.current_user.id
     wallet_address = socket.assigns.wallet_address
     token = socket.assigns.selected_token
@@ -1516,7 +2254,14 @@ defmodule BlocksterV2Web.CoinFlipLive do
     difficulty = socket.assigns.selected_difficulty
 
     # Mark bet as placed in Mnesia
-    CoinFlipGame.on_bet_placed(socket.assigns.onchain_game_id, tx_hash, predictions, bet_amount, vault_type, difficulty)
+    CoinFlipGame.on_bet_placed(
+      socket.assigns.onchain_game_id,
+      tx_hash,
+      predictions,
+      bet_amount,
+      vault_type,
+      difficulty
+    )
 
     # Deduct balance now that bet is confirmed on-chain
     deduct_balance(user_id, wallet_address, token, bet_amount)
@@ -1524,7 +2269,8 @@ defmodule BlocksterV2Web.CoinFlipLive do
     balances = Map.put(socket.assigns.balances, token, max(0.0, new_balance))
     token_balances = Map.merge(socket.assigns[:token_balances] || %{}, balances)
 
-    socket = assign(socket, bet_confirmed: true, balances: balances, token_balances: token_balances)
+    socket =
+      assign(socket, bet_confirmed: true, balances: balances, token_balances: token_balances)
 
     # Reveal result immediately
     send(self(), :reveal_flip_result)
@@ -1538,14 +2284,29 @@ defmodule BlocksterV2Web.CoinFlipLive do
 
     {:noreply,
      socket
-     |> assign(game_state: :idle, results: [], won: nil, payout: 0,
-               bet_confirmed: false, error_message: "Transaction failed: #{error_message}")}
+     |> assign(
+       game_state: :idle,
+       results: [],
+       won: nil,
+       payout: 0,
+       bet_confirmed: false,
+       error_message: "Transaction failed: #{error_message}"
+     )}
   end
 
   @impl true
   def handle_event("bet_error", %{"error" => error}, socket) do
     Logger.error("[CoinFlip] Bet error: #{error}")
-    {:noreply, assign(socket, error_message: error, game_state: :idle, results: [], won: nil, payout: 0, bet_confirmed: false)}
+
+    {:noreply,
+     assign(socket,
+       error_message: error,
+       game_state: :idle,
+       results: [],
+       won: nil,
+       payout: 0,
+       bet_confirmed: false
+     )}
   end
 
   def handle_event("reclaim_stuck_bet", _params, socket) do
@@ -1555,29 +2316,32 @@ defmodule BlocksterV2Web.CoinFlipLive do
     now = System.system_time(:second)
 
     # 1. Prefer Mnesia-known expired bets. We have the vault_type recorded.
-    mnesia_match = try do
-      case :mnesia.dirty_index_read(:coin_flip_games, user_id, :user_id) do
-        games when is_list(games) ->
-          expired = games
-          |> Enum.filter(fn record ->
-            status = elem(record, 7)
-            created_at = elem(record, 18)
-            status == :placed and created_at != nil and (now - created_at) > bet_timeout
-          end)
-          |> Enum.sort_by(fn record -> elem(record, 18) end, :asc)
-          |> List.first()
+    mnesia_match =
+      try do
+        case :mnesia.dirty_index_read(:coin_flip_games, user_id, :user_id) do
+          games when is_list(games) ->
+            expired =
+              games
+              |> Enum.filter(fn record ->
+                status = elem(record, 7)
+                created_at = elem(record, 18)
+                status == :placed and created_at != nil and now - created_at > bet_timeout
+              end)
+              |> Enum.sort_by(fn record -> elem(record, 18) end, :asc)
+              |> List.first()
 
-          if expired do
-            %{nonce: elem(expired, 6), vault_type: elem(expired, 9) |> to_string()}
-          else
+            if expired do
+              %{nonce: elem(expired, 6), vault_type: elem(expired, 9) |> to_string()}
+            else
+              nil
+            end
+
+          _ ->
             nil
-          end
-
+        end
+      rescue
         _ -> nil
       end
-    rescue
-      _ -> nil
-    end
 
     # 2. Fall back to the on-chain-detected bet (populated by check_expired_bets
     #    when Mnesia has no matching record — the drift-recovery path).
@@ -1600,7 +2364,11 @@ defmodule BlocksterV2Web.CoinFlipLive do
        socket
        |> assign(:error_message, "Building reclaim transaction...")
        |> start_async(:build_reclaim_tx, fn ->
-         case BlocksterV2.BuxMinter.build_reclaim_expired_tx(wallet, reclaim.nonce, reclaim.vault_type) do
+         case BlocksterV2.BuxMinter.build_reclaim_expired_tx(
+                wallet,
+                reclaim.nonce,
+                reclaim.vault_type
+              ) do
            {:ok, tx} -> {:ok, tx, reclaim.nonce}
            {:error, reason} -> {:error, reason}
          end
@@ -1631,7 +2399,12 @@ defmodule BlocksterV2Web.CoinFlipLive do
 
   def handle_event("reclaim_failed", %{"error" => error}, socket) do
     Logger.error("[CoinFlip] Reclaim failed: #{error}")
-    {:noreply, assign(socket, onchain_initializing: false, error_message: "Reclaim failed: #{error}. Please refresh.")}
+
+    {:noreply,
+     assign(socket,
+       onchain_initializing: false,
+       error_message: "Reclaim failed: #{error}. Please refresh."
+     )}
   end
 
   @impl true
@@ -1647,9 +2420,21 @@ defmodule BlocksterV2Web.CoinFlipLive do
     if socket.assigns.current_user == nil do
       socket =
         socket
-        |> assign(game_state: :idle, current_flip: 0, predictions: List.duplicate(nil, predictions_needed),
-                  results: [], won: nil, payout: 0, confetti_pieces: [], error_message: nil, settlement_status: nil, settlement_timeout_ref: nil)
-        |> start_async(:fetch_house_balance, fn -> fetch_house_balance_async(selected_token, selected_difficulty) end)
+        |> assign(
+          game_state: :idle,
+          current_flip: 0,
+          predictions: List.duplicate(nil, predictions_needed),
+          results: [],
+          won: nil,
+          payout: 0,
+          confetti_pieces: [],
+          error_message: nil,
+          settlement_status: nil,
+          settlement_timeout_ref: nil
+        )
+        |> start_async(:fetch_house_balance, fn ->
+          fetch_house_balance_async(selected_token, selected_difficulty)
+        end)
 
       {:noreply, socket}
     else
@@ -1664,25 +2449,44 @@ defmodule BlocksterV2Web.CoinFlipLive do
 
       socket =
         socket
-        |> assign(game_state: :idle, current_flip: 0, predictions: List.duplicate(nil, predictions_needed),
-                  results: [], won: nil, payout: 0, balances: balances, user_stats: user_stats,
-                  server_seed: nil, confetti_pieces: [], show_fairness_modal: false, fairness_game: nil,
-                  bet_sig: nil, settlement_sig: nil, error_message: nil,
-                  settlement_status: nil, settlement_timeout_ref: nil)
-        |> start_async(:fetch_house_balance, fn -> fetch_house_balance_async(selected_token, selected_difficulty) end)
+        |> assign(
+          game_state: :idle,
+          current_flip: 0,
+          predictions: List.duplicate(nil, predictions_needed),
+          results: [],
+          won: nil,
+          payout: 0,
+          balances: balances,
+          user_stats: user_stats,
+          server_seed: nil,
+          confetti_pieces: [],
+          show_fairness_modal: false,
+          fairness_game: nil,
+          bet_sig: nil,
+          settlement_sig: nil,
+          error_message: nil,
+          settlement_status: nil,
+          settlement_timeout_ref: nil
+        )
+        |> start_async(:fetch_house_balance, fn ->
+          fetch_house_balance_async(selected_token, selected_difficulty)
+        end)
 
-      socket = if wallet_address do
-        socket
-        |> assign(:onchain_ready, false)
-        |> assign(:onchain_initializing, true)
-        |> assign(:init_retry_count, 0)
-        |> start_async(:init_game, fn -> CoinFlipGame.get_or_init_game(user_id, wallet_address) end)
-      else
-        socket
-        |> assign(:onchain_ready, false)
-        |> assign(:init_retry_count, 0)
-        |> assign(:error_message, "No wallet connected")
-      end
+      socket =
+        if wallet_address do
+          socket
+          |> assign(:onchain_ready, false)
+          |> assign(:onchain_initializing, true)
+          |> assign(:init_retry_count, 0)
+          |> start_async(:init_game, fn ->
+            CoinFlipGame.get_or_init_game(user_id, wallet_address)
+          end)
+        else
+          socket
+          |> assign(:onchain_ready, false)
+          |> assign(:init_retry_count, 0)
+          |> assign(:error_message, "No wallet connected")
+        end
 
       {:noreply, socket}
     end
@@ -1694,9 +2498,15 @@ defmodule BlocksterV2Web.CoinFlipLive do
     case CoinFlipGame.get_game(game_id) do
       {:ok, game} when game.status == :settled ->
         predictions_str = game.predictions |> Enum.map(&Atom.to_string/1) |> Enum.join(",")
-        vault_type_str = if is_atom(game.vault_type), do: Atom.to_string(game.vault_type), else: to_string(game.vault_type)
 
-        client_seed_input = "#{game.user_id}:#{game.bet_amount}:#{vault_type_str}:#{game.difficulty}:#{predictions_str}"
+        vault_type_str =
+          if is_atom(game.vault_type),
+            do: Atom.to_string(game.vault_type),
+            else: to_string(game.vault_type)
+
+        client_seed_input =
+          "#{game.user_id}:#{game.bet_amount}:#{vault_type_str}:#{game.difficulty}:#{predictions_str}"
+
         client_seed = :crypto.hash(:sha256, client_seed_input) |> Base.encode16(case: :lower)
 
         combined_input = "#{game.server_seed}:#{client_seed}:#{game.nonce}"
@@ -1761,7 +2571,8 @@ defmodule BlocksterV2Web.CoinFlipLive do
   end
 
   @impl true
-  def handle_event("load-more", params, socket), do: handle_event("load-more-games", params, socket)
+  def handle_event("load-more", params, socket),
+    do: handle_event("load-more-games", params, socket)
 
   @impl true
   def handle_event("stop_propagation", _params, socket), do: {:noreply, socket}
@@ -1792,7 +2603,11 @@ defmodule BlocksterV2Web.CoinFlipLive do
     # If we just finished a game, settlement may still be in progress — auto-retry
     if retry_count < 5 do
       delay = min(1000 * (retry_count + 1), 3000)
-      Logger.info("[CoinFlip] Active order for #{wallet} at nonce #{stuck_nonce}, retrying init in #{delay}ms (attempt #{retry_count + 1})")
+
+      Logger.info(
+        "[CoinFlip] Active order for #{wallet} at nonce #{stuck_nonce}, retrying init in #{delay}ms (attempt #{retry_count + 1})"
+      )
+
       Process.send_after(self(), :retry_init_game, delay)
 
       {:noreply,
@@ -1803,7 +2618,9 @@ defmodule BlocksterV2Web.CoinFlipLive do
        |> assign(:error_message, "Waiting for settlement...")}
     else
       # After retries exhausted, fall back to reclaim flow
-      Logger.warning("[CoinFlip] Active order persists for #{wallet} at nonce #{stuck_nonce}, attempting reclaim")
+      Logger.warning(
+        "[CoinFlip] Active order persists for #{wallet} at nonce #{stuck_nonce}, attempting reclaim"
+      )
 
       {:noreply,
        socket
@@ -1812,7 +2629,9 @@ defmodule BlocksterV2Web.CoinFlipLive do
        |> assign(:error_message, "Clearing stuck bet...")
        |> start_async(:build_reclaim_tx, fn ->
          case BlocksterV2.BuxMinter.build_reclaim_expired_tx(wallet, stuck_nonce, "bux") do
-           {:ok, tx} -> {:ok, tx, stuck_nonce}
+           {:ok, tx} ->
+             {:ok, tx, stuck_nonce}
+
            {:error, _} ->
              case BlocksterV2.BuxMinter.build_reclaim_expired_tx(wallet, stuck_nonce, "sol") do
                {:ok, tx} -> {:ok, tx, stuck_nonce}
@@ -1828,8 +2647,12 @@ defmodule BlocksterV2Web.CoinFlipLive do
     max_retries = 3
 
     if retry_count < max_retries do
-      delay = :math.pow(2, retry_count) * 1000 |> round()
-      Logger.warning("[CoinFlip] Init failed (attempt #{retry_count + 1}/#{max_retries}): #{inspect(reason)}. Retrying in #{delay}ms...")
+      delay = (:math.pow(2, retry_count) * 1000) |> round()
+
+      Logger.warning(
+        "[CoinFlip] Init failed (attempt #{retry_count + 1}/#{max_retries}): #{inspect(reason)}. Retrying in #{delay}ms..."
+      )
+
       Process.send_after(self(), :retry_init_game, delay)
 
       {:noreply,
@@ -1837,9 +2660,13 @@ defmodule BlocksterV2Web.CoinFlipLive do
        |> assign(:onchain_ready, false)
        |> assign(:onchain_initializing, true)
        |> assign(:init_retry_count, retry_count + 1)
-       |> assign(:error_message, "Initializing game... (attempt #{retry_count + 1}/#{max_retries})")}
+       |> assign(
+         :error_message,
+         "Initializing game... (attempt #{retry_count + 1}/#{max_retries})"
+       )}
     else
       Logger.error("[CoinFlip] Init failed after #{max_retries} attempts: #{inspect(reason)}")
+
       {:noreply,
        socket
        |> assign(:onchain_ready, false)
@@ -1852,9 +2679,11 @@ defmodule BlocksterV2Web.CoinFlipLive do
   @impl true
   def handle_async(:init_game, {:exit, reason}, socket) do
     retry_count = Map.get(socket.assigns, :init_retry_count, 0)
+
     if retry_count < 3 do
-      delay = :math.pow(2, retry_count) * 1000 |> round()
+      delay = (:math.pow(2, retry_count) * 1000) |> round()
       Process.send_after(self(), :retry_init_game, delay)
+
       {:noreply,
        socket
        |> assign(:onchain_ready, false)
@@ -1907,7 +2736,10 @@ defmodule BlocksterV2Web.CoinFlipLive do
 
   @impl true
   def handle_async(:load_recent_games, {:ok, games}, socket) do
-    {:noreply, assign(socket, :recent_games, games) |> assign(:games_offset, length(games)) |> assign(:games_loading, false)}
+    {:noreply,
+     assign(socket, :recent_games, games)
+     |> assign(:games_offset, length(games))
+     |> assign(:games_loading, false)}
   end
 
   @impl true
@@ -1931,6 +2763,7 @@ defmodule BlocksterV2Web.CoinFlipLive do
   @impl true
   def handle_async(:build_reclaim_tx, {:ok, {:ok, tx, _nonce}}, socket) do
     Logger.info("[CoinFlip] Reclaim tx built, pushing to wallet for signing")
+
     {:noreply,
      socket
      |> assign(:error_message, "Approve reclaim transaction in your wallet...")
@@ -1940,6 +2773,7 @@ defmodule BlocksterV2Web.CoinFlipLive do
   @impl true
   def handle_async(:build_reclaim_tx, {:ok, {:error, reason}}, socket) do
     Logger.error("[CoinFlip] Failed to build reclaim tx: #{inspect(reason)}")
+
     {:noreply,
      socket
      |> assign(:onchain_initializing, false)
@@ -1948,7 +2782,10 @@ defmodule BlocksterV2Web.CoinFlipLive do
 
   @impl true
   def handle_async(:build_reclaim_tx, {:exit, _reason}, socket) do
-    {:noreply, socket |> assign(:onchain_initializing, false) |> assign(:error_message, "Failed to build reclaim transaction.")}
+    {:noreply,
+     socket
+     |> assign(:onchain_initializing, false)
+     |> assign(:error_message, "Failed to build reclaim transaction.")}
   end
 
   @impl true
@@ -1960,6 +2797,7 @@ defmodule BlocksterV2Web.CoinFlipLive do
       wallet = socket.assigns.wallet_address
       credit_balance(user_id, wallet, socket.assigns.selected_token, socket.assigns.current_bet)
     end
+
     error_msg = parse_build_tx_error(reason)
     {:noreply, assign(socket, error_message: error_msg, game_state: :idle)}
   end
@@ -1967,12 +2805,18 @@ defmodule BlocksterV2Web.CoinFlipLive do
   @impl true
   def handle_async(:build_bet_tx, {:exit, reason}, socket) do
     Logger.error("[CoinFlip] Build bet tx crashed: #{inspect(reason)}")
+
     if socket.assigns[:current_user] do
       user_id = socket.assigns.current_user.id
       wallet = socket.assigns.wallet_address
       credit_balance(user_id, wallet, socket.assigns.selected_token, socket.assigns.current_bet)
     end
-    {:noreply, assign(socket, error_message: "Failed to build bet transaction. Please try again.", game_state: :idle)}
+
+    {:noreply,
+     assign(socket,
+       error_message: "Failed to build bet transaction. Please try again.",
+       game_state: :idle
+     )}
   end
 
   # ============ Info Handlers ============
@@ -1981,16 +2825,23 @@ defmodule BlocksterV2Web.CoinFlipLive do
   def handle_info(:retry_init_game, socket) do
     user_id = socket.assigns.current_user.id
     wallet_address = socket.assigns.wallet_address
-    {:noreply, start_async(socket, :init_game, fn -> CoinFlipGame.get_or_init_game(user_id, wallet_address) end)}
+
+    {:noreply,
+     start_async(socket, :init_game, fn ->
+       CoinFlipGame.get_or_init_game(user_id, wallet_address)
+     end)}
   end
 
   @impl true
   def handle_info(:reveal_flip_result, socket) do
     if socket.assigns.game_state == :flipping and socket.assigns.bet_confirmed do
-      socket = push_event(socket, "reveal_result", %{
-        flip_index: socket.assigns.current_flip - 1,
-        result: Enum.at(socket.assigns.results, socket.assigns.current_flip - 1) |> Atom.to_string()
-      })
+      socket =
+        push_event(socket, "reveal_result", %{
+          flip_index: socket.assigns.current_flip - 1,
+          result:
+            Enum.at(socket.assigns.results, socket.assigns.current_flip - 1) |> Atom.to_string()
+        })
+
       {:noreply, socket}
     else
       {:noreply, socket}
@@ -2040,15 +2891,21 @@ defmodule BlocksterV2Web.CoinFlipLive do
   @impl true
   def handle_info(:next_flip, socket) do
     mode = get_mode(socket.assigns.selected_difficulty)
-    new_current_bet = if mode == :win_all, do: socket.assigns.current_bet * 2, else: socket.assigns.current_bet
+
+    new_current_bet =
+      if mode == :win_all, do: socket.assigns.current_bet * 2, else: socket.assigns.current_bet
 
     # Reveal immediately — JS plays the 3s deceleration animation
     send(self(), :reveal_flip_result)
 
     {:noreply,
      socket
-     |> assign(game_state: :flipping, current_flip: socket.assigns.current_flip + 1,
-               flip_id: socket.assigns.flip_id + 1, current_bet: new_current_bet)}
+     |> assign(
+       game_state: :flipping,
+       current_flip: socket.assigns.current_flip + 1,
+       flip_id: socket.assigns.flip_id + 1,
+       current_bet: new_current_bet
+     )}
   end
 
   @impl true
@@ -2064,9 +2921,13 @@ defmodule BlocksterV2Web.CoinFlipLive do
       token_type = socket.assigns.selected_token
 
       multiplier = get_multiplier_for_difficulty(socket.assigns.selected_difficulty)
+
       BlocksterV2.UserEvents.track(user_id, "game_played", %{
-        token: to_string(token_type), result: if(won, do: "win", else: "loss"),
-        multiplier: multiplier, bet_amount: socket.assigns.current_bet, payout: payout
+        token: to_string(token_type),
+        result: if(won, do: "win", else: "loss"),
+        multiplier: multiplier,
+        bet_amount: socket.assigns.current_bet,
+        payout: payout
       })
 
       user_stats = load_user_stats(user_id, token_type)
@@ -2076,9 +2937,12 @@ defmodule BlocksterV2Web.CoinFlipLive do
       # not block on settlement.
       game_id = socket.assigns.onchain_game_id
       liveview_pid = self()
+
       spawn(fn ->
         case CoinFlipGame.settle_game(game_id) do
-          {:ok, %{signature: sig}} -> send(liveview_pid, {:settlement_complete, sig})
+          {:ok, %{signature: sig}} ->
+            send(liveview_pid, {:settlement_complete, sig})
+
           {:error, reason} ->
             Logger.error("[CoinFlip] Settlement failed: #{inspect(reason)}")
             send(liveview_pid, {:settlement_failed, reason})
@@ -2093,7 +2957,15 @@ defmodule BlocksterV2Web.CoinFlipLive do
 
       socket =
         socket
-        |> assign(game_state: :result, won: won, payout: payout, user_stats: user_stats, confetti_pieces: confetti_pieces, settlement_status: :pending, settlement_timeout_ref: timeout_ref)
+        |> assign(
+          game_state: :result,
+          won: won,
+          payout: payout,
+          user_stats: user_stats,
+          confetti_pieces: confetti_pieces,
+          settlement_status: :pending,
+          settlement_timeout_ref: timeout_ref
+        )
         |> push_event("bet_settled", %{won: won, payout: payout})
 
       {:noreply, socket}
@@ -2119,7 +2991,9 @@ defmodule BlocksterV2Web.CoinFlipLive do
     socket =
       socket
       |> assign(settlement_sig: sig, settlement_status: :settled, settlement_timeout_ref: nil)
-      |> start_async(:fetch_house_balance, fn -> fetch_house_balance_async(selected_token, selected_difficulty) end)
+      |> start_async(:fetch_house_balance, fn ->
+        fetch_house_balance_async(selected_token, selected_difficulty)
+      end)
       |> start_async(:sync_post_settle, fn ->
         BuxMinter.sync_user_balances(user_id, wallet_address)
         sol = EngagementTracker.get_user_sol_balance(user_id)
@@ -2138,6 +3012,7 @@ defmodule BlocksterV2Web.CoinFlipLive do
       Logger.warning(
         "[CoinFlip] Settlement timeout for game #{inspect(socket.assigns[:onchain_game_id])} — surfacing recovery CTA"
       )
+
       {:noreply, assign(socket, settlement_status: :timeout, settlement_timeout_ref: nil)}
     else
       {:noreply, assign(socket, settlement_timeout_ref: nil)}
@@ -2186,8 +3061,12 @@ defmodule BlocksterV2Web.CoinFlipLive do
     # flight. Keep :pending and let the :settlement_timeout timer surface
     # a CTA if the background settler can't recover either.
     reason_str = if is_binary(reason), do: reason, else: inspect(reason)
+
     if String.contains?(reason_str, "timeout") or String.contains?(reason_str, "TransportError") do
-      Logger.warning("[CoinFlip] Settlement timed out — tx likely still in flight, background settler will retry")
+      Logger.warning(
+        "[CoinFlip] Settlement timed out — tx likely still in flight, background settler will retry"
+      )
+
       {:noreply, socket}
     else
       cancel_settlement_timer(socket)
@@ -2208,19 +3087,22 @@ defmodule BlocksterV2Web.CoinFlipLive do
       now = System.system_time(:second)
 
       # 1. Mnesia-known stuck bets (the historical path).
-      mnesia_expired = try do
-        case :mnesia.dirty_index_read(:coin_flip_games, user_id, :user_id) do
-          games when is_list(games) ->
-            Enum.any?(games, fn record ->
-              status = elem(record, 7)
-              created_at = elem(record, 18)
-              status == :placed and created_at != nil and (now - created_at) > ui_timeout
-            end)
+      mnesia_expired =
+        try do
+          case :mnesia.dirty_index_read(:coin_flip_games, user_id, :user_id) do
+            games when is_list(games) ->
+              Enum.any?(games, fn record ->
+                status = elem(record, 7)
+                created_at = elem(record, 18)
+                status == :placed and created_at != nil and now - created_at > ui_timeout
+              end)
+
+            _ ->
+              false
+          end
+        rescue
           _ -> false
         end
-      rescue
-        _ -> false
-      end
 
       # 2. On-chain stuck bets (bets Mnesia never learned about — the drift
       #    symptom from the Phase 1 multi-signer transition). Do this in an
@@ -2228,6 +3110,7 @@ defmodule BlocksterV2Web.CoinFlipLive do
       # Capture the LiveView pid here — inside Task.start, `self()` returns
       # the Task's pid, not the LiveView's. send to the LV pid explicitly.
       lv_pid = self()
+
       Task.start(fn ->
         result =
           case BlocksterV2.BuxMinter.get_pending_bets(wallet) do
@@ -2318,6 +3201,7 @@ defmodule BlocksterV2Web.CoinFlipLive do
   defp deduct_balance(user_id, wallet_address, "SOL", amount) do
     # For SOL, deduct from Solana balance tracking
     current = EngagementTracker.get_user_sol_balance(user_id)
+
     if current >= amount do
       EngagementTracker.update_user_sol_balance(user_id, wallet_address, current - amount)
       {:ok, current - amount}
@@ -2328,6 +3212,7 @@ defmodule BlocksterV2Web.CoinFlipLive do
 
   defp deduct_balance(user_id, wallet_address, "BUX", amount) do
     current = EngagementTracker.get_user_solana_bux_balance(user_id)
+
     if current >= amount do
       EngagementTracker.update_user_solana_bux_balance(user_id, wallet_address, current - amount)
       {:ok, current - amount}
@@ -2386,37 +3271,99 @@ defmodule BlocksterV2Web.CoinFlipLive do
 
   defp get_coin_size_classes(num_flips) do
     case num_flips do
-      1 -> %{outer: "w-20 h-20 sm:w-24 sm:h-24", inner: "w-14 h-14 sm:w-16 sm:h-16", emoji: "text-3xl sm:text-4xl"}
-      2 -> %{outer: "w-18 h-18 sm:w-20 sm:h-20", inner: "w-12 h-12 sm:w-14 sm:h-14", emoji: "text-2xl sm:text-3xl"}
-      3 -> %{outer: "w-16 h-16 sm:w-20 sm:h-20", inner: "w-11 h-11 sm:w-14 sm:h-14", emoji: "text-2xl sm:text-3xl"}
-      4 -> %{outer: "w-14 h-14 sm:w-18 sm:h-18", inner: "w-10 h-10 sm:w-12 sm:h-12", emoji: "text-xl sm:text-2xl"}
-      _ -> %{outer: "w-12 h-12 sm:w-16 sm:h-16", inner: "w-8 h-8 sm:w-10 sm:h-10", emoji: "text-lg sm:text-2xl"}
+      1 ->
+        %{
+          outer: "w-20 h-20 sm:w-24 sm:h-24",
+          inner: "w-14 h-14 sm:w-16 sm:h-16",
+          emoji: "text-3xl sm:text-4xl"
+        }
+
+      2 ->
+        %{
+          outer: "w-18 h-18 sm:w-20 sm:h-20",
+          inner: "w-12 h-12 sm:w-14 sm:h-14",
+          emoji: "text-2xl sm:text-3xl"
+        }
+
+      3 ->
+        %{
+          outer: "w-16 h-16 sm:w-20 sm:h-20",
+          inner: "w-11 h-11 sm:w-14 sm:h-14",
+          emoji: "text-2xl sm:text-3xl"
+        }
+
+      4 ->
+        %{
+          outer: "w-14 h-14 sm:w-18 sm:h-18",
+          inner: "w-10 h-10 sm:w-12 sm:h-12",
+          emoji: "text-xl sm:text-2xl"
+        }
+
+      _ ->
+        %{
+          outer: "w-12 h-12 sm:w-16 sm:h-16",
+          inner: "w-8 h-8 sm:w-10 sm:h-10",
+          emoji: "text-lg sm:text-2xl"
+        }
     end
   end
 
   defp get_prediction_size_classes(num_flips) do
     case num_flips do
-      1 -> %{outer: "w-14 h-14 sm:w-20 sm:h-20", inner: "w-10 h-10 sm:w-14 sm:h-14", emoji: "text-2xl sm:text-3xl"}
-      2 -> %{outer: "w-14 h-14 sm:w-18 sm:h-18", inner: "w-10 h-10 sm:w-12 sm:h-12", emoji: "text-xl sm:text-2xl"}
-      3 -> %{outer: "w-12 h-12 sm:w-16 sm:h-16", inner: "w-8 h-8 sm:w-10 sm:h-10", emoji: "text-lg sm:text-2xl"}
-      4 -> %{outer: "w-11 h-11 sm:w-16 sm:h-16", inner: "w-7 h-7 sm:w-10 sm:h-10", emoji: "text-base sm:text-2xl"}
-      _ -> %{outer: "w-10 h-10 sm:w-16 sm:h-16", inner: "w-7 h-7 sm:w-10 sm:h-10", emoji: "text-base sm:text-2xl"}
+      1 ->
+        %{
+          outer: "w-14 h-14 sm:w-20 sm:h-20",
+          inner: "w-10 h-10 sm:w-14 sm:h-14",
+          emoji: "text-2xl sm:text-3xl"
+        }
+
+      2 ->
+        %{
+          outer: "w-14 h-14 sm:w-18 sm:h-18",
+          inner: "w-10 h-10 sm:w-12 sm:h-12",
+          emoji: "text-xl sm:text-2xl"
+        }
+
+      3 ->
+        %{
+          outer: "w-12 h-12 sm:w-16 sm:h-16",
+          inner: "w-8 h-8 sm:w-10 sm:h-10",
+          emoji: "text-lg sm:text-2xl"
+        }
+
+      4 ->
+        %{
+          outer: "w-11 h-11 sm:w-16 sm:h-16",
+          inner: "w-7 h-7 sm:w-10 sm:h-10",
+          emoji: "text-base sm:text-2xl"
+        }
+
+      _ ->
+        %{
+          outer: "w-10 h-10 sm:w-16 sm:h-16",
+          inner: "w-7 h-7 sm:w-10 sm:h-10",
+          emoji: "text-base sm:text-2xl"
+        }
     end
   end
 
-  defp format_balance(amount) when is_number(amount) and amount != 0 and amount > -1 and amount < 1 do
+  defp format_balance(amount)
+       when is_number(amount) and amount != 0 and amount > -1 and amount < 1 do
     # Use enough decimals so small PnL values (e.g. +0.0002 on a 0.01 bet)
     # don't show as 0.00. Coerce `amount / 1.0` — the settler may deliver
     # integer payouts via PubSub.
     a = amount / 1.0
 
-    decimals = cond do
-      abs(a) >= 0.01 -> 4
-      abs(a) >= 0.0001 -> 6
-      true -> 8
-    end
+    decimals =
+      cond do
+        abs(a) >= 0.01 -> 4
+        abs(a) >= 0.0001 -> 6
+        true -> 8
+      end
 
-    :erlang.float_to_binary(a, decimals: decimals) |> String.trim_trailing("0") |> add_comma_delimiters()
+    :erlang.float_to_binary(a, decimals: decimals)
+    |> String.trim_trailing("0")
+    |> add_comma_delimiters()
   end
 
   defp format_balance(amount) when is_number(amount),
@@ -2434,9 +3381,16 @@ defmodule BlocksterV2Web.CoinFlipLive do
   defp format_balance_compact(_), do: "0"
 
   defp format_integer(amount) when is_integer(amount) do
-    amount |> Integer.to_string() |> String.reverse() |> String.graphemes()
-    |> Enum.chunk_every(3) |> Enum.map(&Enum.join/1) |> Enum.join(",") |> String.reverse()
+    amount
+    |> Integer.to_string()
+    |> String.reverse()
+    |> String.graphemes()
+    |> Enum.chunk_every(3)
+    |> Enum.map(&Enum.join/1)
+    |> Enum.join(",")
+    |> String.reverse()
   end
+
   defp format_integer(amount) when is_float(amount), do: format_integer(trunc(amount))
   defp format_integer(_), do: "0"
 
@@ -2460,9 +3414,16 @@ defmodule BlocksterV2Web.CoinFlipLive do
 
   defp add_comma_delimiters(number_string) do
     [integer_part, decimal_part] = String.split(number_string, ".")
+
     integer_with_commas =
-      integer_part |> String.reverse() |> String.graphemes() |> Enum.chunk_every(3)
-      |> Enum.map(&Enum.join/1) |> Enum.join(",") |> String.reverse()
+      integer_part
+      |> String.reverse()
+      |> String.graphemes()
+      |> Enum.chunk_every(3)
+      |> Enum.map(&Enum.join/1)
+      |> Enum.join(",")
+      |> String.reverse()
+
     "#{integer_with_commas}.#{decimal_part}"
   end
 
@@ -2494,14 +3455,19 @@ defmodule BlocksterV2Web.CoinFlipLive do
     cond do
       String.contains?(reason, "BetExceedsMax") ->
         "Bet exceeds the maximum allowed for this difficulty. Try a smaller amount."
+
       String.contains?(reason, "PayoutExceedsMax") ->
         "Payout exceeds maximum. Try a slightly smaller bet."
+
       String.contains?(reason, "InsufficientVault") ->
         "Pool doesn't have enough liquidity for this bet."
+
       String.contains?(reason, "GamePaused") ->
         "Betting is temporarily paused."
+
       String.contains?(reason, "Simulation failed") ->
         "Transaction simulation failed. The bet may exceed on-chain limits."
+
       true ->
         "Failed to build bet transaction: #{String.slice(reason, 0, 100)}"
     end
@@ -2516,6 +3482,7 @@ defmodule BlocksterV2Web.CoinFlipLive do
       {:ok, balance} ->
         max_bet = calculate_max_bet(balance, difficulty_level)
         {balance, max_bet}
+
       {:error, _} ->
         {0.0, 0.0}
     end
@@ -2566,17 +3533,65 @@ defmodule BlocksterV2Web.CoinFlipLive do
     end
   end
 
+  # Reads the user's coin-flip stats from the `:user_betting_stats` Mnesia
+  # table — the source of truth for the Solana flow (written by
+  # CoinFlipGame.update_user_betting_stats/5 on every settlement). The
+  # legacy `:bux_booster_user_stats` table is EVM-era only and is no
+  # longer written by the active code path; reading from there left the
+  # stats panel stuck on "No stats yet" while the Recent Games panel
+  # showed actual settled bets (different table).
+  #
+  # Schema in :user_betting_stats (one row per user, both tokens combined):
+  #   3-9: BUX  (bets, wins, losses, wagered, winnings, losses_amt, pnl)
+  #   10-16: SOL (bets, wins, losses, wagered, winnings, losses_amt, pnl)
+  # All amounts are in base units (display × 10^9) per to_base_units/2.
   defp load_user_stats(user_id, token_type \\ "BUX") do
-    key = {user_id, token_type}
-    case :mnesia.dirty_read({:bux_booster_user_stats, key}) do
-      [] -> nil
+    case :mnesia.dirty_read(:user_betting_stats, user_id) do
+      [] ->
+        nil
+
       [record] ->
-        %{
-          total_games: elem(record, 4), total_wins: elem(record, 5), total_losses: elem(record, 6),
-          total_wagered: elem(record, 7), total_won: elem(record, 8), total_lost: elem(record, 9),
-          biggest_win: elem(record, 10), biggest_loss: elem(record, 11),
-          current_streak: elem(record, 12), best_streak: elem(record, 13), worst_streak: elem(record, 14)
-        }
+        {bets, wins, losses, wagered_base, _winnings_base, losses_amt_base, pnl_base} =
+          case token_type do
+            "SOL" ->
+              {elem(record, 10), elem(record, 11), elem(record, 12), elem(record, 13),
+               elem(record, 14), elem(record, 15), elem(record, 16)}
+
+            _ ->
+              {elem(record, 3), elem(record, 4), elem(record, 5), elem(record, 6),
+               elem(record, 7), elem(record, 8), elem(record, 9)}
+          end
+
+        if bets == 0 do
+          nil
+        else
+          # /10^9 for display — both BUX and SOL are stored in base units.
+          divisor = 1_000_000_000
+          wagered = wagered_base / divisor
+          losses_amt = losses_amt_base / divisor
+          pnl = pnl_base / divisor
+
+          # Template renders `net = total_won - total_lost`, so represent
+          # the signed pnl by splitting positive into total_won, negative
+          # into total_lost. biggest_win + streak fields aren't tracked
+          # in the new table — leave at 0 until/unless we decide to.
+          {total_won, total_lost} =
+            if pnl >= 0, do: {pnl, 0.0}, else: {0.0, -pnl}
+
+          %{
+            total_games: bets,
+            total_wins: wins,
+            total_losses: losses,
+            total_wagered: wagered,
+            total_won: total_won,
+            total_lost: total_lost,
+            biggest_win: 0,
+            biggest_loss: losses_amt,
+            current_streak: 0,
+            best_streak: 0,
+            worst_streak: 0
+          }
+        end
     end
   rescue
     _ -> nil
@@ -2591,13 +3606,18 @@ defmodule BlocksterV2Web.CoinFlipLive do
     # Query from coin_flip_games table
     :mnesia.dirty_index_read(:coin_flip_games, user_id, :user_id)
     |> Enum.filter(fn record -> elem(record, 7) == :settled end)
-    |> Enum.sort_by(fn record -> elem(record, 19) end, :desc)  # settled_at
+    # settled_at
+    |> Enum.sort_by(fn record -> elem(record, 19) end, :desc)
     |> Enum.drop(offset)
     |> Enum.take(limit)
     |> Enum.map(fn record ->
       %{
         game_id: elem(record, 1),
-        vault_type: if(is_atom(elem(record, 8)), do: Atom.to_string(elem(record, 8)), else: to_string(elem(record, 8))),
+        vault_type:
+          if(is_atom(elem(record, 8)),
+            do: Atom.to_string(elem(record, 8)),
+            else: to_string(elem(record, 8))
+          ),
         bet_amount: elem(record, 9),
         multiplier: get_multiplier_for_difficulty(elem(record, 10)),
         predictions: elem(record, 11),
@@ -2618,7 +3638,28 @@ defmodule BlocksterV2Web.CoinFlipLive do
     :exit, _ -> []
   end
 
-  @confetti_emojis ["❤️", "🧡", "💛", "💚", "💙", "💜", "🩷", "⭐", "🌟", "✨", "⚡", "🌈", "🍀", "💎", "🎉", "🎊", "💫", "🔥", "💖", "💝"]
+  @confetti_emojis [
+    "❤️",
+    "🧡",
+    "💛",
+    "💚",
+    "💙",
+    "💜",
+    "🩷",
+    "⭐",
+    "🌟",
+    "✨",
+    "⚡",
+    "🌈",
+    "🍀",
+    "💎",
+    "🎉",
+    "🎊",
+    "💫",
+    "🔥",
+    "💖",
+    "💝"
+  ]
 
   defp generate_confetti_data(count) do
     Enum.map(1..count, fn i ->
