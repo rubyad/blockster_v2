@@ -7,6 +7,10 @@ For active reference material, see the main [CLAUDE.md](../CLAUDE.md).
 ---
 
 ## Table of Contents
+- [Mnesia `transform_table` can silently no-op during deploy — verify post-deploy](#mnesia-transform_table-can-silently-no-op-during-deploy--verify-post-deploy-2026-04-30)
+- [Web3Auth JWT for `getTorusKey` is one-use — don't cache it](#web3auth-jwt-for-gettoruskey-is-one-use--dont-cache-it-2026-04-30)
+- [Coin flip stats: compute from `:coin_flip_games`, not from aggregate caches](#coin-flip-stats-compute-from-coin_flip_games-not-from-aggregate-caches-2026-04-30)
+- [Web3Auth `uxMode` is sticky on the customauth instance — pass per-call on mobile](#web3auth-uxmode-is-sticky-on-the-customauth-instance--pass-per-call-on-mobile-2026-04-30)
 - [Bot reward = 0 when sol_range floor was 0.0 — Float.round zeros silently](#bot-reward--0-when-sol_range-floor-was-00--floatround-zeros-silently-2026-04-29)
 - [Settler InvalidAccountData on MintTo — combine ATA-create + Mint in one atomic tx](#settler-invalidaccountdata-on-mintto--combine-ata-create--mint-in-one-atomic-tx-2026-04-29)
 - [`maybe_update_web3auth_fields` must NOT auto-promote `claims.email`](#maybe_update_web3auth_fields-must-not-auto-promote-claimsemail-2026-04-29)
@@ -88,6 +92,34 @@ For active reference material, see the main [CLAUDE.md](../CLAUDE.md).
 - [Engagement Tracker Silent Failure — `#post-content` Selector Miss After Redesign](#engagement-tracker-silent-failure--post-content-selector-miss-after-redesign-apr-2026)
 
 ---
+
+## Mnesia transform_table can silently no-op during deploy — verify post-deploy (2026-04-30)
+
+Shipped `d02278f` to extend the `:pool_activities` schema from 6 to 7 attrs (append `:tx_sig`). Deploy succeeded. Tests passed. Both machines came up. Every deposit/withdraw afterward crashed at `:mnesia.dirty_write` with `bad_type` because the schema was *still* at 6 attrs on prod — `transform_table` had been called by `MnesiaInitializer` but never actually executed. Best theory: cluster was mid-rejoin during boot (split-brain still active when MnesiaInitializer reached the migration step), so the call was either silently aborted or skipped at the cluster-state check.
+
+`MnesiaInitializer.do_migrate_table_schema` (`mnesia_initializer.ex:2238`) treats migration failures as `Logger.warning`, not as release-command failures — so the deploy pipeline reports success either way. The user-visible symptom was that the new code's writer emitted 8-element tuples but the on-prod schema expected 7-element tuples, and every `tx_confirmed` handler crashed mid-execution: tx already on chain, balance updated by separate poll, but no activity row written, no PnL cost basis recorded, no flash. Diagnostic signal was specific — unrealized PnL drifted up by exactly the deposit amount because the cost-basis update was skipped.
+
+**How to apply**: after any deploy that includes a Mnesia schema change, ssh into one prod machine and run `:mnesia.table_info(<table>, :attributes)` to verify the migration actually landed. Don't trust "deploy succeeded" — `transform_table` is best-effort and logged as warning, not as error. If the schema didn't migrate, you have two options: re-run the migration manually (`:mnesia.transform_table(table, transform_fn, new_attrs)` from rpc), or revert. **Pre-flight an even simpler check**: after the new code is deployed and Mnesia is healthy, make ONE test deposit/withdraw and confirm the activity row appears + flash fires before declaring the deploy good.
+
+**Round-trip caveat**: schema appends are forward-only-safe by default. `MnesiaInitializer` auto-migrates UP via `transform_table`, but explicitly does NOT downgrade — `mnesia_initializer.ex:2287-2290` logs a warning and leaves the schema alone when code defines fewer attrs than what's on disk. So if a schema-extension change ships and you later need to revert, you may need a manual `transform_table` on prod *before* deploying the revert. (In the d02278f incident we got lucky: the migration never ran, so the schema was already at the old shape and the revert was code-only.)
+
+## Web3Auth JWT for getTorusKey is one-use — don't cache it (2026-04-30)
+
+After Phase 1 SFA deploy, second sign-in attempt failed with `Key derivation failed: Duplicate token found`. The hook was caching the Custom JWT alongside the seed cache, on the assumption that "if the seed is still in cache, the JWT must still be valid." Wrong — Torus's DKG marks the JWT consumed *after fan-out across the ~5 nodes*, regardless of whether `getTorusKey` returns a cache hit or actual derivation. The first call to `customauth.getTorusKey({authConnectionId, userId, idToken})` validates the JWT against Torus, fans out, and burns it. Any subsequent call with the same JWT — even one that would otherwise hit the seed cache — gets rejected at JWT validation before the cache check runs.
+
+**How to apply**: never cache JWTs intended for `customauth.getTorusKey`. Always mint a fresh JWT via `Web3AuthSigning.sign_id_token` immediately before each call. The local JWT mint is cheap (~5ms) and the seed cache (60s TTL) still amortizes the actual DKG fan-out cost — that's the call you want to deduplicate, not the JWT mint. Fix: commit `3bdafe3`.
+
+## Coin flip stats: compute from :coin_flip_games, not from aggregate caches (2026-04-30)
+
+`/play`'s "Your Stats" panel went through four passes today, each surfacing a different bug stacked on the prior fix. The shape: `load_user_stats` started reading from `:bux_booster_user_stats` (legacy EVM-era aggregate, no longer written), got pointed at `:user_betting_stats` (Solana settler's aggregate, but cross-token columns leaked through token filters), then finally was rewritten to compute fresh from `:coin_flip_games` (the source-of-truth game-by-game event log) using `:mnesia.dirty_index_read(_, user_id, :user_id)` + token filter + accumulate.
+
+**How to apply**: when a Mnesia table is one of several with overlapping coverage of the same domain, "which table" is rarely the right question — "compute from the source-of-truth event log" usually is. Aggregates are caches, and caches drift, especially across migrations (the EVM-era `:bux_booster_user_stats` writer is dead, but the table still has stale data; the Solana `:user_betting_stats` writer has a different schema and update cadence). Game-by-game tables like `:coin_flip_games` are append-only event logs — re-computing from them is at most O(games-per-user) and avoids cross-cache drift entirely. Profit-only semantics matter too: `total_won` should accumulate `payout - bet` for wins, not gross payout, otherwise `net = total_won - total_lost` is off by the sum of bet-on-wins.
+
+## Web3Auth uxMode is sticky on the customauth instance — pass per-call on mobile (2026-04-30)
+
+The `customauth` instance is constructed once and reused across logins. The first auth attempt's `uxMode` setting (configured at construction) persisted for subsequent calls, so if a user landed on a desktop session that initialized with `popup` and then opened a mobile browser later, the next auth call reused `popup` mode and hung on iOS Safari (which blocks popups). Fix: pass `uxMode: "redirect"` per-call when mobile UA is detected, regardless of how the instance was constructed. Commit `8023f64`.
+
+**How to apply**: any SDK that has a "default config at construction" + "per-call override" API — assume the config is sticky and explicitly pass per-call on mobile. Don't trust that constructing a fresh instance per session means each session gets a fresh config; in this codebase the customauth instance is module-scoped and survives across LV reconnects.
 
 ## Bot reward = 0 when sol_range floor was 0.0 — Float.round zeros silently (2026-04-29)
 

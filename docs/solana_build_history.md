@@ -9,6 +9,97 @@ Chronological record of all Solana migration changes and post-migration updates 
 
 ---
 
+## Post-Launch Day 3 (2026-04-30) ✅ — SFA migration cutover, coin flip stats rewrite, pool activity polish
+
+Two-day arc: 2026-04-29 PM finished with the original `@web3auth/modal` SDK still active and admin-only test pages stood up to validate the SFA replacement. 2026-04-30 morning flipped the SDK over for everyone (desktop + mobile, both fresh and returning sessions), then the day became a long tail of UX polish on `/play` and `/pool` once the auth path stopped getting in the way of routine testing.
+
+Net: 16 commits today (40+ counting yesterday evening's SFA Phase 0/1 prep), one full deploy, one Mnesia split-brain recovery on `865d14f7225508` (third confirmed occurrence — runbook still works, permanent fix still TODO).
+
+### Web3Auth SFA migration: Phase 0 → Phase 2 cutover
+
+The plan from `docs/web3auth_sfa_migration.md` was to migrate from `@web3auth/modal` (iframe-based MPC, broke on iOS Safari ITP + Chrome incognito 3rd-party-cookie restrictions) to `@toruslabs/customauth` SFA (pure HTTPS, no iframe). Did it in four phases over two sessions:
+
+- **Phase 0 (2026-04-29 evening)** — admin-only `/admin/web3auth-sfa-test` parity page. Wrapped both SDKs in feature-flag-gated hooks, surfaced the SFA-derived pubkey alongside the modal-derived pubkey for the same email/X login. Confirmed they derive *different* ed25519 keys for the same `(verifier, sub)` pair — expected, because SFA bypasses the modal's MPC layer. Locked in that returning users would need legacy reclaim from modal-pubkey → SFA-pubkey on first SFA sign-in. Commits `8189594`, `1981b3c`, `6b46d28`, `48046e5`.
+- **Phase 1 + 1.1 (2026-04-30 morning)** — SFA hook live on mobile (Phase 1) + 60s in-memory soft seed cache (Phase 1.1) so consecutive signs run ~50ms instead of ~1s instead of re-fetching from Torus DKG. Cache zeroes on TTL expiry, on logout, and on hook destroy. Modal hook permanently inert but kept around as a 1-line revert lever. Commit `1a02043`.
+- **Phase 2 (2026-04-30 morning)** — desktop cutover. Same SFA hook, same flow, no separate "desktop SDK" branch. Commit `1a02043` (same commit; the hook is platform-agnostic by construction).
+- **Auth modal cleanup (2026-04-30)** — removed the X / Google / Telegram OAuth tile grid since the redirect flow was unreliable on iOS Safari and the popup variant added complexity for negligible usage. Modal is now email-input + Wallet Standard list (Phantom/Solflare/Backpack). The `start_x_login` / `start_google_login` / `start_telegram_login` LV handlers stay defined for backwards compatibility but no UI triggers them. Commit `25eeda0` (also rolled back the white overlay on email-OTP resume because it caused a flash on reconnect).
+
+### Web3Auth duplicate-token error on second sign
+
+Right after Phase 1 deploy: user could place one bet, then the second bet failed with `Key derivation failed: Duplicate token found`. Torus's DKG marks every JWT one-use *after fan-out across the ~5 nodes*. The hook was caching the JWT (separate from the seed cache) under the assumption that "if the seed is still in cache the JWT must still be valid" — but the JWT is consumed even when we don't use it for re-derivation, because `getTorusKey` always validates the JWT first regardless of whether it returns a cache hit downstream.
+
+Fix in commit `3bdafe3`: removed the JWT cache entirely. Always mint a fresh JWT via `Web3AuthSigning.sign_id_token` before each `customauth.getTorusKey({authConnectionId, userId, idToken})` call. The seed cache (60s TTL) still amortizes the actual DKG fan-out cost; the JWT mint is cheap (~5ms locally). Documented in `session_learnings.md` "Web3Auth JWT for getTorusKey is one-use after first call".
+
+### Coin flip stats panel: 4 commits to get it right
+
+`/play`'s "Your Stats" panel went through four passes today, each surfacing a different bug stacked on the prior fix:
+
+1. **Wrong table** (commit `e9b6882`): `load_user_stats` was reading from `:bux_booster_user_stats` — the EVM-era aggregate written by the now-archived `BuxBoosterBetSettler`. Solana flow writes to `:user_betting_stats`. Switched the read.
+2. **Wrong table again (still wrong)** (commit `c04ca20`): `:user_betting_stats` *is* updated by the Solana settler but only on settled bets, with separate `bux_*` and `sol_*` columns. Selected-token filtering meant cross-token data leaked through. Rewrote `load_user_stats` to compute fresh from `:coin_flip_games` (the source-of-truth game-by-game table) using `:mnesia.dirty_index_read(_, user_id, :user_id)` + token filter, then accumulate. Same commit also dropped a dead "the house contributed N BUX to your balance" block that surfaced on win results — leftover messaging copy from the EVM era when settlement actually moved tokens between the player's wallet and a dedicated house wallet.
+3. **Net P/L was wrong sign** (commit `410e9f6`): first rewrite computed `total_won` as gross payout (winnings including bet returned). The template formula `net = total_won - total_lost` requires profit-only semantics, so the displayed net was off by the sum of bet-on-wins. Fixed by accumulating `payout - bet` for wins instead of payout. Tiny check mark next to settled bets replaced with "Prove It" affordance.
+4. **Recent games silently capped at 10** (commit `4ac715b`): the `{:game_settled, _id}` safety-net handler called `load_recent_games` without `:limit`, and the defp default was 10. With the panel UI showing N rows, users couldn't scroll past the most recent 10 even though more existed. Bumped defp default to 30 + always pass `limit: 30` from every caller. Wrapped panel in scrollable container so the 30 fit without page bloat.
+5. **Result-screen stats stale** (commit `f573d02`): the post-bet result screen showed "Your Stats Updated" with the *pre-bet* numbers because `load_user_stats` ran on mount and the result screen mounted before the settler's `{:settlement_complete, sig}` PubSub broadcast landed. Wired `handle_info({:settlement_complete, _}, ...)` to re-run `load_user_stats` and re-assign so the displayed numbers reflect the bet that just landed.
+
+The 4-commit zigzag illustrates a recurring pitfall: when a Mnesia table is one of several with overlapping coverage of the same domain, "which table" is rarely the right question — "compute from the source-of-truth event log" usually is. `:coin_flip_games` is the Solana-flow event log; aggregates are caches, and caches can drift, especially across migrations.
+
+### Pool activity panel polish
+
+Three iterations:
+- **Removed dead "Load More →" button + made it scroll** (commit `dda5371`): the link was wired to `phx-click="load_more"` but no handler existed (had been removed during a prior streams refactor). Replaced with `max-h-[600px] overflow-y-auto` container so users see all 200 loaded rows in a scrollable panel. Bumped initial bet activity load + `load_pool_activities` limit from 50 to 200.
+- **Deposit/withdraw rows clickable to Solscan** (commit `d02278f`, today's deploy): the bet rows linked their tx signature; deposits and withdrawals didn't, even though `pool_components.activity_row` already had the click template. Root cause was data-side: the `:pool_activities` Mnesia tuple wasn't storing the signature on write, so the reader always reconstructed the row with `tx_sig=nil`. Appended `:tx_sig` at the end of the schema (auto-migrates via existing `transform_table` path that fills `nil` for old rows), updated writer in `PoolDetailLive.tx_confirmed`, updated readers in both `PoolDetailLive` and `PoolIndexLive` to read by tuple index with `tuple_size` guard so pre-migration rows render without a link instead of crashing. Existing rows from before this commit stay un-clickable; new ones link.
+
+### Admin pages: header was missing on dashboard + SFA test page
+
+User reported "admin dashboard page has no header so I can't navigate." Root cause: admin LiveViews used the default `:redesign` layout but `/admin/*` routes had been peeled off the main nav surface long ago, so the dashboard (and the Phase 0 SFA test page that copied its layout) rendered with no header at all. Created a new `:admin` layout (`lib/blockster_v2_web/components/layouts/admin.html.heex`) that wraps admin pages with the standard header but drops the marketing footer + sidebar, applied it to all `/admin/*` LV definitions. Commits `bb22ea9`, `2f68d14`.
+
+### Mobile Web3Auth resilience (2026-04-29 PM tail-end fixes that bridge into 2026-04-30)
+
+A handful of mobile-only Web3Auth bugs that wouldn't reproduce on desktop, all caused by Safari's aggressive lifecycle (page suspend on tab switch, fetch cancellation on navigation, localStorage staleness on resume):
+
+- **`uxMode=redirect` per-call on mobile** (commit `8023f64`): the customauth instance is constructed once and reused. The first auth attempt's `uxMode` setting persisted for subsequent calls; if a desktop user opened the modal on a mobile browser later in the session their next auth would reuse the desktop `popup` mode and hang. Pass `uxMode: "redirect"` per-call on mobile UA detection.
+- **Email-OTP localStorage cleanup** (commits `2cc3595`, `850a88a`): localStorage was retaining stale OTP state across logout / close-modal / new-auth cycles. Cleared on all three triggers + added retry logic for restore on reconnect (with logging). Mobile Safari can resume a backgrounded tab with the LV WebSocket disconnected; the OTP resume needs to retry once the socket comes back rather than fail silently.
+- **Timeouts + error visibility** (commit `20eadad`): wrapped Web3Auth calls in defensive timeouts + surfaced previously-silent errors. Telegram cancel path now actually communicates back to the LV instead of leaving the modal half-open.
+- **Disconnect button works on first tap** (commit `340bf4d`): used `onclick="window.handleWalletDisconnect()"` instead of `phx-click`. iOS Safari briefly disconnects the LV WebSocket when resuming a backgrounded tab, so `phx-click` events fired during that window were dropped silently — users had to tap twice. The onclick handler is bound to the JS runtime, not the LV socket, so it fires regardless. Documented as the durable pattern in CLAUDE.md social login section.
+
+### Article-page widgets render on first paint
+
+Commit `b816263`: widgets weren't rendering on initial article load — only on the second LV mount after a navigation. Root cause was the async `:load_article_extras` task that returned the widget config; the heex was rendering before the assign was populated. Added a default empty assign in the connected-mount path so the heex renders the (empty) widget container immediately, then the async task fills it in.
+
+### Hub Latest Activity panel rework
+
+Commits `1aa67a6` (real metrics replacing placeholder), `1af6161` (drop redundant rows + add active pool + top story). The panel had been showing repeated rows of the same activity type; now it surfaces a mix of recent bet + recent deposit/withdraw + active pool + featured story. Visible on every hub home.
+
+### Mnesia split-brain on `865d14f7225508` (third occurrence) — recovered, root-fix still pending
+
+Today's deploy reproduced the same split-brain pattern documented on 2026-04-29: `:running_db_nodes` returned `[self]` only on machine `865d14f7225508` despite Erlang nodes connecting fine. Schema knew about a ghost IP from before deploy (`:195:3603:63e:2`) and the live peer (`:e770:82b0:7db3:2`) but not its own current IP (`:195:c889:9afe:2`). Ran the documented runbook: `del_table_copy(:schema, ghost)` (returned `{:aborted, {:no_exists, :bot_daily_rewards}}` — runbook says this is fine, the ghost entry is still removed; the abort is on a downstream cascade), then dropped 15 stale local table copies, then `change_config(:extra_db_nodes, [other])` returned `{:ok, [other]}`. Both nodes now in `running_db_nodes` on both machines; sanity read on `:user_bux_balances` returned real data via remote (`where_to_read: <peer>`).
+
+Permanent fix still not shipped. Updated `memory/project_mnesia_split_brain_open.md` to reflect the third confirmed occurrence and the abort-shape detail in the recovery sequence.
+
+### Operational state at end of day
+
+- Blockster-v2: deployed (release `01KQG0RSM18P8DB579NYGX2JGH`). Both machines healthy after manual recovery on `865d14f7225508`.
+- Web3Auth: SFA hook live on desktop + mobile for all users. Modal hook inert. JWT cache removed.
+- `/play`: stats panel computes from `:coin_flip_games`, token-aware, profit-only semantics, recent games scrollable to 30, result screen reflects just-settled bet.
+- `/pool`: activity panel scrollable to 200, deposit/withdraw rows clickable to Solscan (new rows only — pre-migration rows render without link).
+- Admin pages: render with header via new `:admin` layout.
+
+### Postscript (same day, evening): Day 3's pool-activity tx-link change broke deposits, reverted
+
+Commit `d02278f` shipped the deposit/withdraw tx-link feature (described in "Pool activity panel polish" above) and the deploy succeeded — but on prod, the `transform_table` migration that was supposed to extend `:pool_activities` from 6 attrs to 7 attrs *never ran*. Best theory: the cluster was mid-rejoin during boot (split-brain still active when MnesiaInitializer reached the migration step), so the `transform_table` call was either silently aborted or skipped at the cluster-state check. The deploy logs didn't surface it because MnesiaInitializer logs migration failures as `Logger.warning`, not as a release-command failure.
+
+Result: schema stayed at 6-attr, but the deployed code's writer emitted 8-element tuples. Every deposit/withdraw `tx_confirmed` handler crashed at `:mnesia.dirty_write` with `bad_type`, before reaching the cost-basis update or the flash. User-visible: BUX leaves wallet (tx is on-chain, the handler runs *after* confirmation), BUX-LP balance updates from a separate periodic poll, but no blue confirmation flash, no row in the activity table, and unrealized PnL drifts upward by exactly the deposit amount because the cost basis never gets recorded.
+
+Caught it on prod via SSH inspection: `:mnesia.table_info(:pool_activities, :attributes)` returned the 6-attr list on both machines, confirming the migration didn't run despite the deploy being "successful". Reverted via commit `0f75c00` (`git revert d02278f`) and redeployed. Because the schema never actually migrated, the revert needed only the code roll-back — no manual `transform_table` to downgrade the schema.
+
+Lessons:
+- **`transform_table` running successfully at deploy time is NOT something the deploy pipeline guarantees** — it's a Logger.warning if it fails, the release_command exits 0 either way. Verify with `:mnesia.table_info(_, :attributes)` from one of the machines after every schema change.
+- **Schema appends are forward-only-safe by default, not round-trip-safe.** MnesiaInitializer auto-migrates UP (transform_table on boot), but explicitly does NOT downgrade — `mnesia_initializer.ex:2287-2290` logs a warning and leaves the schema alone when code defines fewer attrs than what's on disk. So when a schema-extension change ships and you later need to revert, you may need a manual `transform_table` on prod *before* deploying the revert. (In this incident we got lucky: schema never migrated, so revert was code-only. If transform had run, we'd have needed manual schema downgrade first.)
+- **A handler that crashes mid-execution presents as a partial state**: the on-chain side completes (the crash is post-confirmation), the side effects after the crash point are missing. The "unrealized PnL went up exactly by the deposit amount" symptom is diagnostic of "cost-basis update was skipped" — every dollar of deposit becomes a dollar of phantom unrealized profit.
+
+Related entry in `session_learnings.md`: "Mnesia transform_table can silently no-op during deploy — verify post-deploy".
+
+---
+
 ## Post-Launch Firefight Day 2 (2026-04-29 PM) ✅ — bot mints, signin bugs, deploy guardrails
 
 Continuation of the same day. User reported "admin published a new post but the reading bots aren't reading, and the BUX awarded counter isn't going up on the homepage post card." That single complaint cracked open three independent failures stacked on each other, plus an admin-login bug uncovered while debugging, plus a self-inflicted procedure gap during a settler deploy. Also: signout-on-mobile silently no-op'd, and the homepage's top post image flashed on every navigation. Net: full set of code patches + one production data merge to restore an admin's account + a hard-rule deploy verification hook so I can never skip the cwd check again. Settler deployed twice. blockster-v2 deploy bundle staged.
