@@ -681,8 +681,71 @@ After editing, smoke-test all three pages locally (`/docs/smart-contracts`, `/do
 
 ---
 
-## 13. Open questions / before merge
+## 13. Outstanding work after Phase 4 ship (2026-05-01)
 
-- [ ] Confirm the public repo name (`rubyad/blockster-bankroll-program`) — adjust if a different org/name is preferred. roguetrader uses `rubyad/roguetrader-program`, so this matches the convention.
-- [ ] Confirm there are no in-flight bets older than 5 minutes at upgrade time — if yes, settle them first (or they'll go through the reclaim path, which still works).
-- [ ] Decide whether to also seek Phantom dApp allowlisting (separate process, app-side rather than program-side, but compounds well with verification).
+The Phantom co-sign warning is fixed in production. These three items are leftover and are intentionally NOT blocking the merge:
+
+### 13.1 OtterSec badge retry (cosmetic, blocked on osec.io backend)
+
+`solana-verify remote submit-job` returns `"Unexpected error while getting Data from DB"` on the OtterSec side, and their dedupe means the stuck job ID `1cd0b2a5-a2f0-4fe2-8c5f-36cdf7f05101` returns the same broken state on every retry within their cache window. **The cryptographic verification is already done** via the on-chain PDA written by `solana-verify verify-from-repo` (tx `5ezpAYfXNVxj9HxScZFBAKiCLTYMXTZAmkB1kfT5zxtivqQJkRGpzAMmMrDwWzKKdiYuxLN4sYakUSVpkRxv34zw`). Anyone can independently rebuild the public repo with `solana-verify build` and confirm hash `fce85f93ac470a3a279dc9da51470cb2ae605b7ea6f04c3c51b871cfcaa9d080`. The OtterSec badge is Solscan polish on top of that.
+
+**To retry once their service recovers** (single command — run from anywhere with `solana-verify` v0.4.11+ installed and the user's CLI keypair `49aN...` available):
+
+```bash
+solana-verify remote submit-job \
+  --url https://radial-fittest-sanctuary.solana-mainnet.quiknode.pro/bba3cfea34edbf35708389240474cf5cd966c86b/ \
+  --program-id 49up2uzZANpjTC3sgggbZazdHBii2vY9mVK3vk5dT2tm \
+  --uploader 49aNHDAduVnEcEEqCyEXMS1rT62UnW5TajA2fVtNpC1d
+```
+
+**Success criteria** (if retried later):
+- Output ends with `Program 49up2uz... has been verified ✅` (or similar success message — varies by CLI version).
+- Visit https://verify.osec.io/status/49up2uzZANpjTC3sgggbZazdHBii2vY9mVK3vk5dT2tm — should show `Status: Verified` with the build hash.
+- Solscan program page should display a "Verified" badge.
+
+**If still failing**: the dedupe window may need to age out. Wait 24-48h between attempts. Their service health is occasionally posted at https://twitter.com/osec_io.
+
+**If permanently broken**: filing a new job ID may require a different `--uploader` (e.g. a fresh wallet that hasn't submitted before). Or just wait for their CLI to grow a `--force` flag. Not worth a workaround dance for a cosmetic badge.
+
+After success, update `docs/addresses.md` Solana Mainnet "Verification" table:
+- Replace the OtterSec status note ("submission attempted, OtterSec backend returned …") with "Verified — see https://verify.osec.io/status/49up2uz...".
+
+### 13.2 Permanent Mnesia split-brain fix
+
+Every `flyctl deploy --app blockster-v2` leaves machine `865d14f7225508` in Mnesia split-brain (Erlang reconnects, Mnesia doesn't auto-rejoin). After this PR's deploy we ran the documented manual recovery again — it took ~2 minutes and worked cleanly. The runbook is in memory `project_mnesia_split_brain_open.md` and `docs/session_learnings.md`.
+
+The proper fix is to make `MnesiaInitializer` actively call `:mnesia.change_config(:extra_db_nodes, ...)` on boot once libcluster has populated `Node.list/0`. Sketch in `lib/blockster_v2/mnesia_initializer.ex` (per memory):
+
+```elixir
+defp initialize_mnesia_for_joining_node do
+  alive_nodes = wait_for_cluster_nodes(timeout: 10_000)
+
+  case :mnesia.change_config(:extra_db_nodes, alive_nodes) do
+    {:ok, _} -> :ok
+    {:error, {:merge_schema_failed, _details}} ->
+      drop_conflicting_local_tables()  # tables with cookie != cluster cookie
+      :mnesia.change_config(:extra_db_nodes, alive_nodes)
+  end
+end
+```
+
+Separate PR. Out of scope for this fix.
+
+### 13.3 Settler Dockerfile: rebuild from source
+
+Current `contracts/blockster-settler/Dockerfile` does `COPY dist/ ./dist/` — uses pre-built `dist/`, never recompiles from `src/`. This bit us during Phase 3F: we shipped a deploy with stale `dist/` that didn't include the Phase 1B TS changes, then had to redeploy after running `npm run build` locally.
+
+Fix:
+
+```diff
+ COPY package*.json ./
+-RUN npm ci --only=production
++RUN npm ci
+ COPY src/ ./src/
++COPY tsconfig.json ./
++RUN npm run build
++RUN npm prune --production
+ COPY keypairs/ ./keypairs/
+```
+
+Tradeoff: image grows during build (devDeps for `tsc`), but the final stage prunes back. Eliminates the foot-gun. Separate small PR.

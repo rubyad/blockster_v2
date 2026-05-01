@@ -432,7 +432,44 @@ Other:
 
 ### Phase 4 — Notes
 
-_(empty — record addresses.md diff, on-site doc commits, Phoenix deploy version)_
+**Date**: 2026-05-01 (complete)
+
+**4A — addresses.md**:
+- Devnet Bankroll Program row updated with Phase 2 upgrade reference (slot 459216753).
+- New "Solana Mainnet" section: bankroll program @ slot 416763828, build hash `fce85f93…`, public source repo URL, on-chain verification PDA tx (`5ezpAYfX…`), OtterSec status link with note about pending recovery.
+- Added Mainnet RPC URL to address matrix.
+
+**4B — On-site docs heex**:
+- `lib/blockster_v2_web/live/docs_live/smart_contracts.html.heex`: Identity table got Public source + Build hash rows; BetOrder struct comment updated; place_bet signer column updated; error 6033 message updated.
+- `lib/blockster_v2_web/live/docs_live/coin_flip.html.heex`: "Who signs what" subsection rewritten as Wallet Standard vs Web3Auth bullets; Cost summary paragraph added (explicit fee story); place_bet account list + pre-checks updated; reclaim close target updated.
+- `lib/blockster_v2_web/live/docs_live/security_audit.html.heex`: Header card got public-source + build-hash + OtterSec status block; L-02 finding text tightened; DoS-via-PlayerState analysis re-scoped to note Wallet-Standard place_bet_* no longer settler-dependent; new "rent_payer at placement" entry in Verified properties.
+
+**4C — Phoenix deploy + Mnesia recovery**:
+- First attempt FAILED at `mix compile`: heex tag engine choked on `{game_registry.settler, player.key()}` and `{settler, player}` literals (curly braces parsed as Elixir interpolation). Production was untouched (build failed before any machine update).
+- Fixed with prose ("either game_registry.settler or the placing player.key()" / "to settler or player"). Verified with `mix compile` locally before retry.
+- Second deploy succeeded. Both machines updated: `865d14f7225508` (the historically-split-brain one) and `17817e62f16438`.
+- **Mnesia split-brain recovery on `865d14f7225508`** (per memory `project_mnesia_split_brain_open.md`):
+  - Pre-recovery state: `running_db_nodes: [self only]`, `node_list: [other]` — Erlang connected, Mnesia didn't auto-rejoin. `Enum.count(:mnesia.dirty_all_keys(:user_bux_balances))` returned `:no_exists`.
+  - Ran the runbook: `:mnesia.del_table_copy(:schema, ghost)` (cascade-aborted with `:bot_daily_rewards` per the documented behaviour), dropped 15 conflicting local tables, `:mnesia.change_config(:extra_db_nodes, [other])` succeeded.
+  - Post-recovery: `running_db_nodes: [other, self]` ✓; `:user_bux_balances` count via `dirty_all_keys` = 1969 (matches expected scale).
+  - Memory IPs were correct as stored: ghost `195:3603:63e:2`, other `e770:82b0:7db3:2`, self `c889:9afe:2`.
+- Production smoke check: `https://blockster.com/` returns 200; `/docs/coin-flip` includes the new "Cost summary" text.
+- **Permanent split-brain fix still TODO** (separate PR, sketched in `session_learnings.md` / open issue memory entry).
+
+**Open work after this PR ships** (all detailed in `docs/bankroll_phantom_cosign_fix.md` §13):
+
+1. **OtterSec badge retry** — single command, run from any machine with `solana-verify` + CLI keypair `49aN…`:
+   ```bash
+   solana-verify remote submit-job \
+     --url https://radial-fittest-sanctuary.solana-mainnet.quiknode.pro/bba3cfea34edbf35708389240474cf5cd966c86b/ \
+     --program-id 49up2uzZANpjTC3sgggbZazdHBii2vY9mVK3vk5dT2tm \
+     --uploader 49aNHDAduVnEcEEqCyEXMS1rT62UnW5TajA2fVtNpC1d
+   ```
+   Stuck on osec.io's backend DB error (job ID `1cd0b2a5-a2f0-4fe2-8c5f-36cdf7f05101`); dedupes on retry until cache ages out — wait 24-48h between attempts. Real cryptographic verification is the on-chain PDA from §3D (tx `5ezpAYfX…`), this is just the Solscan badge.
+
+2. **Permanent Mnesia split-brain fix** — sketched in `lib/blockster_v2/mnesia_initializer.ex` per memory; not shipped. Manual recovery (~2 min) still required after every `blockster-v2` deploy.
+
+3. **Settler Dockerfile cleanup** — change `COPY dist/` → `RUN npm run build`. Bit us in Phase 3F: shipped stale dist; required local rebuild + redeploy. Separate small PR.
 
 ### Phase 5 — Notes
 
