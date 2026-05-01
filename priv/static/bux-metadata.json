@@ -1,6 +1,16 @@
 {
   "name": "BUX",
   "symbol": "BUX",
-  "description": "Blockster engagement reward token",
-  "image": "https://ik.imagekit.io/blockster/blockster-icon.png"
+  "description": "Blockster engagement reward token. Earned for reading content, used for in-app rewards and deposits to the BUX bankroll vault.",
+  "image": "https://ik.imagekit.io/blockster/blockster-icon.png",
+  "external_url": "https://blockster.com",
+  "properties": {
+    "category": "image",
+    "files": [
+      {
+        "uri": "https://ik.imagekit.io/blockster/blockster-icon.png",
+        "type": "image/png"
+      }
+    ]
+  }
 }
