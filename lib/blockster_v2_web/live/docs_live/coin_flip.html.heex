@@ -247,6 +247,9 @@ pub fn calculate_max_bet_for_difficulty(
       <p>
         The <BlocksterV2Web.DocsComponents.inline_code>rent_payer</BlocksterV2Web.DocsComponents.inline_code> identity is checked on-chain against <BlocksterV2Web.DocsComponents.inline_code>{game_registry.settler, player.key()}</BlocksterV2Web.DocsComponents.inline_code>. This prevents any third party from spending our rent lamports while still letting either path through.
       </p>
+      <p>
+        <strong>Cost summary</strong>: Wallet Standard users pay the per-bet network fee (~5,000 lamports) plus the <BlocksterV2Web.DocsComponents.inline_code>BetOrder</BlocksterV2Web.DocsComponents.inline_code> PDA rent (~0.002 SOL) at placement, with the rent rebated when the bet settles or is reclaimed (net zero). Web3Auth users pay nothing in SOL — the settler absorbs both the network fee and the rent on their behalf so social-login accounts never have to fund a wallet just to play.
+      </p>
     </BlocksterV2Web.DocsComponents.subsection>
 
     <BlocksterV2Web.DocsComponents.subsection title="Zero-SOL bettors (social login)">
