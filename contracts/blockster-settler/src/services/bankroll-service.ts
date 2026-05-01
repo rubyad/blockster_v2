@@ -736,13 +736,20 @@ export async function buildPlaceBetTx(
   data.writeUInt8(difficulty, 32);
 
   // Account order MUST match Anchor struct exactly.
-  // Post-Phase-1 rent_payer upgrade — `rent_payer` is the second account
-  // (right after `player`). Program validates it == game_registry.settler.
+  // Post-Phase-2 rent_payer upgrade — `rent_payer` is the second account
+  // (right after `player`). Program validates it ∈ {settler, player}.
+  // Wallet Standard users (feePayerMode === "player"): rent_payer = player.
+  // Single-signer tx, no Phantom co-sign warning. Player covers ~0.002 SOL
+  // rent which is refunded on settle/reclaim via close=rent_payer.
+  // Web3Auth users (feePayerMode === "settler"): rent_payer = settler.
+  // Player keeps zero SOL; settler absorbs rent (and recovers it on close).
   // PlaceBetSol: player, rent_payer, game_registry, sol_vault, sol_vault_state, player_state, bet_order, system_program
   // PlaceBetBux: player, rent_payer, game_registry, bux_vault_state, bux_token_account, player_bux_account, player_state, bet_order, system_program, token_program
+  const useSettlerFeePayer = feePayerMode === "settler";
+  const rentPayerKey = useSettlerFeePayer ? settler.publicKey : player;
   const keys: { pubkey: PublicKey; isSigner: boolean; isWritable: boolean }[] = [
     { pubkey: player, isSigner: true, isWritable: true },
-    { pubkey: settler.publicKey, isSigner: true, isWritable: true },
+    { pubkey: rentPayerKey, isSigner: true, isWritable: true },
     { pubkey: gameRegistry, isSigner: false, isWritable: false },
   ];
 
@@ -795,7 +802,6 @@ export async function buildPlaceBetTx(
   //   zero SOL; settler absorbs the ~5000 lamport priority fee per bet.
   //   Rent still cycles: settler pays on init, gets it back on
   //   close=rent_payer at settle/reclaim time.
-  const useSettlerFeePayer = feePayerMode === "settler";
 
   const tx = new Transaction({
     recentBlockhash: blockhash,
@@ -803,10 +809,13 @@ export async function buildPlaceBetTx(
   });
   tx.add(...computeBudgetIxs(), ix);
 
-  // Settler always partial-signs as rent_payer. When it's also fee_payer,
-  // the single partialSign call covers both slots because the same
-  // Keypair signs all slots it controls.
-  tx.partialSign(settler);
+  // Settler partial-signs ONLY when it's the rent_payer (i.e. Web3Auth
+  // path). For Wallet Standard users the player is the sole signer —
+  // that's the whole point of this branch, removing the pre-applied second
+  // signature that triggered Phantom's drainer-pattern co-sign warning.
+  if (useSettlerFeePayer) {
+    tx.partialSign(settler);
+  }
 
   return tx
     .serialize({ requireAllSignatures: false, verifySignatures: false })
@@ -833,7 +842,6 @@ export async function buildReclaimExpiredTx(
 ): Promise<string> {
   const player = new PublicKey(wallet);
   const nonceBigint = BigInt(nonce);
-  const settler = MINT_AUTHORITY;
 
   const [gameRegistry] = deriveGameRegistry();
   const [solVault] = deriveSolVault();
@@ -842,6 +850,20 @@ export async function buildReclaimExpiredTx(
   const [buxTokenAccount] = deriveBuxVaultToken();
   const [playerState] = derivePlayerState(player);
   const [betOrder] = deriveBetOrder(player, nonceBigint);
+
+  // Read bet_order.rent_payer from on-chain — see settleBet for rationale.
+  // For pre-Phase-2 bets and Web3Auth Phase-2 bets this is settler; for
+  // Phantom-placed Phase-2 bets it's the player. The on-chain
+  // reclaim_expired's `has_one = rent_payer` constraint will reject any
+  // other pubkey.
+  // BetOrder layout: rent_payer at offset 115..147 (see state/bet_order.rs).
+  const betOrderAcct = await connection.getAccountInfo(betOrder, "confirmed");
+  if (!betOrderAcct || betOrderAcct.data.length < 147) {
+    throw new Error(
+      `Bet order PDA missing or too short for nonce ${nonce} (got ${betOrderAcct?.data.length ?? "null"} bytes, expected ≥ 147)`
+    );
+  }
+  const rentPayer = new PublicKey(betOrderAcct.data.subarray(115, 147));
 
   // Instruction data: discriminator (8) + nonce (u64 LE, 8) = 16 bytes
   const data = Buffer.alloc(16);
@@ -884,7 +906,7 @@ export async function buildReclaimExpiredTx(
     { pubkey: solVaultState, isSigner: false, isWritable: true },
     { pubkey: buxVaultState, isSigner: false, isWritable: true },
     { pubkey: buxTokenAccount, isSigner: false, isWritable: true },
-    { pubkey: settler.publicKey, isSigner: false, isWritable: true },
+    { pubkey: rentPayer, isSigner: false, isWritable: true },
     { pubkey: playerState, isSigner: false, isWritable: true },
     { pubkey: betOrder, isSigner: false, isWritable: true },
     { pubkey: playerBuxAta, isSigner: false, isWritable: true },
@@ -1010,18 +1032,25 @@ export async function settleBet(
   // the background retry loop spamming 0x178a logs.
   //
   // BetOrder layout: disc(8) + player(32) + game_id(8) + vault_type(1) +
-  // amount(8) + max_payout(8) + commitment_hash(32) @ offset 65.
+  // amount(8) + max_payout(8) + commitment_hash(32) @ offset 65 +
+  // nonce(8) + status(1) + created_at(8) + bump(1) + rent_payer(32) @ offset 115.
   const betOrderAcct = await connection.getAccountInfo(betOrder, "confirmed");
   if (!betOrderAcct) {
     throw new Error(`Bet order PDA not found on-chain for nonce ${nonce}`);
   }
-  if (betOrderAcct.data.length < 97) {
+  if (betOrderAcct.data.length < 147) {
     throw new Error(
-      `Bet order PDA data too short (${betOrderAcct.data.length} bytes) for nonce ${nonce}`
+      `Bet order PDA data too short (${betOrderAcct.data.length} bytes) — expected ≥ 147 for rent_payer field, nonce ${nonce}`
     );
   }
   const onchainCommitment = Buffer.from(betOrderAcct.data.subarray(65, 97)).toString("hex");
   const computedCommitment = createHash("sha256").update(seedBytes).digest("hex");
+  // Post-Phase-2: bet_order.rent_payer can be either settler (Web3Auth-mode
+  // bets) or player (Wallet Standard-mode bets). settle_bet's `has_one =
+  // rent_payer` constraint validates the account we pass matches whatever
+  // is stored on-chain — so we MUST read the actual stored value, not
+  // hardcode settler.
+  const rentPayer = new PublicKey(betOrderAcct.data.subarray(115, 147));
   if (computedCommitment !== onchainCommitment) {
     const err: any = new Error(
       `commitment_mismatch: SHA256(serverSeed) ${computedCommitment} ≠ on-chain commitment ${onchainCommitment} for player ${player} nonce ${nonce}`
@@ -1064,7 +1093,7 @@ export async function settleBet(
     { pubkey: buxVaultState, isSigner: false, isWritable: true },          // 5. bux_vault_state
     { pubkey: buxTokenAccount, isSigner: false, isWritable: true },        // 6. bux_token_account
     { pubkey: playerKey, isSigner: false, isWritable: true },              // 7. player
-    { pubkey: settler.publicKey, isSigner: false, isWritable: true },      // 8. rent_payer (UncheckedAccount, validated via has_one)
+    { pubkey: rentPayer, isSigner: false, isWritable: true },              // 8. rent_payer (read from bet_order — settler OR player; Phase 2)
     { pubkey: playerState, isSigner: false, isWritable: true },            // 9. player_state
     { pubkey: betOrder, isSigner: false, isWritable: true },               // 10. bet_order
     { pubkey: playerBuxAta, isSigner: false, isWritable: true },           // 11. player_bux_account (Option)
