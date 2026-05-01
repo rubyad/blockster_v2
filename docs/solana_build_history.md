@@ -9,6 +9,63 @@ Chronological record of all Solana migration changes and post-migration updates 
 
 ---
 
+## Post-Launch Day 4 (2026-05-01) ✅ — JWT/transient retry UX, 5th split-brain recovery
+
+Single-issue day, shipped one commit (`7d238f2`) plus its deploy and the now-routine post-deploy Mnesia recovery on `865d14f7225508`.
+
+### The bug behind the change
+
+User report from late 2026-04-30: was placing BUX bets on `/play` with an email-Web3Auth wallet, one bet failed with a "JWT generation failed → please log in" modal, didn't actually log in, refreshed the page, and was placing successful bets immediately afterward. So why did the modal say login was required if it wasn't?
+
+Root cause: the SFA hook's `_fetchKeypair` had one error event (`web3auth_error`) for every failure mode — JWT-mint network blip, server 5xx, Torus DKG stutter, AND genuine session-invalid. The LV's `WalletAuthEvents` handler always responded by opening the wallet selector. So a 200ms `/refresh_jwt` hiccup looked identical to a real session loss, even though the cookie was untouched. Refreshing the page hit `_silentReconnect` against a healthier server, which succeeded, and the seed cache was warm for subsequent bets.
+
+The split-brain on `865d14f7225508` from the previous deploy was the most likely specific cause for that user's blip — a `/refresh_jwt` request that landed on the recovered-but-still-rebalancing node would have hit a Mnesia table mid-replication and 5xx'd. But the fix isn't specific to split-brain: any transient that surfaces a re-auth modal when the cookie is fine is bad UX.
+
+### `assets/js/hooks/web3auth_sfa_hook.js` — tagged failure modes + bounded retry
+
+`_refreshCachedJwt` now returns `{ok: true, jwt}` or `{ok: false, kind: "session_invalid" | "transient"}`:
+
+- HTTP **401 / 400** from `/api/auth/web3auth/refresh_jwt` → `session_invalid`. Cookie is genuinely dead (user logged out elsewhere, deactivated, or `auth_method` isn't `web3auth_email`/`web3auth_telegram`). No retry will help.
+- HTTP **5xx**, network throw, JSON parse failure, missing `id_token` → `transient`. Retry inside the hook 3× with `0/250/750ms` backoff (~1s total) before surfacing.
+- Other 4xx → `session_invalid` (forbidden, malformed request — won't fix itself).
+
+`_fetchKeypair` then branches through a new `_emitDerivationFailure(kind, msg)` funnel:
+- `session_invalid` → existing `web3auth_error` event → existing wallet-selector modal (UX unchanged for genuine session loss).
+- `transient` → new `web3auth_transient_error` event → new banner UX.
+
+`getTorusKey` rejections classified by `classifyTorusError(err)` — credential-shape errors (`duplicate token`, `invalid signature`, `unknown kid`, `token expired`, `verifier not found`) get marked `session_invalid`; everything else defaults to `transient`. Default-to-transient is intentional: a spurious banner is cheaper than a spurious sign-in modal.
+
+### `WalletAuthEvents` — new shared transient handler
+
+Added `handle_event("web3auth_transient_error", ...)` to the macro that just stashes the error string in `:web3auth_transient` socket assign — no modal, no flash, no `show_wallet_selector`. Companion `clear_web3auth_transient` resets it. Existing `web3auth_error` handler unchanged.
+
+### `/play` (CoinFlipLive) and `/pool/:vault` (PoolDetailLive) — retry banner + handler
+
+Amber banner inside each card that renders only when `assigns[:web3auth_transient]` is set. Same shape on both pages: icon + "Connection hiccup — your sign-in is fine, just retry." + Retry / ✕ buttons.
+
+- **CoinFlip**: banner sits inside the `:idle` bet card, just below the expired-bet banner. `retry_bet` handler clears the transient assign and re-runs `start_game` (predictions + amount preserved across the failure). `bet_error` suppresses its red `error_message` box when the failure is the Web3Auth keypair-unavailable shape so the banner is the only message.
+- **Pool**: banner sits inside the order-form card, between the deposit/withdraw tabs and the wallet balances row. `retry_pool_action` handler clears the transient assign and re-runs `handle_pool_action(socket, vault_type, action)` with `action` derived from the current `@tab`. `tx_failed` suppresses its red flash when the transient banner is showing.
+
+Dismiss buttons on both pages use the macro's `clear_web3auth_transient` event — single shared handler, no per-LV dismiss code.
+
+### Deploy + 5th Mnesia split-brain recovery
+
+`flyctl deploy --app blockster-v2` from repo root, hook emitted `DEPLOY VERIFIED: app=blockster-v2 dir=/Users/tenmerry/Projects/blockster_v2`. Release_command + rolling update + smoke checks green. `mix test` reported 3373/21/201 — same 21 pre-existing failures (footer/widget/phase5+7+8+9 shop/EmailOtp/WalletAuth/BannersAdmin), no new failures from this commit.
+
+Post-deploy `:mnesia.system_info(:running_db_nodes)` on `865d14f7225508` returned `[self]` only. Same pattern as the previous four occurrences, same stable ghost / other IPs (`195:3603:63e:2` and `e770:82b0:7db3:2`). Ran the documented one-rpc recovery: `del_table_copy(:schema, ghost)` returned `{:aborted, {:no_exists, :bot_daily_rewards}}` (cascade abort, expected), 15 locally-diverged tables dropped, `change_config(:extra_db_nodes, [other])` returned `{:ok, [other]}`, both nodes back in `running_db_nodes`.
+
+Verified with `Enum.count(:mnesia.dirty_all_keys/1)` (NOT `table_info(_, :size)` which would show 0 for tables this node routes remotely): `user_bux_balances` 1970 keys (+4 since yesterday), `user_post_rewards` 66959 keys (+117). Production traffic landing on the recovered routing.
+
+Updated `memory/project_mnesia_split_brain_open.md` to 5 confirmed occurrences. The "stable IPs" observation now has 5 data points — the runbook's hardcoded atoms keep working until that pattern breaks. Permanent fix in `MnesiaInitializer.initialize_mnesia_for_joining_node/0` still TODO.
+
+### Operational state at end of day
+
+- `blockster-v2`: deployed (release `01KQGZTFWRC7Q9XFQ7CXXG6PJ7`-ish; check `flyctl releases`). Both machines healthy after manual recovery on `865d14f7225508`.
+- Behaviour live: transient JWT/Torus failures now show a retry banner instead of a re-auth modal. Real session loss still opens the wallet selector. Tested locally; production smoke is whatever ad-hoc bets the user runs after this commit.
+- Permanent split-brain fix still TODO — every blockster-v2 deploy continues to require ~2 min of manual recovery.
+
+---
+
 ## Post-Launch Day 3 (2026-04-30) ✅ — SFA migration cutover, coin flip stats rewrite, pool activity polish
 
 Two-day arc: 2026-04-29 PM finished with the original `@web3auth/modal` SDK still active and admin-only test pages stood up to validate the SFA replacement. 2026-04-30 morning flipped the SDK over for everyone (desktop + mobile, both fresh and returning sessions), then the day became a long tail of UX polish on `/play` and `/pool` once the auth path stopped getting in the way of routine testing.

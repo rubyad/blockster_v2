@@ -7,6 +7,7 @@ For active reference material, see the main [CLAUDE.md](../CLAUDE.md).
 ---
 
 ## Table of Contents
+- [Tag transient vs session-invalid in the SFA hook so a JWT blip doesn't pop the login modal](#tag-transient-vs-session-invalid-in-the-sfa-hook-so-a-jwt-blip-doesnt-pop-the-login-modal-2026-05-01)
 - [Verifying Mnesia split-brain recovery — `dirty_all_keys` not `table_info(_, :size)`](#verifying-mnesia-split-brain-recovery--dirty_all_keys-not-table_info_-size-2026-04-30)
 - [Mnesia `transform_table` can silently no-op during deploy — verify post-deploy](#mnesia-transform_table-can-silently-no-op-during-deploy--verify-post-deploy-2026-04-30)
 - [Web3Auth JWT for `getTorusKey` is one-use — don't cache it](#web3auth-jwt-for-gettoruskey-is-one-use--dont-cache-it-2026-04-30)
@@ -93,6 +94,30 @@ For active reference material, see the main [CLAUDE.md](../CLAUDE.md).
 - [Engagement Tracker Silent Failure — `#post-content` Selector Miss After Redesign](#engagement-tracker-silent-failure--post-content-selector-miss-after-redesign-apr-2026)
 
 ---
+
+## Tag transient vs session-invalid in the SFA hook so a JWT blip doesn't pop the login modal (2026-05-01)
+
+User report from late 2026-04-30: betting fine on `/play`, one bet failed with a "JWT generation failed → log in" modal, didn't actually log in, refreshed the page, was placing successful bets immediately. The session cookie was untouched the whole time — the modal was wrong.
+
+Root cause was in `assets/js/hooks/web3auth_sfa_hook.js`. `_refreshCachedJwt` and `_fetchKeypair` had one error event (`web3auth_error`) for every failure mode. Network blip on `POST /api/auth/web3auth/refresh_jwt`? `web3auth_error`. Server 5xx? `web3auth_error`. Torus DKG stutter on `getTorusKey`? `web3auth_error`. Genuine 401 because the cookie expired? Also `web3auth_error`. The LV's `WalletAuthEvents` macro handler treated every `web3auth_error` as a session loss and opened the wallet selector — so a 200ms hiccup felt indistinguishable from "you got logged out."
+
+The fix is the discriminator: **the HTTP response code from your own server is binary truth**. 401/400 means the cookie is genuinely dead and no retry will help. 5xx / network throw / JSON parse failure means the cookie is fine, just retry. Wire that distinction end-to-end:
+
+1. **Hook side** — `_refreshCachedJwt` returns `{ok: true, jwt}` or `{ok: false, kind: "session_invalid" | "transient"}`. 401/400 → `session_invalid`. 5xx / network / JSON parse / missing id_token → `transient` (retry 3× internally with `0/250/750ms` backoff before surfacing). Other 4xx → `session_invalid`. `_fetchKeypair` branches on the tag through `_emitDerivationFailure(kind, msg)`: `session_invalid` → existing `web3auth_error` event; `transient` → new `web3auth_transient_error` event.
+
+2. **`getTorusKey` rejections** — classify by error message via `classifyTorusError(err)`. Credential-shape errors (`duplicate token`, `invalid signature`, `unknown kid`, `token expired`, `verifier not found`) are `session_invalid`. Default for unknown errors is `transient` — a spurious retry banner is cheaper than a spurious sign-in modal, and the JWT we minted moments earlier was provably valid (we got it from our own server with a fresh cookie), so anything Torus rejects downstream is more likely network than credential.
+
+3. **LV side** — `WalletAuthEvents` gets a new shared handler `web3auth_transient_error` that stashes the message in `:web3auth_transient` socket assign — no modal, no flash, no `show_wallet_selector`. Companion `clear_web3auth_transient` resets it. Existing `web3auth_error` handler stays exactly as it was (still opens the wallet selector for genuine session loss).
+
+4. **Feature LVs render a banner** — `CoinFlipLive` renders inside the `:idle` bet card; `PoolDetailLive` inside the order-form card. Each has its own retry handler (`retry_bet` re-runs `start_game`; `retry_pool_action` re-runs `handle_pool_action` with the current `@tab`). Both pages preserve the user's input across the failure — predictions/amount on coin flip, typed amount + tab on pool — so retry = re-run from preserved state, no rebuild needed.
+
+5. **Suppress the redundant red flash** — when the underlying failure is the Web3Auth signer being unavailable, the banner is the only message we want visible. `bet_error` (CoinFlip) and `tx_failed` (Pool) check for either `assigns[:web3auth_transient] != nil` or the literal `"Web3Auth SFA keypair unavailable"` substring in the error and skip their flash/error_message in those cases.
+
+**How to apply**: any time a frontend hook can fail in both "session/credential is gone" and "transient blip" modes, encode that distinction at the source (e.g. HTTP response code, error message classification) and surface it as two different events. Let the LV decide UX per event. Conflating them under one `*_error` event forces the LV to guess, and the safe-default guess is always "open the modal," which is bad UX for the more common transient case. The hook in this repo had all the information to distinguish — it just wasn't passing it through.
+
+Bonus: the bounded retry inside the hook (3× / ~1s) absorbs the typical network hiccup invisibly, before any UI ever fires. By the time the banner shows, the hook has already established this isn't a one-off.
+
+Commit: `7d238f2`. Files: `assets/js/hooks/web3auth_sfa_hook.js`, `lib/blockster_v2_web/live/wallet_auth_events.ex`, `lib/blockster_v2_web/live/coin_flip_live.ex`, `lib/blockster_v2_web/live/pool_detail_live.ex`.
 
 ## Verifying Mnesia split-brain recovery — `dirty_all_keys` not `table_info(_, :size)` (2026-04-30)
 
