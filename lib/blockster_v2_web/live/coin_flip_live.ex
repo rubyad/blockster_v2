@@ -418,6 +418,50 @@ defmodule BlocksterV2Web.CoinFlipLive do
                   </div>
                 <% end %>
 
+                <%!-- Transient Web3Auth failure banner. The user's session is
+                     still valid; the hook just couldn't reach Torus / our own
+                     /refresh_jwt server for one bet. Predictions + amount are
+                     preserved in :idle state, so retry just re-runs start_game. --%>
+                <%= if assigns[:web3auth_transient] do %>
+                  <div class="bg-amber-50 border-b border-amber-200 px-5 py-2.5 md:px-6 md:py-3 flex items-center justify-between gap-3">
+                    <div class="flex items-center gap-2 text-[12px] md:text-sm text-amber-800 min-w-0">
+                      <svg
+                        class="w-4 h-4 text-amber-500 shrink-0"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                        stroke-width="2"
+                      >
+                        <path
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                          d="M13 10V3L4 14h7v7l9-11h-7z"
+                        />
+                      </svg>
+                      <span class="truncate">
+                        Connection hiccup — your sign-in is fine, just retry.
+                      </span>
+                    </div>
+                    <div class="flex items-center gap-1.5 shrink-0">
+                      <button
+                        type="button"
+                        phx-click="retry_bet"
+                        class="px-3 py-1.5 bg-[#0a0a0a] text-white text-[11px] font-bold rounded-full hover:bg-[#1a1a22] transition-all cursor-pointer"
+                      >
+                        Retry
+                      </button>
+                      <button
+                        type="button"
+                        phx-click="clear_web3auth_transient"
+                        class="px-2 py-1.5 text-amber-700 text-[11px] font-bold rounded-full hover:bg-amber-100 transition-all cursor-pointer"
+                        aria-label="Dismiss"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  </div>
+                <% end %>
+
                 <%!-- Token selector + balance row — desktop only.
                      Mobile: tokens live in the page header (above) and the
                      balance/house row is hidden to free vertical space. --%>
@@ -2431,15 +2475,51 @@ defmodule BlocksterV2Web.CoinFlipLive do
   def handle_event("bet_error", %{"error" => error}, socket) do
     Logger.error("[CoinFlip] Bet error: #{error}")
 
-    {:noreply,
-     assign(socket,
-       error_message: error,
-       game_state: :idle,
-       results: [],
-       won: nil,
-       payout: 0,
-       bet_confirmed: false
-     )}
+    # If the bet failed because the Web3Auth signer was unavailable for a
+    # transient reason, the `web3auth_transient_error` handler already
+    # surfaced a retry banner with the right messaging. Don't double-up by
+    # also showing the raw "Web3Auth SFA keypair unavailable" string in the
+    # red error box — leave error_message untouched so only the banner is
+    # visible.
+    web3auth_transient = assigns_web3auth_transient_active?(socket, error)
+
+    socket =
+      if web3auth_transient do
+        assign(socket,
+          game_state: :idle,
+          results: [],
+          won: nil,
+          payout: 0,
+          bet_confirmed: false
+        )
+      else
+        assign(socket,
+          error_message: error,
+          game_state: :idle,
+          results: [],
+          won: nil,
+          payout: 0,
+          bet_confirmed: false
+        )
+      end
+
+    {:noreply, socket}
+  end
+
+  defp assigns_web3auth_transient_active?(socket, error) do
+    assigns = socket.assigns
+
+    assigns[:web3auth_transient] != nil or
+      (is_binary(error) and String.contains?(error, "Web3Auth SFA keypair unavailable"))
+  end
+
+  @impl true
+  def handle_event("retry_bet", _params, socket) do
+    # Predictions + amount are preserved in :idle state, so we just clear
+    # the banner and rerun the same start_game logic. The seed cache may
+    # still be cold (the previous attempt failed before getting that far),
+    # so the hook will mint a fresh JWT + call getTorusKey again.
+    handle_event("start_game", %{}, assign(socket, web3auth_transient: nil))
   end
 
   def handle_event("reclaim_stuck_bet", _params, socket) do

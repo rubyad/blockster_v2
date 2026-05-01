@@ -703,16 +703,36 @@ defmodule BlocksterV2Web.WalletAuthEvents do
       end
 
       def handle_event("web3auth_error", %{"error" => error}, socket) do
-        # Keep the wallet selector open so the user can retry immediately
-        # without navigating away. Web3Auth failures are often transient
-        # (backend 502s, popup blockers) — a visible modal + flash is a
-        # better recovery path than silently returning to the page.
+        # Reserved for *real* session-invalid failures the hook can't recover
+        # from automatically — bad / missing cookie, deactivated user, JWT
+        # signature mismatch from Torus. Surfacing the wallet selector here
+        # is correct: the user truly needs to re-auth.
+        # Transient failures (network blips, server 5xx, the post-deploy
+        # split-brain window) take the `web3auth_transient_error` path below
+        # and stay non-modal.
         {:noreply,
          socket
          |> assign(:connecting, false)
          |> assign(:connecting_provider, nil)
          |> assign(:show_wallet_selector, true)
          |> put_flash(:error, error)}
+      end
+
+      # Transient Web3Auth failure — the cookie is fine, the user is still
+      # signed in, but a single JWT-mint or key-derivation call hit a network
+      # blip / 5xx / DKG stutter. The hook already retried 3× with backoff
+      # before reaching here, so by this point we know it's not a one-off.
+      # Default behaviour: stash the error string in a `:web3auth_transient`
+      # assign so feature LVs (CoinFlipLive, PoolDetailLive) can render an
+      # in-context retry banner instead of a re-auth modal. LVs that don't
+      # bind that assign just silently swallow the event — that's fine; the
+      # signer call that failed will surface its own bet_error / pool_error.
+      def handle_event("web3auth_transient_error", %{"error" => error}, socket) do
+        {:noreply, assign(socket, :web3auth_transient, error)}
+      end
+
+      def handle_event("clear_web3auth_transient", _, socket) do
+        {:noreply, assign(socket, :web3auth_transient, nil)}
       end
 
       # Telegram widget payload arrives here after user approves in the

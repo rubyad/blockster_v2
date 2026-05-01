@@ -516,13 +516,12 @@ export const Web3AuthSfa = {
     // Always mint a fresh JWT — Torus marks each JWT one-use after
     // the DKG fan-out. Reusing the JWT we got at sign-in (or any
     // previous re-derive) returns "Duplicate token found".
-    const jwt = await this._refreshCachedJwt()
-    if (!jwt) {
-      this.pushEvent("web3auth_error", {
-        error: "Sign-in required — JWT refresh failed",
-      })
+    const jwtResult = await this._refreshCachedJwt()
+    if (!jwtResult.ok) {
+      this._emitDerivationFailure(jwtResult.kind, "Could not refresh sign-in token")
       return null
     }
+    const jwt = jwtResult.jwt
 
     const ca = await this._ensureSdk()
     let result
@@ -533,21 +532,38 @@ export const Web3AuthSfa = {
         idToken: jwt,
       })
     } catch (e) {
-      this.pushEvent("web3auth_error", {
-        error: `Key derivation failed: ${e?.message || e}`,
-      })
+      // Classify the Torus failure. We just minted a fresh JWT so the cookie
+      // is provably fine — anything Torus rejects here is either a credential
+      // problem (signature mismatch, kid unknown, duplicate token if a JWT
+      // reuse bug ever creeps back in) or a network/service blip. The first
+      // class needs re-auth; the second just needs retry.
+      const kind = classifyTorusError(e)
+      const msg = e?.message || String(e)
+      this._emitDerivationFailure(kind, `Key derivation failed: ${msg}`)
       return null
     }
 
     const privKeyHex = extractPrivKey(result)
     if (!privKeyHex) {
-      this.pushEvent("web3auth_error", { error: "Empty private key from SFA" })
+      // Empty key from a 200 response — Torus side bug or schema drift.
+      // Treat as transient since the cookie + JWT validated fine.
+      this._emitDerivationFailure("transient", "Empty private key from SFA")
       return null
     }
 
     const bytes = hexToBytes(privKeyHex)
     this._cacheSeed(bytes)
     return this._keypairFromBytes(bytes)
+  },
+
+  // Funnel for derivation failures so the hook never accidentally pushes
+  // `web3auth_error` (modal) for a transient case or vice versa.
+  _emitDerivationFailure(kind, message) {
+    if (kind === "session_invalid") {
+      this.pushEvent("web3auth_error", { error: message })
+    } else {
+      this.pushEvent("web3auth_transient_error", { error: message })
+    }
   },
 
   _keypairFromBytes(bytes) {
@@ -580,30 +596,88 @@ export const Web3AuthSfa = {
     this._cachedSeedExpiresAt = 0
   },
 
+  // Returns one of:
+  //   { ok: true, jwt }
+  //   { ok: false, kind: "session_invalid" }   ← cookie is genuinely dead
+  //   { ok: false, kind: "transient" }         ← server/network blip; retry is fine
+  // The kind matters because the caller surfaces different UX: session_invalid
+  // → re-auth modal (user really must log in); transient → retry banner (cookie
+  // is fine, just try again).
   async _refreshCachedJwt() {
     const csrf = document.querySelector("meta[name='csrf-token']")?.content
-    if (!csrf) return null
-    try {
-      const resp = await fetch("/api/auth/web3auth/refresh_jwt", {
-        method: "POST",
-        headers: {
-          "content-type": "application/json",
-          "x-csrf-token": csrf,
-        },
-        body: "{}",
-      })
-      if (!resp.ok) return null
-      const json = await resp.json()
-      if (!json?.id_token) return null
+    // CSRF is server-rendered into root.html.heex so should always exist.
+    // Treat its absence as "page is in an unexpected state" → transient.
+    if (!csrf) return { ok: false, kind: "transient" }
+
+    // Bounded retry for transient failures (5xx, network, JSON parse). 3
+    // attempts with exponential backoff covers a typical network hiccup
+    // (~1.75s worst case) before surfacing anything to the user.
+    const backoffsMs = [0, 250, 750]
+    let lastKind = "transient"
+
+    for (let i = 0; i < backoffsMs.length; i++) {
+      if (backoffsMs[i] > 0) {
+        await new Promise((r) => setTimeout(r, backoffsMs[i]))
+      }
+
+      let resp
+      try {
+        resp = await fetch("/api/auth/web3auth/refresh_jwt", {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+            "x-csrf-token": csrf,
+          },
+          body: "{}",
+        })
+      } catch (_) {
+        // Network throw — transient by definition. Try again.
+        lastKind = "transient"
+        continue
+      }
+
+      if (resp.status === 401 || resp.status === 400) {
+        // Session is genuinely invalid (logged out elsewhere, deactivated,
+        // or auth_method isn't web3auth_email/telegram). No retry will help.
+        return { ok: false, kind: "session_invalid" }
+      }
+
+      if (resp.status >= 500) {
+        // Server is unhappy but the cookie is fine. Retry.
+        lastKind = "transient"
+        continue
+      }
+
+      if (!resp.ok) {
+        // 4xx other than 401/400 — treat as session-level (bad request shape,
+        // forbidden, etc.). Don't retry, surface as needs-reauth.
+        return { ok: false, kind: "session_invalid" }
+      }
+
+      let json
+      try {
+        json = await resp.json()
+      } catch (_) {
+        lastKind = "transient"
+        continue
+      }
+
+      if (!json?.id_token) {
+        // 200 with no id_token field — server bug or partial response.
+        // Treat as transient since the cookie itself is presumably fine.
+        lastKind = "transient"
+        continue
+      }
+
       this._cachedJwt = json.id_token
       this._cachedVerifier = json.verifier_id || this._cachedVerifier
       // verifier_id_field == "sub" — recompute sub from the new JWT.
       const sub = subFromJwt(json.id_token, json.verifier_id_field || "sub")
       if (sub) this._cachedVerifierId = sub
-      return json.id_token
-    } catch (_) {
-      return null
+      return { ok: true, jwt: json.id_token }
     }
+
+    return { ok: false, kind: lastKind }
   },
 
   _installSigner() {
@@ -684,6 +758,25 @@ export const Web3AuthSfa = {
       window.__signer = null
     }
   },
+}
+
+// Best-effort classification of a getTorusKey rejection. Defaults to
+// transient when the message doesn't match a known credential failure —
+// retry is always safer than a spurious sign-in modal.
+function classifyTorusError(err) {
+  const msg = (err?.message || String(err) || "").toLowerCase()
+  if (
+    msg.includes("duplicate token") ||
+    msg.includes("invalid token") ||
+    msg.includes("invalid signature") ||
+    msg.includes("invalid jwt") ||
+    msg.includes("token expired") ||
+    msg.includes("unknown kid") ||
+    msg.includes("verifier not found")
+  ) {
+    return "session_invalid"
+  }
+  return "transient"
 }
 
 function subFromJwt(jwt, field) {
