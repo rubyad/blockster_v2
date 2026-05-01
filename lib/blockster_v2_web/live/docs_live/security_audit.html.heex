@@ -26,6 +26,15 @@
         <div class="text-[10px] uppercase tracking-[0.18em] text-[#CAFC00] font-bold mb-2">Audit · Final report</div>
         <div class="font-haas_bold_75 text-[22px] leading-tight">Blockster Bankroll v1</div>
         <div class="text-[13px] text-white/55 font-mono mt-1">Program 49up2uzZANpjTC3sgggbZazdHBii2vY9mVK3vk5dT2tm</div>
+        <div class="text-[11px] text-white/55 font-mono mt-2">
+          Public source: <a class="text-[#CAFC00] hover:underline" href="https://github.com/rubyad/blockster-bankroll-program" target="_blank" rel="noopener">github.com/rubyad/blockster-bankroll-program</a>
+        </div>
+        <div class="text-[11px] text-white/55 font-mono mt-1">
+          Build hash: <span class="text-white/80">fce85f93ac470a3a279dc9da51470cb2ae605b7ea6f04c3c51b871cfcaa9d080</span>
+        </div>
+        <div class="text-[11px] text-white/55 font-mono mt-1">
+          Verification: on-chain PDA written via <BlocksterV2Web.DocsComponents.inline_code>solana-verify verify-from-repo</BlocksterV2Web.DocsComponents.inline_code> (hash matches deployed bytecode). OtterSec remote-verify badge submission pending — see <a class="text-[#CAFC00] hover:underline" href="https://verify.osec.io/status/49up2uzZANpjTC3sgggbZazdHBii2vY9mVK3vk5dT2tm" target="_blank" rel="noopener">verify.osec.io</a>.
+        </div>
       </div>
       <div class="flex flex-col items-end gap-1 text-[11px] text-white/60 font-mono">
         <div>Report version: 1.0</div>
@@ -324,7 +333,7 @@
     >
       <:description>
         <p>
-          Each <BlocksterV2Web.DocsComponents.inline_code>BetOrder</BlocksterV2Web.DocsComponents.inline_code> stores the <BlocksterV2Web.DocsComponents.inline_code>rent_payer</BlocksterV2Web.DocsComponents.inline_code> at placement time (enforced to equal the current <BlocksterV2Web.DocsComponents.inline_code>settler</BlocksterV2Web.DocsComponents.inline_code>). On settle_bet / reclaim_expired, the account closes and rent returns to that stored <BlocksterV2Web.DocsComponents.inline_code>rent_payer</BlocksterV2Web.DocsComponents.inline_code> via <BlocksterV2Web.DocsComponents.inline_code>has_one</BlocksterV2Web.DocsComponents.inline_code>.
+          Each <BlocksterV2Web.DocsComponents.inline_code>BetOrder</BlocksterV2Web.DocsComponents.inline_code> stores the <BlocksterV2Web.DocsComponents.inline_code>rent_payer</BlocksterV2Web.DocsComponents.inline_code> at placement time (Phase 2: enforced to equal the current <BlocksterV2Web.DocsComponents.inline_code>settler</BlocksterV2Web.DocsComponents.inline_code> OR the placing <BlocksterV2Web.DocsComponents.inline_code>player</BlocksterV2Web.DocsComponents.inline_code>). On settle_bet / reclaim_expired, the account closes and rent returns to that stored <BlocksterV2Web.DocsComponents.inline_code>rent_payer</BlocksterV2Web.DocsComponents.inline_code> via <BlocksterV2Web.DocsComponents.inline_code>has_one</BlocksterV2Web.DocsComponents.inline_code>.
         </p>
         <p>
           If the settler is rotated via <BlocksterV2Web.DocsComponents.inline_code>update_config</BlocksterV2Web.DocsComponents.inline_code> while bets are pending, those pending bets still reference the <em>old</em> settler. The old key must remain accessible to:
@@ -348,7 +357,7 @@
         </p>
       </:recommendation>
       <:references>
-        bet_order.rs:48, place_bet_sol.rs:75-78 (sets rent_payer), settle_bet.rs:62-63 (has_one), reclaim_expired.rs:53-54 (has_one)
+        bet_order.rs:48, place_bet_sol.rs:76-79 (sets rent_payer ∈ {settler, player}), settle_bet.rs:62-63 (has_one), reclaim_expired.rs:53-54 (has_one)
       </:references>
     </BlocksterV2Web.DocsComponents.audit_finding>
 
@@ -449,7 +458,7 @@
       </:description>
       <:impact>
         <p>
-          If the settler's SOL budget is exhausted, legitimate <BlocksterV2Web.DocsComponents.inline_code>submit_commitment</BlocksterV2Web.DocsComponents.inline_code> and <BlocksterV2Web.DocsComponents.inline_code>place_bet_*</BlocksterV2Web.DocsComponents.inline_code> calls (which require the settler as rent_payer) will fail, effectively pausing the game. The settler's private key is the only thing that can trigger this so it's a self-inflicted wound, not an external attack surface.
+          If the settler's SOL budget is exhausted, legitimate <BlocksterV2Web.DocsComponents.inline_code>submit_commitment</BlocksterV2Web.DocsComponents.inline_code> calls (which fund <BlocksterV2Web.DocsComponents.inline_code>PlayerState</BlocksterV2Web.DocsComponents.inline_code> rent via the settler) and Web3Auth-mode <BlocksterV2Web.DocsComponents.inline_code>place_bet_*</BlocksterV2Web.DocsComponents.inline_code> calls (which still rely on the settler as rent_payer + fee_payer for the zero-SOL UX) will fail, effectively pausing the game. Since Phase 2, Wallet-Standard <BlocksterV2Web.DocsComponents.inline_code>place_bet_*</BlocksterV2Web.DocsComponents.inline_code> traffic is independent — the player self-funds bet PDA rent + tx fees, so a depleted settler does not lock those users out. The settler's private key is the only thing that can trigger PlayerState exhaustion so it's a self-inflicted wound, not an external attack surface.
         </p>
       </:impact>
       <:recommendation>
@@ -622,6 +631,7 @@
       rows={[
         {"PDA seeds are canonical", "All PDAs use the seeds documented in state/ doc comments. Bumps are stored in GameRegistry for vault/mint PDAs and in account bodies for player/bet."},
         {"has_one relationships", "BetOrder.has_one = player and has_one = rent_payer correctly bind settlement and reclaim accounts. Hostile accounts cannot be substituted."},
+        {"rent_payer at placement", "Phase 2 invariant: place_bet_sol/bux's require!(rent_payer ∈ {settler, player}). Both paths exercised in tests/blockster-bankroll.ts (Phase 1 + Phase 2 describe blocks). Third-party rent_payers correctly rejected with InvalidRentPayer."},
         {"Vault authority", "SOL vault signs via [b\"sol_vault\", bump] in CPIs. BUX token account signs via [b\"bux_token_account\", bump]. LP mint authorities use dedicated seeds. All CPIs are invoke_signed with the correct seeds."},
         {"Settler gating", "submit_commitment, settle_bet gated on settler.key() == game_registry.settler. update_config, pause, register_game, create_lp_metadata gated on authority.key() == game_registry.authority. Player-facing instructions gated on player signature where appropriate."}
       ]}

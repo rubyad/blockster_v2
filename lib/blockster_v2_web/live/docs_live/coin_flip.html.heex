@@ -238,10 +238,14 @@ pub fn calculate_max_bet_for_difficulty(
 
     <BlocksterV2Web.DocsComponents.subsection title="Who signs what">
       <p>
-        Two signatures are involved in a <BlocksterV2Web.DocsComponents.inline_code>place_bet_*</BlocksterV2Web.DocsComponents.inline_code> transaction: yours as the <BlocksterV2Web.DocsComponents.inline_code>player</BlocksterV2Web.DocsComponents.inline_code> (authorising the wager transfer) and the settler's as the <BlocksterV2Web.DocsComponents.inline_code>rent_payer</BlocksterV2Web.DocsComponents.inline_code> (paying the lamports to allocate the BetOrder PDA). The settler partial-signs the transaction before it's handed to your wallet.
+        Who signs a <BlocksterV2Web.DocsComponents.inline_code>place_bet_*</BlocksterV2Web.DocsComponents.inline_code> transaction depends on which wallet you connected:
       </p>
+      <ul>
+        <li><strong>Wallet Standard (Phantom, Solflare, Backpack)</strong>: only your wallet signs. You play both <BlocksterV2Web.DocsComponents.inline_code>player</BlocksterV2Web.DocsComponents.inline_code> and <BlocksterV2Web.DocsComponents.inline_code>rent_payer</BlocksterV2Web.DocsComponents.inline_code> — the settler isn't on the tx at all. This is the path Phase 2 (2026-04-30) added so Phantom's drainer-pattern detector doesn't flag every bet as a co-signed phishing attempt.</li>
+        <li><strong>Web3Auth (email / X / Telegram)</strong>: you sign locally from the seed your sign-in derived; the settler also signs as <BlocksterV2Web.DocsComponents.inline_code>rent_payer</BlocksterV2Web.DocsComponents.inline_code> + fee_payer so you don't have to hold any SOL. No wallet popup, just an in-app confirmation.</li>
+      </ul>
       <p>
-        The <BlocksterV2Web.DocsComponents.inline_code>rent_payer</BlocksterV2Web.DocsComponents.inline_code> identity is checked on-chain against <BlocksterV2Web.DocsComponents.inline_code>game_registry.settler</BlocksterV2Web.DocsComponents.inline_code>. This prevents any third party from spending our rent lamports, and also binds the BetOrder to the current settler keypair so that rent rebates on settlement only go where we expect.
+        The <BlocksterV2Web.DocsComponents.inline_code>rent_payer</BlocksterV2Web.DocsComponents.inline_code> identity is checked on-chain against <BlocksterV2Web.DocsComponents.inline_code>{game_registry.settler, player.key()}</BlocksterV2Web.DocsComponents.inline_code>. This prevents any third party from spending our rent lamports while still letting either path through.
       </p>
     </BlocksterV2Web.DocsComponents.subsection>
 
@@ -282,7 +286,7 @@ pub fn calculate_max_bet_for_difficulty(
         <li><BlocksterV2Web.DocsComponents.inline_code>payout ≤ bet_order.max_payout</BlocksterV2Web.DocsComponents.inline_code> — else <BlocksterV2Web.DocsComponents.inline_code>PayoutExceedsMax</BlocksterV2Web.DocsComponents.inline_code>.</li>
       </ol>
       <p>
-        If all three pass, the program transfers the payout from the vault to the player (only when <em>won</em> and payout is positive), updates <BlocksterV2Web.DocsComponents.inline_code>total_liability</BlocksterV2Web.DocsComponents.inline_code>, <BlocksterV2Web.DocsComponents.inline_code>house_profit</BlocksterV2Web.DocsComponents.inline_code>, <BlocksterV2Web.DocsComponents.inline_code>total_bets</BlocksterV2Web.DocsComponents.inline_code>, <BlocksterV2Web.DocsComponents.inline_code>total_volume</BlocksterV2Web.DocsComponents.inline_code>, the player's lifetime stats, and emits a <BlocksterV2Web.DocsComponents.inline_code>BetSettled</BlocksterV2Web.DocsComponents.inline_code> event. The BetOrder PDA is closed and its rent (~0.002 SOL) is returned to the original <BlocksterV2Web.DocsComponents.inline_code>rent_payer</BlocksterV2Web.DocsComponents.inline_code> — always the settler.
+        If all three pass, the program transfers the payout from the vault to the player (only when <em>won</em> and payout is positive), updates <BlocksterV2Web.DocsComponents.inline_code>total_liability</BlocksterV2Web.DocsComponents.inline_code>, <BlocksterV2Web.DocsComponents.inline_code>house_profit</BlocksterV2Web.DocsComponents.inline_code>, <BlocksterV2Web.DocsComponents.inline_code>total_bets</BlocksterV2Web.DocsComponents.inline_code>, <BlocksterV2Web.DocsComponents.inline_code>total_volume</BlocksterV2Web.DocsComponents.inline_code>, the player's lifetime stats, and emits a <BlocksterV2Web.DocsComponents.inline_code>BetSettled</BlocksterV2Web.DocsComponents.inline_code> event. The BetOrder PDA is closed and its rent (~0.002 SOL) is returned to whichever pubkey was stored as <BlocksterV2Web.DocsComponents.inline_code>rent_payer</BlocksterV2Web.DocsComponents.inline_code> at placement — settler for Web3Auth bets, player for Wallet Standard bets.
       </p>
     </BlocksterV2Web.DocsComponents.subsection>
 
@@ -405,7 +409,7 @@ pub fn place_bet_sol(
 
 Accounts:
   player            — Signer, mut
-  rent_payer        — Signer, mut         (must equal game_registry.settler)
+  rent_payer        — Signer, mut         (must equal game_registry.settler OR player)
   game_registry     — PDA ["game_registry"]   (paused check)
   sol_vault         — PDA ["sol_vault"],  mut  (receives wager)
   sol_vault_state   — PDA ["sol_vault_state"], mut
@@ -414,7 +418,7 @@ Accounts:
   system_program
 
 Pre-checks:
-  rent_payer == game_registry.settler               → InvalidRentPayer
+  rent_payer ∈ {game_registry.settler, player}      → InvalidRentPayer if neither
   game_id is registered and game.active             → GameNotFound
   nonce == player_state.pending_nonce               → NonceMismatch
   player_state.pending_commitment != [0u8; 32]      → NoCommitment
@@ -477,7 +481,7 @@ Side effects:
 pub fn reclaim_expired(ctx: Context<ReclaimExpired>, nonce: u64) -> Result<()>
 
 Signer:  player
-Closes:  bet_order → rent_payer (the original settler)
+Closes:  bet_order → rent_payer (whichever pubkey paid rent at placement)
 
 Pre-checks:
   bet_order.player == player.key()                  → InvalidServerSeed (misleading name)

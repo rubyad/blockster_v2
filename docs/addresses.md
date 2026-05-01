@@ -65,7 +65,7 @@ Single source of truth for all on-chain addresses used by Blockster V2.
 | Resource | Address / ID | Purpose |
 |----------|-------------|---------|
 | BUX Mint | `7CuRyw2YkqQhUUFbw6CCnoedHWT8tK2c9UzZQYDGmxVX` | BUX SPL token (9 decimals, no freeze authority) |
-| Bankroll Program | `49up2uzZANpjTC3sgggbZazdHBii2vY9mVK3vk5dT2tm` | Dual-vault SOL + BUX, LP tokens, game registry, commit-reveal. **Phase 1 upgrade 2026-04-20** (slot 456930093) — settler is now mandatory `rent_payer` on `place_bet_sol/bux`, `settle_bet` + `reclaim_expired` `close = rent_payer`. `BetOrder._reserved` repurposed as `rent_payer: Pubkey`. See [social_login_plan.md](social_login_plan.md) §Phase 1 + [web3auth_integration.md](web3auth_integration.md). |
+| Bankroll Program | `49up2uzZANpjTC3sgggbZazdHBii2vY9mVK3vk5dT2tm` | Dual-vault SOL + BUX, LP tokens, game registry, commit-reveal. **Phase 1 upgrade 2026-04-20** (slot 456930093) — added per-bet `rent_payer: Pubkey` on `BetOrder` (was `_reserved`); `settle_bet` + `reclaim_expired` `close = rent_payer`. **Phase 2 upgrade 2026-04-30** (slot 459216753) — relaxed `rent_payer` constraint on `place_bet_sol/bux` to allow either settler OR player. Wallet Standard users now self-fund bet PDA rent (single-signer tx, no Phantom co-sign warning). Web3Auth path unchanged. See [bankroll_phantom_cosign_fix.md](bankroll_phantom_cosign_fix.md). |
 | Airdrop Program | `wxiuLBuqxem5ETmGDndiW8MMkxKXp5jVsNCqdZgmjaG` | Multi-round airdrop, any SPL/SOL prizes, BUX entries |
 
 ### Wallets
@@ -103,6 +103,33 @@ Single source of truth for all on-chain addresses used by Blockster V2.
 | `contracts/blockster-settler/keypairs/mint-authority.json` | Authority keypair (`6b4n...`) |
 | `contracts/blockster-settler/keypairs/bux-mint.json` | BUX token mint keypair |
 | `~/.config/solana/id.json` | CLI deploy wallet (`49aN...`) |
+
+---
+
+## Solana Mainnet
+
+### Programs & Token
+| Resource | Address / ID | Purpose |
+|----------|-------------|---------|
+| BUX Mint | `7CuRyw2YkqQhUUFbw6CCnoedHWT8tK2c9UzZQYDGmxVX` | BUX SPL token (same address as devnet — same mint keypair) |
+| Bankroll Program | `49up2uzZANpjTC3sgggbZazdHBii2vY9mVK3vk5dT2tm` | Dual-vault SOL + BUX. Same address as devnet (keypair-derived); independent program account on mainnet. **Phase 2 upgrade 2026-04-30** (slot 416763828) — `rent_payer` dual-mode (player OR settler) to remove Phantom co-sign warning for Wallet Standard users. Web3Auth users still use settler as rent_payer (zero-SOL UX). See [bankroll_phantom_cosign_fix.md](bankroll_phantom_cosign_fix.md). |
+| Airdrop Program | `wxiuLBuqxem5ETmGDndiW8MMkxKXp5jVsNCqdZgmjaG` | Same address as devnet, separate mainnet deployment. |
+
+### Verification (Bankroll Program)
+| Field | Value |
+|-------|-------|
+| Public source | https://github.com/rubyad/blockster-bankroll-program |
+| Source commits | `97d9c00` (initial public push), `6467aad` (Cargo.lock pin) |
+| Build hash | `fce85f93ac470a3a279dc9da51470cb2ae605b7ea6f04c3c51b871cfcaa9d080` |
+| On-chain verification PDA | written via `solana-verify verify-from-repo`, tx `5ezpAYfXNVxj9HxScZFBAKiCLTYMXTZAmkB1kfT5zxtivqQJkRGpzAMmMrDwWzKKdiYuxLN4sYakUSVpkRxv34zw` |
+| OtterSec status | https://verify.osec.io/status/49up2uzZANpjTC3sgggbZazdHBii2vY9mVK3vk5dT2tm — submission attempted, OtterSec backend returned `"Unexpected error while getting Data from DB"` for job `1cd0b2a5-a2f0-4fe2-8c5f-36cdf7f05101`. Retry pending their service recovery. Cryptographic verification is intact via the on-chain PDA above. |
+
+### Solana Mainnet Config
+| Property | Value |
+|----------|-------|
+| Network | Mainnet-beta |
+| RPC URL | `https://radial-fittest-sanctuary.solana-mainnet.quiknode.pro/bba3cfea34edbf35708389240474cf5cd966c86b/` (set as `SOLANA_RPC_URL` Fly secret on `blockster-settler` + `blockster-v2`) |
+| Explorer | `https://solscan.io` |
 
 ---
 

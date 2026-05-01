@@ -38,6 +38,8 @@
       title="Identity"
       rows={[
         {"Program ID", "49up2uzZANpjTC3sgggbZazdHBii2vY9mVK3vk5dT2tm"},
+        {"Public source", "github.com/rubyad/blockster-bankroll-program"},
+        {"Build hash", "fce85f93ac470a3a279dc9da51470cb2ae605b7ea6f04c3c51b871cfcaa9d080"},
         {"Cluster", if(BlocksterV2Web.Solscan.mainnet?(), do: "mainnet", else: "devnet (mainnet launch pending)")},
         {"Framework", "Anchor 0.30+ (Rust)"},
         {"Crate", "contracts/blockster-bankroll/programs/blockster-bankroll"},
@@ -221,12 +223,12 @@ pub struct BetOrder {
     pub status: BetOrderStatus,        // Always Pending while live
     pub created_at: i64,               // unix_timestamp
     pub bump: u8,
-    pub rent_payer: Pubkey,            // Locked at placement to game_registry.settler
+    pub rent_payer: Pubkey,            // settler (Web3Auth) OR player (Wallet Standard) — set at placement
 }
 """}
       />
       <p>
-        BetOrder accounts close on settle_bet or reclaim_expired. The rent rebate goes back to <BlocksterV2Web.DocsComponents.inline_code>rent_payer</BlocksterV2Web.DocsComponents.inline_code> — the settler keypair in force at placement. Rotating the settler does not rotate <BlocksterV2Web.DocsComponents.inline_code>rent_payer</BlocksterV2Web.DocsComponents.inline_code> on already-placed bets.
+        BetOrder accounts close on settle_bet or reclaim_expired. The rent rebate goes back to whichever pubkey was stored in <BlocksterV2Web.DocsComponents.inline_code>bet_order.rent_payer</BlocksterV2Web.DocsComponents.inline_code> at placement — settler for Web3Auth bets (zero-SOL UX), player for Wallet Standard bets (Phase 2 — eliminates Phantom's drainer-pattern co-sign warning since the settler no longer has to pre-sign every place_bet tx).
       </p>
     </BlocksterV2Web.DocsComponents.subsection>
 
@@ -311,8 +313,8 @@ pub struct ReferralState {
         ]}
         rows={[
           %{name: "submit_commitment", signer: "settler", purpose: "Write SHA256(server_seed) to PlayerState. Nonce must be ≥ current player nonce. init_if_needed creates PlayerState first time."},
-          %{name: "place_bet_sol", signer: "player + settler (rent_payer)", purpose: "Transfer SOL wager, create BetOrder PDA, clear commitment, increment nonce. Enforces all placement guards."},
-          %{name: "place_bet_bux", signer: "player + settler (rent_payer)", purpose: "Same as place_bet_sol, but moves BUX."},
+          %{name: "place_bet_sol", signer: "player + (settler OR player as rent_payer; depends on signer source — Phase 2)", purpose: "Transfer SOL wager, create BetOrder PDA, clear commitment, increment nonce. Enforces all placement guards."},
+          %{name: "place_bet_bux", signer: "player + (settler OR player as rent_payer; depends on signer source — Phase 2)", purpose: "Same as place_bet_sol, but moves BUX."},
           %{name: "settle_bet", signer: "settler", purpose: "Reveal server_seed (hash must match commitment). Pay player if won. Process referral rewards on loss. Close BetOrder and return rent."},
           %{name: "reclaim_expired", signer: "player", purpose: "After bet_timeout, refund wager to player. Close BetOrder and return rent. Does not touch total_bets / house_profit."}
         ]}
@@ -389,7 +391,7 @@ pub struct ReferralState {
         %{code: "6030", name: "UnauthorizedSettler", msg: "Signer is not the registry settler or authority, depending on instruction."},
         %{code: "6031", name: "InvalidVaultType", msg: "vault_type mismatch at settlement (e.g. BUX bet with missing player_bux_account)."},
         %{code: "6032", name: "InvalidMint", msg: "Mint address doesn't match expected PDA."},
-        %{code: "6033", name: "InvalidRentPayer", msg: "rent_payer at placement ≠ game_registry.settler; or bet_order.rent_payer at settle/reclaim ≠ supplied account."}
+        %{code: "6033", name: "InvalidRentPayer", msg: "rent_payer at placement is neither game_registry.settler nor the player; or bet_order.rent_payer at settle/reclaim ≠ supplied account."}
       ]}
     />
   </BlocksterV2Web.DocsComponents.section>
