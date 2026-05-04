@@ -7,7 +7,7 @@ defmodule BlocksterV2.BuxMinter do
   instead of the EVM bux-minter. The settler mints SPL BUX on Solana devnet/mainnet.
   """
 
-  alias BlocksterV2.EngagementTracker
+  alias BlocksterV2.{Accounts.User, EngagementTracker, Repo}
   require Logger
 
   # ETS table for deduplicating concurrent sync_user_balances_async calls
@@ -193,6 +193,27 @@ defmodule BlocksterV2.BuxMinter do
   Call this on page load to sync on-chain balances with local cache.
   """
   def sync_user_balances(user_id, wallet_address) do
+    if bot_user?(user_id) do
+      # Bots have empty SOL wallets, so syncing would call update_sol_multiplier
+      # which writes 0 → zeroes overall_multiplier → silently bricks the bot's
+      # next mint. The seed in BotSetup.ensure_multipliers_for_all_bots/0 is the
+      # source of truth for bot multipliers; on-chain sync would only undo it.
+      {:ok, :skipped_bot}
+    else
+      do_sync_user_balances(user_id, wallet_address)
+    end
+  end
+
+  defp bot_user?(user_id) when is_integer(user_id) do
+    case Repo.get(User, user_id) do
+      %User{is_bot: true} -> true
+      _ -> false
+    end
+  end
+
+  defp bot_user?(_), do: false
+
+  defp do_sync_user_balances(user_id, wallet_address) do
     case get_balance(wallet_address) do
       {:ok, %{sol: sol, bux: bux}} ->
         # Update Solana balances in new Mnesia table
