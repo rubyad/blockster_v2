@@ -87,6 +87,10 @@ defmodule BlocksterV2Web.ContentAutomationLive.Feeds do
     feed.status == :active and feed.source not in disabled_feeds
   end
 
+  defp feed_subtitle(%{type: :x, handle: handle}), do: "x.com/" <> handle
+  defp feed_subtitle(%{url: url}) when is_binary(url), do: url
+  defp feed_subtitle(_), do: ""
+
   defp format_time(nil), do: "—"
   defp format_time(dt) do
     Calendar.strftime(dt, "%b %d, %H:%M")
@@ -229,7 +233,7 @@ defmodule BlocksterV2Web.ContentAutomationLive.Feeds do
             <span class="px-1.5 py-0.5 bg-red-100 text-red-600 rounded text-xs">Disabled</span>
           <% end %>
         </div>
-        <p class="text-gray-400 text-xs mt-1 truncate"><%= @feed.url %></p>
+        <p class="text-gray-400 text-xs mt-1 truncate"><%= feed_subtitle(@feed) %></p>
         <p class="text-gray-500 text-xs mt-1"><%= @items_24h %> items (24h)</p>
       </div>
 
