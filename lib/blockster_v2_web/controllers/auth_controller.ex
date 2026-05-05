@@ -1,6 +1,6 @@
 defmodule BlocksterV2Web.AuthController do
   use BlocksterV2Web, :controller
-  alias BlocksterV2.{Accounts, Referrals, UserEvents}
+  alias BlocksterV2.{Accounts, Referrals, SignupBonus, UserEvents}
 
   @doc """
   POST /api/auth/wallet/verify
@@ -16,6 +16,7 @@ defmodule BlocksterV2Web.AuthController do
         if is_new_user do
           UserEvents.track(user.id, "signup", %{method: "wallet"})
           UserEvents.track(user.id, "session_start", %{source: "wallet"})
+          SignupBonus.grant_to_new_user(user)
         end
 
         conn
@@ -76,6 +77,7 @@ defmodule BlocksterV2Web.AuthController do
         if is_new_user do
           UserEvents.track(user.id, "signup", %{method: "email"})
           UserEvents.track(user.id, "session_start", %{source: "email"})
+          SignupBonus.grant_to_new_user(user)
         end
 
         # Process referral if new user with valid referrer
@@ -136,6 +138,7 @@ defmodule BlocksterV2Web.AuthController do
         if is_new_user do
           UserEvents.track(user.id, "signup", %{method: "solana_wallet"})
           UserEvents.track(user.id, "session_start", %{source: "solana_wallet"})
+          SignupBonus.grant_to_new_user(user)
         end
 
         conn
@@ -266,6 +269,7 @@ defmodule BlocksterV2Web.AuthController do
             if is_new_user do
               UserEvents.track(user.id, "signup", %{method: source})
               UserEvents.track(user.id, "session_start", %{source: source})
+              SignupBonus.grant_to_new_user(user)
             end
 
             conn

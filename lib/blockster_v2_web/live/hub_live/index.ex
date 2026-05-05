@@ -128,13 +128,34 @@ defmodule BlocksterV2Web.HubLive.Index do
   def compact_number(n) when is_integer(n), do: Integer.to_string(n)
   def compact_number(_), do: "0"
 
+  # Comma-delimited integer ("1,800"). Used for follower counts where the
+  # exact number reads better than a compact form.
+  @doc false
+  def delimit_number(n) when is_integer(n) do
+    n
+    |> Integer.to_string()
+    |> String.reverse()
+    |> String.graphemes()
+    |> Enum.chunk_every(3)
+    |> Enum.map(&Enum.join/1)
+    |> Enum.join(",")
+    |> String.reverse()
+  end
+
+  def delimit_number(_), do: "0"
+
   @doc false
   def hub_post_count(hub) do
     if Ecto.assoc_loaded?(hub.posts), do: length(hub.posts), else: 0
   end
 
+  # Real follow rows + display offset. The offset is set by
+  # `BlocksterV2.HubFollowers.Seeder` to bump under-followed hubs to a healthy
+  # social-proof number. Real follows still push the total up beyond the offset
+  # baseline.
   @doc false
   def hub_follower_count(hub) do
-    if Ecto.assoc_loaded?(hub.followers), do: length(hub.followers), else: 0
+    real = if Ecto.assoc_loaded?(hub.followers), do: length(hub.followers), else: 0
+    real + (Map.get(hub, :follower_count_offset) || 0)
   end
 end

@@ -187,6 +187,7 @@ defmodule BlocksterV2Web.Router do
       layout: {BlocksterV2Web.Layouts, :redesign} do
       live "/", PostLive.Index, :index
       live "/hubs", HubLive.Index, :index
+      live "/hubs/request", HubLive.Request, :index
       live "/hub/:slug", HubLive.Show, :show
       live "/member/:slug", MemberLive.Show, :show
       live "/play", CoinFlipLive, :index

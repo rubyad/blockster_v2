@@ -42,6 +42,7 @@ Phoenix LiveView web3 content platform — shop, hubs, events, token-based engag
 - BUX tokens live ON-CHAIN. Mnesia is a cache; on-chain is source of truth. To move BUX out of a user's wallet: `approve()` + `transferFrom()` — NEVER mint as a shortcut.
 - Primary wallet field is `wallet_address` (Solana pubkey for new users, EVM EOA for legacy). `smart_wallet_address` is legacy EVM ERC-4337, `nil` for Solana users — NEVER use it for BuxMinter calls.
 - **BUX never displays a USD value.** No `≈ $X` line under any BUX figure (TVL, Profit, balances, position values, anywhere). The only acceptable secondary line under a BUX value is plain prose ("in vault", "issued", "to LPs"). SOL gets full SOL-primary + USD-secondary treatment via live `PriceTracker.get_price("SOL")`; BUX gets neither a market price nor a USD conversion. Counterpart to the SOL-FIRST RULE in the Shop section.
+- **1,000 BUX starter bonus on first signup** — every new user gets a one-time grant via `BlocksterV2.SignupBonus.grant_to_new_user/1`, called from the four `is_new_user` branches in `BlocksterV2Web.AuthController` (wallet / email / SIWS / Web3Auth SFA). Idempotent via `users.signup_bonus_granted_at`. Stamp commits *before* the async mint and is **never** rolled back on settler failure — false negatives would otherwise become double-mints. Bots and wallet-less users are skipped via guard clauses. Existing pre-bonus users do NOT backfill.
 
 **AI / dependencies**:
 - AI Manager (`ai_manager.ex`) must always use Claude Opus. Never downgrade to Sonnet/Haiku.

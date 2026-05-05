@@ -30,6 +30,10 @@ defmodule BlocksterV2.Accounts.User do
     field :last_suspicious_activity_at, :utc_datetime
     field :registered_devices_count, :integer, default: 0
 
+    # Signup BUX starter bonus (1000 BUX granted once per new user — see
+    # `BlocksterV2.SignupBonus`). NULL means not yet granted.
+    field :signup_bonus_granted_at, :utc_datetime
+
     # Bot system
     field :is_bot, :boolean, default: false
     field :bot_private_key, :string

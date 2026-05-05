@@ -45,6 +45,16 @@
         <p class="md:hidden text-[13px] leading-[1.45] text-neutral-600">
           {@total_hub_count} publications. Follow the ones you care about.
         </p>
+        <div class="mt-3 md:mt-5">
+          <.link
+            navigate={~p"/hubs/request"}
+            class="group inline-flex items-center gap-2 px-3.5 md:px-4 py-2 rounded-full border border-neutral-200 bg-white hover:border-[#141414] text-[12px] md:text-[13px] font-haas_medium_65 text-[#141414] transition-colors cursor-pointer"
+          >
+            <span class="w-1.5 h-1.5 rounded-full bg-[#CAFC00]"></span>
+            <span>Run a project? Request your Hub</span>
+            <span class="text-[14px] group-hover:translate-x-0.5 transition-transform">→</span>
+          </.link>
+        </div>
       </div>
       <div class="col-span-12 md:col-span-4">
         <div class="grid grid-cols-3 gap-2 md:gap-3 mt-2 md:mt-0">
@@ -107,7 +117,7 @@
               secondary={secondary}
               description={hub.description}
               post_count={compact_number(hub_post_count(hub))}
-              follower_count={compact_number(hub_follower_count(hub))}
+              follower_count={delimit_number(hub_follower_count(hub))}
               layout={if idx >= 2, do: :vertical, else: :horizontal}
               class="h-full"
             />
@@ -174,7 +184,7 @@
             secondary={secondary}
             description={hub.description}
             post_count={compact_number(hub_post_count(hub))}
-            reader_count={compact_number(hub_follower_count(hub))}
+            reader_count={delimit_number(hub_follower_count(hub))}
           />
         <% end %>
 

@@ -2272,7 +2272,7 @@ defmodule BlocksterV2Web.DesignSystem do
             <%= if @reader_count do %>
               <div class="flex items-baseline gap-1">
                 <span class="text-[13px] md:text-[14px] font-bold tabular-nums">{@reader_count}</span>
-                <span class="text-[10px] text-white/75">readers</span>
+                <span class="text-[10px] text-white/75">followers</span>
               </div>
             <% end %>
           </div>

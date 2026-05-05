@@ -4038,3 +4038,52 @@ New:
 Deleted (How-it-works):
 `lib/blockster_v2_web/live/post_live/how_it_works.ex`, `…/how_it_works.html.heex`, `…/how_it_works_component.ex`, `…/how_it_works_component.html.heex`.
 
+## Session 2026-05-04 → 2026-05-05 — Hub request page + follower seeding + 1000 BUX signup bonus
+
+### `/hubs/request` — invite-only hub application page
+Top Web3 projects can apply to launch a hub on Blockster via a new public form at `/hubs/request`. Page is composed in the about-page editorial language:
+
+- Dark `#0B0B0C` hero with serial-numbered metadata strip ("Invitation · Cohort 04 · Q3 2026 · By application only"), big two-line headline ("Launch your Hub / on Blockster.") with the second line in `text-white/45`, and a hairline-bordered timeline rail at the bottom (`Jan 2025 → Q1 2026`).
+- Stats band overlapping the hero with `-mt-12 md:-mt-20` and a soft shadow — five hairline-divided tiles (2.79M users / 1.31M sessions / 13.9M events / 82k X / 50k YouTube) with a single lime accent character (the "M" in "2.79M", etc.).
+- Numbered manifest list (01–05) of "Why Blockster Hubs" items, each with a hover-state serial number and an inline lime "Coming soon" badge for events.
+- "In good company" partner logo strip — uniform 8-cell grid (7 logos + a "+60 more" tile) using **Google Favicons** as primary src with **DuckDuckGo Icons** as the onerror fallback. Originally tried Clearbit Logo API — that endpoint was sunset late 2023 and now returns connection failures; `media_kit_live.ex` is silently relying on the favicon fallback for the same reason.
+- "Powered by BUX" dark split section with two glassy "Earn / Spend" cards.
+- 10-question application form: each row is a numbered group (01–10) with hairline dividers, underline-only inputs, and `focus-within:bg-[#FAFBFD]` row tinting. Q5 split into two side-by-side text inputs (X handle / Telegram handle — plain text, no `@` required). Q8/Q9/Q10 use pill-style segmented controls. Submit row at the bottom.
+- Success state: form swaps for a dark celebration card with a lime check icon and "Expect a response from our team shortly from lidia@blockster.com."
+
+Server-side: `BlocksterV2Web.HubLive.Request` LiveView, `BlocksterV2.Emails.HubRequestEmail` Swoosh builder. Form submission emails the team at `lidia@blockster.com` with `Reply-To` set to the applicant. No DB persistence (low volume; email is the system of record).
+
+CTA from `/hubs` hero: small lime-dotted pill link "Run a project? Request your Hub →" placed under the page description, mobile-safe.
+
+**Why permissive form fields**: original spec used `type="url"` and `type="email"` with HTML5 validation. Browser was bouncing valid-looking submissions ("scrolled back up") because the URL field rejected anything without `https://` prefix. Switched all inputs to `type="text"` (with `inputmode="email"` keeping the mobile keyboard hint). Server-side email regex check also dropped — only the empty-required-fields safety net remains.
+
+### Hub follower count overhaul (cards + offset model)
+- **Label** on hub grid cards changed from "readers" → "followers" (`design_system.ex:2275`). Featured hub cards already used "followers".
+- **Display format** changed from compact (`1.0k`) to comma-delimited (`1,000`). New `delimit_number/1` helper in `hub_live/index.ex` chunks integers in groups of three, joined with commas. The featured-hub cards and grid cards both pass through it.
+- **First-pass approach** (rejected): inserted synthetic rows into `hub_followers` linking each hub to a deterministic random subset of bot users. Idempotent + persistent, but capped at the bot pool size (~1,000) and polluted the `hub_followers` table — bots ended up in campaign target audiences (`CampaignAdmin` has a "hub_followers" filter), notification fan-outs, and any "list followers" query. Wrong abstraction.
+- **Final approach**: new `follower_count_offset` integer column on `hubs` (migration `20260505033113`). Display function returns `length(real_followers) + follower_count_offset`. Real follows still push the number above the seeded baseline naturally; the offset only ever fills the gap up to `target` (clamped at zero — never reduces). The same migration deletes the 44k synthetic bot rows from the first-pass approach (DELETE scoped to `is_bot = true AND notify_* = false` — the seeder's exact insert signature, no real follow at risk).
+- **Seeder**: `BlocksterV2.HubFollowers.Seeder` ranks hubs by post count, computes target = linear scale from 1,800 (most popular) → 300 (least popular) with deterministic ±12% jitter (seeded from `hub.id`), and writes `follower_count_offset` directly. Idempotent — re-runs derive the same target and produce the same offset. **Stable across deploys**: the column persists; nothing in the codebase resets it on boot, deploy, or background work.
+- **Run** in dev: `mix run priv/repo/seeds_hub_followers.exs`. In prod: `flyctl ssh console --app blockster-v2 -C "/app/bin/blockster_v2 eval 'BlocksterV2.HubFollowers.Seeder.run()'"`.
+
+### 1000 BUX starter bonus on every new signup
+New `BlocksterV2.SignupBonus` module grants 1,000 BUX to every new user on first auth, regardless of referrer/auth method. Mirrors the existing `Referrals.process_signup_referral/3` pattern (which only grants 250 BUX to *referred* signups) — but unconditional.
+
+- **Idempotency** via new `signup_bonus_granted_at :utc_datetime` column on `users` (migration `20260505042101`). Stamp commits *before* the async mint dispatches; the second-call clause checks `signup_bonus_granted_at: %DateTime{}` and short-circuits with `:already_granted`.
+- **No rollback on mint failure**: stamp is one-way. If the settler returns a transient error, we log loudly with `[SignupBonus] Mint FAILED ... — stamp left in place; manually retry via SettlerClient if needed`. Rolling back would open the door to double-mints when the settler succeeded but the response got lost in the network.
+- **Hooked into 4 entry points** in `BlocksterV2Web.AuthController`:
+  - `verify_wallet/2` (legacy EVM)
+  - `verify_email/2` (legacy email + fingerprint)
+  - `create_session/2` (Solana SIWS / Wallet Standard)
+  - `verify_web3auth/2` (Web3Auth SFA — email OTP, X, Google, Telegram)
+- **Sybil protection** is the existing fingerprint guard in `Accounts.authenticate_email_with_fingerprint/1` — same device can't open multiple accounts. The bonus is per-user; multi-wallet farming on one device is blocked at signup.
+- **Bot users** (`is_bot = true`) skip the bonus via guard clause.
+- **Existing users** don't backfill — only `is_new_user == true` paths fire the grant. Retroactive grant for pre-existing users would need a separate one-shot script.
+
+### Files touched
+
+Modified (Elixir / HEEx / migrations / docs):
+`lib/blockster_v2/accounts/user.ex` (added `signup_bonus_granted_at`), `lib/blockster_v2/blog/hub.ex` (added `follower_count_offset`), `lib/blockster_v2/emails/hub_request_email.ex`, `lib/blockster_v2_web/components/design_system.ex` (readers→followers), `lib/blockster_v2_web/controllers/auth_controller.ex` (4 SignupBonus hooks), `lib/blockster_v2_web/live/hub_live/index.ex` (delimit_number + offset display), `lib/blockster_v2_web/live/hub_live/index.html.heex` (CTA + delimit_number), `lib/blockster_v2_web/router.ex`, `CLAUDE.md`, `docs/session_learnings.md`, `docs/solana_build_history.md`.
+
+New:
+`lib/blockster_v2/emails/hub_request_email.ex`, `lib/blockster_v2/hub_followers/seeder.ex`, `lib/blockster_v2/signup_bonus.ex`, `lib/blockster_v2_web/live/hub_live/request.ex`, `lib/blockster_v2_web/live/hub_live/request.html.heex`, `priv/repo/migrations/20260505033113_add_follower_count_offset_to_hubs.exs`, `priv/repo/migrations/20260505042101_add_signup_bonus_granted_at_to_users.exs`, `priv/repo/seeds_hub_followers.exs`, `test/blockster_v2/signup_bonus_test.exs`.
+

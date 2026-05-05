@@ -2540,3 +2540,44 @@ updated() {
 
 All three use 9 decimals.
 
+## Clearbit Logo API is dead — use Google Favicons + DuckDuckGo as fallback (2026-05-05)
+
+Clearbit's `https://logo.clearbit.com/<domain>?size=128` endpoint was sunset in late 2023 and now resolves to nothing (`curl` returns `000`, browsers eat it as a network error). `lib/blockster_v2_web/live/media_kit_live.ex` still references it — its interview cards have been silently relying on the `onerror=...` fallback to Google favicons for ~18 months. New surfaces (the `/hubs/request` partner strip) skip Clearbit entirely:
+
+```heex
+src={"https://www.google.com/s2/favicons?domain=#{domain}&sz=128"}
+onerror={"this.onerror=null;this.src='https://icons.duckduckgo.com/ip3/#{domain}.ico'"}
+```
+
+Google Favicons returns square 128×128 (with a 301 redirect to the actual asset). DuckDuckGo Icons (`ip3/<domain>.ico`) is a reliable secondary fallback — different infra, different rate-limit budget. Both work without API keys, both honor `Referer` from any origin.
+
+The grid cell itself uses `w-9 h-9 lg:w-10 lg:h-10 object-contain` so wide wordmark logos and narrow logomark logos render at the same visual weight in the strip.
+
+When this matters: any "trusted by" / "in good company" / partner-logo display where you want a uniform strip and don't want to host the assets yourself.
+
+## Follower / engagement count display — separate "real" from "displayed" with an offset column (2026-05-05)
+
+When inflating a count for marketing surfaces, **don't fabricate user rows in the join table**. The first pass at the hub-follower seeder inserted ~44k synthetic rows into `hub_followers` linking each hub to randomly-picked bot users — capped at 1,000 (the bot pool size), and worse, those bot rows leaked into:
+
+- Campaign target audiences (`CampaignAdmin` has a "hub_followers" filter that batch-blasts campaigns at the audience).
+- Notification fan-out queries (`get_hub_followers_with_preferences/1`).
+- Any future "list followers" UI.
+
+The clean approach: a `follower_count_offset` integer column on `hubs`. Display function returns `length(real_followers) + follower_count_offset`. Real follows still push the number above the seeded baseline; the offset only ever fills the gap up to a target. No fake users, no row inflation, uncapped, easy to zero out later. Migration `20260505033113_add_follower_count_offset_to_hubs.exs` includes a signature-scoped DELETE to remove the synthetic rows from the first-pass approach (`is_bot = true AND notify_* = false`, matching the seeder's exact insert pattern — no real follow at risk).
+
+When this matters: any time you need a vanity / display metric to read healthily without affecting the functional data underneath. Display layer ≠ ledger layer.
+
+## SignupBonus stamp commits *before* the mint, no rollback on failure (2026-05-05)
+
+The `BlocksterV2.SignupBonus.grant_to_new_user/1` function stamps `users.signup_bonus_granted_at = now()` **synchronously**, then dispatches the actual mint via `AsyncTask.run/1`. The stamp is **one-way** — even if the settler call returns `{:error, _}`, we log loudly and leave the stamp in place.
+
+Why not roll back the stamp on mint failure (the obvious-looking option)?
+
+- The settler can succeed and the response can get lost in the network — false negative. Rolling back the stamp would let the next sign-in re-trigger the mint, double-granting the user.
+- Stamp-first also wins the race against duplicate auth callbacks for the same user — only one `UPDATE ... SET signup_bonus_granted_at = now() WHERE id = ?` flips NULL → timestamp; the other reads the stamped row and returns `:already_granted`.
+- A missed mint is recoverable by a human ops retry (`BuxMinter.mint_bux(wallet, 1000, user_id, nil, :signup)` directly). A double-mint on a vanity bonus is not.
+
+The same logic applies to any "grant once" flow where the side effect is on an external system that can fail mid-flight (settler, email, SMS, third-party API): commit the local "did it" flag *before* the external call, never roll back the flag on external failure.
+
+When this matters: anywhere you'd be tempted to wrap a stamp + side effect in a transaction that rolls back on side-effect failure. Local DB and external system are not transactional together — false negatives turn rollbacks into double-execution risks.
+

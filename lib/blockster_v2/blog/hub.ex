@@ -22,6 +22,7 @@ defmodule BlocksterV2.Blog.Hub do
     field :color_secondary, :string
     field :token, :string
     field :is_active, :boolean, default: true
+    field :follower_count_offset, :integer, default: 0
 
     # Associations
     has_many :posts, BlocksterV2.Blog.Post
