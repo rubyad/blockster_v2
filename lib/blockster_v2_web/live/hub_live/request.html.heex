@@ -49,19 +49,19 @@
         <span class="text-white/45">on Blockster.</span>
       </h1>
 
-      <p class="text-white/70 text-[17px] md:text-[19px] leading-[1.6] max-w-[620px] font-haas_roman_55 mb-10">
-        Invite-only publishing for top Web3 projects. Publish your story, grow your community, and reward real engagement with on-chain BUX. Self-publishing follows in a future cohort.
+      <p class="text-white/70 text-[17px] md:text-[19px] leading-[1.6] max-w-[640px] font-haas_roman_55 mb-10">
+        Invite-only publishing for top Web3 projects. Publish your story, grow your community, and reward real engagement with Solana powered on-chain points, BUX. <span class="bg-[#CAFC00]/15 text-white px-2 py-0.5 rounded font-haas_medium_65 whitespace-nowrap">Self-publishing coming soon.</span>
       </p>
 
       <div class="flex items-center gap-2.5 flex-wrap mb-12 md:mb-14">
         <span class="inline-flex items-center gap-2 bg-white/[0.04] border border-white/10 px-3.5 py-2 rounded-full text-white/85 text-[12px] font-haas_medium_65">
-          <span class="w-1 h-1 rounded-full bg-[#CAFC00]"></span> Publish
+          <span class="w-1 h-1 rounded-full bg-[#CAFC00]"></span> Publish content
         </span>
         <span class="inline-flex items-center gap-2 bg-white/[0.04] border border-white/10 px-3.5 py-2 rounded-full text-white/85 text-[12px] font-haas_medium_65">
-          <span class="w-1 h-1 rounded-full bg-white/40"></span> Grow
+          <span class="w-1 h-1 rounded-full bg-white/40"></span> Launch shop
         </span>
         <span class="inline-flex items-center gap-2 bg-white/[0.04] border border-white/10 px-3.5 py-2 rounded-full text-white/85 text-[12px] font-haas_medium_65">
-          <span class="w-1 h-1 rounded-full bg-white/40"></span> Reward
+          <span class="w-1 h-1 rounded-full bg-white/40"></span> Promote events
         </span>
       </div>
 
@@ -79,7 +79,7 @@
     <div class="relative border-t border-white/10">
       <div class="max-w-[1280px] mx-auto px-6 lg:px-10 py-5 flex items-center justify-between gap-3">
         <span class="font-mono text-[10px] uppercase tracking-[0.22em] text-white/45">
-          Jan 2025
+          Q1 2025
         </span>
         <span class="hidden md:inline-flex items-center gap-3 font-mono text-[10px] uppercase tracking-[0.22em] text-white/30">
           <span class="w-12 h-px bg-white/20"></span>
@@ -94,52 +94,61 @@
   </section>
 
   <%!-- ── Stats band — overlaps hero, hairline grid ──────────── --%>
+  <%!-- 5 cells in one row at every breakpoint. Mobile gets tight padding +
+       short labels (Users / Sessions / Events / X / YT) so nothing wraps and
+       no tile is orphaned alone in a trailing row. Subtitle lines are hidden
+       below md to keep cell heights compact. --%>
   <section class="max-w-[1280px] mx-auto px-6 lg:px-10 -mt-12 md:-mt-20 relative z-10">
-    <div class="grid grid-cols-2 md:grid-cols-5 gap-px bg-[#E3E6EF] rounded-2xl overflow-hidden border border-[#E3E6EF] shadow-[0_28px_70px_-32px_rgba(11,11,12,0.35)]">
-      <div class="bg-white px-5 py-7 md:px-7 md:py-9">
-        <div class="text-[9px] md:text-[10px] uppercase tracking-[0.2em] text-[#515B70] font-haas_medium_65 mb-3">
-          Active users
+    <div class="grid grid-cols-5 gap-px bg-[#E3E6EF] rounded-2xl overflow-hidden border border-[#E3E6EF] shadow-[0_28px_70px_-32px_rgba(11,11,12,0.35)]">
+      <div class="bg-white px-2 py-5 md:px-7 md:py-9">
+        <div class="text-[8px] md:text-[10px] uppercase tracking-[0.14em] md:tracking-[0.2em] text-[#515B70] font-haas_medium_65 mb-2 md:mb-3 whitespace-nowrap">
+          <span class="md:hidden">Users</span>
+          <span class="hidden md:inline">Active users</span>
         </div>
-        <div class="text-[30px] md:text-[44px] font-bold tracking-[-0.02em] text-[#141414] leading-none">
+        <div class="text-[18px] md:text-[44px] font-bold tracking-[-0.02em] text-[#141414] leading-none">
           2.79<span class="text-[#CAFC00]">M</span>
         </div>
-        <div class="text-[10px] md:text-[11px] text-[#515B70]/70 mt-2 font-haas_roman_55">cumulative</div>
+        <div class="hidden md:block text-[11px] text-[#515B70]/70 mt-2 font-haas_roman_55">cumulative</div>
       </div>
-      <div class="bg-white px-5 py-7 md:px-7 md:py-9">
-        <div class="text-[9px] md:text-[10px] uppercase tracking-[0.2em] text-[#515B70] font-haas_medium_65 mb-3">
-          Engaged sessions
+      <div class="bg-white px-2 py-5 md:px-7 md:py-9">
+        <div class="text-[8px] md:text-[10px] uppercase tracking-[0.14em] md:tracking-[0.2em] text-[#515B70] font-haas_medium_65 mb-2 md:mb-3 whitespace-nowrap">
+          <span class="md:hidden">Sessions</span>
+          <span class="hidden md:inline">Engaged sessions</span>
         </div>
-        <div class="text-[30px] md:text-[44px] font-bold tracking-[-0.02em] text-[#141414] leading-none">
+        <div class="text-[18px] md:text-[44px] font-bold tracking-[-0.02em] text-[#141414] leading-none">
           1.31<span class="text-[#515B70]/40 font-haas_roman_55">M</span>
         </div>
-        <div class="text-[10px] md:text-[11px] text-[#515B70]/70 mt-2 font-haas_roman_55">qualified traffic</div>
+        <div class="hidden md:block text-[11px] text-[#515B70]/70 mt-2 font-haas_roman_55">qualified traffic</div>
       </div>
-      <div class="bg-white px-5 py-7 md:px-7 md:py-9">
-        <div class="text-[9px] md:text-[10px] uppercase tracking-[0.2em] text-[#515B70] font-haas_medium_65 mb-3">
-          Total events
+      <div class="bg-white px-2 py-5 md:px-7 md:py-9">
+        <div class="text-[8px] md:text-[10px] uppercase tracking-[0.14em] md:tracking-[0.2em] text-[#515B70] font-haas_medium_65 mb-2 md:mb-3 whitespace-nowrap">
+          <span class="md:hidden">Events</span>
+          <span class="hidden md:inline">Total events</span>
         </div>
-        <div class="text-[30px] md:text-[44px] font-bold tracking-[-0.02em] text-[#141414] leading-none">
+        <div class="text-[18px] md:text-[44px] font-bold tracking-[-0.02em] text-[#141414] leading-none">
           13.9<span class="text-[#515B70]/40 font-haas_roman_55">M</span>
         </div>
-        <div class="text-[10px] md:text-[11px] text-[#515B70]/70 mt-2 font-haas_roman_55">interactions</div>
+        <div class="hidden md:block text-[11px] text-[#515B70]/70 mt-2 font-haas_roman_55">interactions</div>
       </div>
-      <div class="bg-white px-5 py-7 md:px-7 md:py-9">
-        <div class="text-[9px] md:text-[10px] uppercase tracking-[0.2em] text-[#515B70] font-haas_medium_65 mb-3">
-          X audience
+      <div class="bg-white px-2 py-5 md:px-7 md:py-9">
+        <div class="text-[8px] md:text-[10px] uppercase tracking-[0.14em] md:tracking-[0.2em] text-[#515B70] font-haas_medium_65 mb-2 md:mb-3 whitespace-nowrap">
+          <span class="md:hidden">X</span>
+          <span class="hidden md:inline">X audience</span>
         </div>
-        <div class="text-[30px] md:text-[44px] font-bold tracking-[-0.02em] text-[#141414] leading-none">
+        <div class="text-[18px] md:text-[44px] font-bold tracking-[-0.02em] text-[#141414] leading-none">
           82<span class="text-[#515B70]/40 font-haas_roman_55">k</span>
         </div>
-        <div class="text-[10px] md:text-[11px] text-[#515B70]/70 mt-2 font-haas_roman_55">followers</div>
+        <div class="hidden md:block text-[11px] text-[#515B70]/70 mt-2 font-haas_roman_55">followers</div>
       </div>
-      <div class="bg-white px-5 py-7 md:px-7 md:py-9 col-span-2 md:col-span-1">
-        <div class="text-[9px] md:text-[10px] uppercase tracking-[0.2em] text-[#515B70] font-haas_medium_65 mb-3">
-          YouTube
+      <div class="bg-white px-2 py-5 md:px-7 md:py-9">
+        <div class="text-[8px] md:text-[10px] uppercase tracking-[0.14em] md:tracking-[0.2em] text-[#515B70] font-haas_medium_65 mb-2 md:mb-3 whitespace-nowrap">
+          <span class="md:hidden">YouTube</span>
+          <span class="hidden md:inline">YouTube</span>
         </div>
-        <div class="text-[30px] md:text-[44px] font-bold tracking-[-0.02em] text-[#141414] leading-none">
+        <div class="text-[18px] md:text-[44px] font-bold tracking-[-0.02em] text-[#141414] leading-none">
           50<span class="text-[#515B70]/40 font-haas_roman_55">k</span>
         </div>
-        <div class="text-[10px] md:text-[11px] text-[#515B70]/70 mt-2 font-haas_roman_55">subscribers</div>
+        <div class="hidden md:block text-[11px] text-[#515B70]/70 mt-2 font-haas_roman_55">subscribers</div>
       </div>
     </div>
   </section>
@@ -152,11 +161,11 @@
           Why Blockster Hubs
         </div>
         <h2 class="text-[32px] md:text-[44px] font-bold tracking-[-0.02em] leading-[1.02] text-[#141414] mb-6">
-          A serious distribution<br />surface for serious<br />
-          <span class="text-[#141414]/45">projects.</span>
+          A web3 publishing<br />platform made for<br />
+          <span class="text-[#141414]/45">the crypto community.</span>
         </h2>
-        <p class="text-[14px] leading-[1.65] text-[#515B70] font-haas_roman_55 max-w-[320px]">
-          Editorial-grade publishing, on-chain economics, and a crypto-native readership — pre-built and waiting.
+        <p class="text-[14px] leading-[1.65] text-[#515B70] font-haas_roman_55 max-w-[340px]">
+          Join our growing network of top-tier projects featuring blockchains, exchanges, DeFi, wallets, VC firms, social groups & more.
         </p>
       </div>
 
