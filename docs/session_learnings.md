@@ -7,6 +7,7 @@ For active reference material, see the main [CLAUDE.md](../CLAUDE.md).
 ---
 
 ## Table of Contents
+- [Mnesia disaster recovery via volume snapshots — restoring 13K rows after the runbook destroyed them](#mnesia-disaster-recovery-via-volume-snapshots--restoring-13k-rows-after-the-runbook-destroyed-them-2026-05-04)
 - [Tag transient vs session-invalid in the SFA hook so a JWT blip doesn't pop the login modal](#tag-transient-vs-session-invalid-in-the-sfa-hook-so-a-jwt-blip-doesnt-pop-the-login-modal-2026-05-01)
 - [Verifying Mnesia split-brain recovery — `dirty_all_keys` not `table_info(_, :size)`](#verifying-mnesia-split-brain-recovery--dirty_all_keys-not-table_info_-size-2026-04-30)
 - [Mnesia `transform_table` can silently no-op during deploy — verify post-deploy](#mnesia-transform_table-can-silently-no-op-during-deploy--verify-post-deploy-2026-04-30)
@@ -94,6 +95,46 @@ For active reference material, see the main [CLAUDE.md](../CLAUDE.md).
 - [Engagement Tracker Silent Failure — `#post-content` Selector Miss After Redesign](#engagement-tracker-silent-failure--post-content-selector-miss-after-redesign-apr-2026)
 
 ---
+
+## Mnesia disaster recovery via volume snapshots — restoring 13K rows after the runbook destroyed them (2026-05-04)
+
+Sixth split-brain on machine `865d14f7225508` post-deploy. Followed the runbook from `project_mnesia_split_brain_open.md` literally — `del_table_copy(:schema, ghost)`, drop local copies, `change_config(:extra_db_nodes, [other])`. `running_db_nodes` came back showing both nodes; `dirty_all_keys(:user_bux_balances)` returned 2004 — looked clean.
+
+Hours later: `/pool/sol` showed all zeros. Activity tabs blank. Charts flat. The runbook had worked exactly as designed and silently destroyed six tables.
+
+**The blindspot:** the runbook's drop step (`for t <-, self_node in disc_copies do delete_table(t)`) doesn't check whether `other` holds a replica. For tables with `disc_copies = [ghost, self_node]` only — common in this app for `:coin_flip_games`, `:lp_price_history`, `:pool_activities`, `:user_pool_positions`, `:unified_multipliers_v2`, `:user_solana_balances`, and 4 widget caches — dropping the local copy after removing the ghost left zero replicas. After the next deploy, `MnesiaInitializer.create_table/2` recreated empty versions. All historical rows in those tables were gone.
+
+User-facing impact:
+- `period_stats(:sol)` returned `{total: 0, ...}` because every surviving coin_flip_games row was vault=`:bux`
+- Activity table showed 1 row out of historical 30
+- Chart had 820 points all from the past 3 hours, all at the same lp_price (1.0481...)
+
+**Recovery via Fly volume snapshots — full procedure now in [docs/mnesia_disaster_recovery.md](mnesia_disaster_recovery.md):**
+
+1. Found the c889 volume's most recent pre-recovery snapshot (`vs_D7VYVoe82KBf9z0PBVNklZG`, 8 hours old at the time).
+2. `flyctl volumes create mnesia_recovery --snapshot-id <id>` — forked snapshot to a new volume.
+3. `flyctl machine clone <existing> --attach-volume <new>:/data --override-cmd "sleep infinity"` — booted a temp machine with the forked volume but **without starting the app**. The `sleep infinity` override is critical: zero risk of libcluster/DNSCluster joining the live cluster.
+4. SSH'd in and ran `/app/bin/blockster_v2 eval ':mnesia.start()'`. Mnesia loaded standalone as `:nonode@nohost` — completely isolated.
+5. The snapshot's schema didn't reference the v2 tables (the schema had been mutated by an earlier recovery). The `.DCD`/`.DCL` files existed on disk regardless. Read them directly with `:disk_log`, bypassing Mnesia's schema entirely. **Key gotcha**: DCD entries are raw record tuples but DCL entries are wrapped: `{{table, key}, record, :write}` for inserts, `{{table, key}, _record, :delete_object}` / `{{table, key}, _, :delete}` for deletes. Initial parser missed this and produced ~600 arity-3 "records" that would have corrupted the merge. Fixed parser handles both formats and dedupes by key (DCL after DCD; nil = deleted).
+6. Dumped all six tables to a single binary file via `:erlang.term_to_binary/2 [:compressed]` — 917KB.
+7. SFTP'd the dump to local disk, then back up to a live machine.
+8. **Dry-ran the merge first.** For each table: count rows whose key exists live (skip), whose arity matches (insert candidate), whose arity doesn't match (red flag). Result: zero arity mismatches, zero conflicts.
+9. **Ran the actual merge with strict no-clobber**: `dirty_read({table, key})` first; only `dirty_write(record)` if read returns `[]`. Wrapped each insert in try/rescue/catch. Numbers matched the dry-run exactly: 13,028 rows inserted across 6 tables with zero errors and zero overwrites of post-recovery data.
+10. Tore down: stopped + destroyed temp machine, destroyed forked volume, removed local dump.
+
+Inserted totals: `coin_flip_games` 425, `lp_price_history` 11,973, `pool_activities` 30, `unified_multipliers_v2` 47, `user_solana_balances` 540, `user_pool_positions` 13.
+
+**Lessons:**
+
+1. **The runbook is not safe by default.** It assumes `other` holds a replica of every important table. Add a pre-check: list every table where `self_node ∈ disc_copies` and `other ∉ disc_copies`. If non-empty, run `add_table_copy(t, other, :disc_copies)` for each before proceeding. Documented as a hard requirement in `docs/mnesia_disaster_recovery.md §2`.
+2. **Fly volume snapshots are the safety net.** 5-day retention by default. The 2026-05-04 incident was recoverable only because Fly auto-snapshotted c889 before the disaster. Don't disable scheduled snapshots.
+3. **`--override-cmd "sleep infinity"` is the safe way to inspect a forked volume.** App never starts, no cluster join, full filesystem + BEAM access. `flyctl machine clone` accepts arbitrary override commands — use them.
+4. **`:disk_log` reads .DCD/.DCL bypassing Mnesia's schema.** When the snapshot's schema is too new (or too old) to reference the tables you need, `:disk_log.open(name: ..., file: ..., repair: true, mode: :read_only)` reads the raw entries. The DCD/DCL format wraps inserts and deletes differently — handle both.
+5. **Dry-run before mutate.** Same script structure, but replace `dirty_write` with a counter increment. Compare counts to expected. Mismatch → stop.
+6. **No-clobber merge is safe even on live data.** `dirty_read({t, k})` first; only insert if empty. Live rows are never overwritten. Even if the script crashes mid-merge, the live cluster is in a consistent (partial-merge) state, never a corrupt one.
+7. **The disc_copies imbalance is the real bug.** Several tables had only `[ghost, c889]` for years. After the merge, audit every table's `disc_copies` and bring single-replica tables to two replicas via `add_table_copy/3`. Without that, the next deploy's recovery has the same blindspot.
+
+Cross-references: [docs/mnesia_disaster_recovery.md](mnesia_disaster_recovery.md) (full step-by-step runbook), [memory/project_mnesia_split_brain_open.md](../../.claude/projects/-Users-tenmerry-Projects-blockster-v2/memory/project_mnesia_split_brain_open.md) (original runbook + blindspot warning), [memory/feedback_mnesia_runbook_blindspot.md](../../.claude/projects/-Users-tenmerry-Projects-blockster-v2/memory/feedback_mnesia_runbook_blindspot.md) (the rule).
 
 ## Tag transient vs session-invalid in the SFA hook so a JWT blip doesn't pop the login modal (2026-05-01)
 
