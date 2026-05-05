@@ -33,6 +33,7 @@ Phoenix LiveView web3 content platform — shop, hubs, events, token-based engag
 - NEVER run `mix ecto.reset`, `mix ecto.drop`, or any command that drops the database. Only `mix ecto.migrate` and `mix ecto.rollback` are safe.
 - NEVER delete `priv/mnesia/*` directories — unrecoverable user data. No exceptions.
 - NEVER truncate tables — production data (products, hubs, users) is manually curated.
+- **Mnesia split-brain recovery has a blindspot** — the runbook drops local copies of tables that exist only on the broken node + ghost, destroying them cluster-wide. ALWAYS run the pre-recovery check in [docs/mnesia_disaster_recovery.md §2](docs/mnesia_disaster_recovery.md#2-pre-recovery-check--must-run-before-the-split-brain-runbook) before executing the runbook in `project_mnesia_split_brain_open.md`. If data has already been lost, snapshot-based recovery procedure is in §3 of the same doc — confirmed working on 2026-05-04 (recovered 13,028 rows across 6 tables with zero overwrites).
 
 **Fly.io secrets**:
 - ALWAYS use `--stage`: `flyctl secrets set KEY=VALUE --stage --app blockster-v2`. Without `--stage`, Fly immediately restarts production.
