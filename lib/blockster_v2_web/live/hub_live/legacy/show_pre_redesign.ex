@@ -39,7 +39,7 @@ defmodule BlocksterV2Web.HubLive.Legacy.ShowPreRedesign do
             user -> Blog.user_follows_hub?(user.id, hub.id)
           end
 
-        follower_count = Blog.get_hub_follower_count(hub.id)
+        follower_count = Blog.get_hub_display_follower_count(hub.id)
 
         {:ok,
          socket

@@ -1334,7 +1334,12 @@ defmodule BlocksterV2.Blog do
   end
 
   @doc """
-  Gets the follower count for a hub.
+  Gets the **real** follower count for a hub (`hub_followers` row count only).
+
+  For user-facing displays prefer `get_hub_display_follower_count/1` — that
+  one adds `hubs.follower_count_offset`, which the index page and the show
+  page use to surface a healthier social-proof number. This raw count is
+  what notification fan-out, campaign targeting, and admin analytics need.
   """
   def get_hub_follower_count(hub_id) do
     from(hf in "hub_followers",
@@ -1342,6 +1347,22 @@ defmodule BlocksterV2.Blog do
       select: count(hf.user_id)
     )
     |> Repo.one()
+  end
+
+  @doc """
+  Gets the **display** follower count for a hub: real follows + the
+  `follower_count_offset` set by `BlocksterV2.HubFollowers.Seeder`.
+
+  Use this everywhere the number is shown to users so the count stays
+  consistent across surfaces (hubs index, hub show page, etc.).
+  """
+  def get_hub_display_follower_count(hub_id) do
+    real = get_hub_follower_count(hub_id)
+
+    offset =
+      Repo.one(from h in Hub, where: h.id == ^hub_id, select: h.follower_count_offset) || 0
+
+    real + offset
   end
 
   @doc """

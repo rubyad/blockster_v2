@@ -46,7 +46,7 @@ defmodule BlocksterV2Web.HubLive.Show do
             user -> Blog.user_follows_hub?(user.id, hub.id)
           end
 
-        follower_count = Blog.get_hub_follower_count(hub.id)
+        follower_count = Blog.get_hub_display_follower_count(hub.id)
 
         # Split all_posts for the All tab sections
         {pinned_post, mosaic_posts} =

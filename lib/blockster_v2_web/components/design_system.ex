@@ -5780,7 +5780,7 @@ defmodule BlocksterV2Web.DesignSystem do
               <div class="w-px h-7 md:h-10 bg-white/25"></div>
               <div>
                 <div class="font-mono font-bold text-[20px] md:text-[28px] text-white leading-none">
-                  {compact_number(@follower_count)}
+                  {delimit_number(@follower_count)}
                 </div>
                 <div class="text-[9px] md:text-[10px] uppercase tracking-[0.14em] text-white/75 mt-1 md:mt-1.5">
                   Followers
@@ -6034,6 +6034,21 @@ defmodule BlocksterV2Web.DesignSystem do
   defp compact_number(n) when n >= 1_000_000, do: "#{Float.round(n / 1_000_000, 1)}M"
   defp compact_number(n) when n >= 1_000, do: "#{Float.round(n / 1_000, 1)}k"
   defp compact_number(n), do: "#{n}"
+
+  # Comma-delimited integer ("1,800"). Used for follower counts so the same
+  # number reads the same way on the hubs index and the hub show page.
+  defp delimit_number(n) when is_integer(n) do
+    n
+    |> Integer.to_string()
+    |> String.reverse()
+    |> String.graphemes()
+    |> Enum.chunk_every(3)
+    |> Enum.map(&Enum.join/1)
+    |> Enum.join(",")
+    |> String.reverse()
+  end
+
+  defp delimit_number(_), do: "0"
 
   # Normalizes a BUX reward value (any of nil / int / float / "0.0" / Decimal)
   # into a non-negative integer for display in preview badges.
