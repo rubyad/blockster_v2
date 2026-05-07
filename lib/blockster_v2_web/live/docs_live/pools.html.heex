@@ -35,10 +35,10 @@
 
   <BlocksterV2Web.DocsComponents.section id="overview" title="Overview" eyebrow="01">
     <p>
-      The pool pages live at <BlocksterV2Web.DocsComponents.inline_code>/pool</BlocksterV2Web.DocsComponents.inline_code> (index) and <BlocksterV2Web.DocsComponents.inline_code>/pool/sol</BlocksterV2Web.DocsComponents.inline_code> or <BlocksterV2Web.DocsComponents.inline_code>/pool/bux</BlocksterV2Web.DocsComponents.inline_code> (detail). Each detail page lets you deposit, withdraw, and watch the LP price move in real time as bets settle.
+      The pool page lives at <BlocksterV2Web.DocsComponents.inline_code>/pool</BlocksterV2Web.DocsComponents.inline_code>. It lets you deposit, withdraw, and watch the LP price move in real time as bets settle.
     </p>
     <p>
-      Mechanically, each pool is an AMM-style share pool <em>without</em> a pair. You put in SOL (or BUX), the program mints you LP tokens at the current share price, and you get back the same token — plus your slice of whatever the pool earned (or minus your slice of whatever the pool lost) — whenever you withdraw. There is nothing to swap, no impermanent loss, no external oracle.
+      Mechanically, the pool is an AMM-style share pool <em>without</em> a pair. You put in BUX, the program mints you LP tokens at the current share price, and you get back BUX — plus your slice of whatever the pool earned (or minus your slice of whatever the pool lost) — whenever you withdraw. There is nothing to swap, no impermanent loss, no external oracle.
     </p>
     <p>
       When bettors lose, their wagers stay in the vault and the LP price rises. When bettors win, the vault pays them and the LP price falls. Over a large enough sample, the house edge (~1% on Win-All variants) ensures LPs are paid for taking the other side.
@@ -203,7 +203,7 @@ lp_to_mint = amount × lp_supply / effective_balance
     <BlocksterV2Web.DocsComponents.subsection title="Sequence">
       <BlocksterV2Web.DocsComponents.ol_steps>
         <:step title="Enter an amount">
-          <p>The <BlocksterV2Web.DocsComponents.inline_code>/pool/sol</BlocksterV2Web.DocsComponents.inline_code> or <BlocksterV2Web.DocsComponents.inline_code>/pool/bux</BlocksterV2Web.DocsComponents.inline_code> page previews how many LP tokens you'll receive based on the current on-chain price. That preview is computed from the exact same formula the program uses, so it's not a quote — it's the answer (subject to tiny slippage if a bet settles between your click and landing).</p>
+          <p>The <BlocksterV2Web.DocsComponents.inline_code>/pool</BlocksterV2Web.DocsComponents.inline_code> page previews how many LP tokens you'll receive based on the current on-chain price. That preview is computed from the exact same formula the program uses, so it's not a quote — it's the answer (subject to tiny slippage if a bet settles between your click and landing).</p>
         </:step>
         <:step title="Click deposit, sign the transaction">
           <p>The settler builds an unsigned <BlocksterV2Web.DocsComponents.inline_code>deposit_sol</BlocksterV2Web.DocsComponents.inline_code> or <BlocksterV2Web.DocsComponents.inline_code>deposit_bux</BlocksterV2Web.DocsComponents.inline_code> transaction. Your wallet signs it. If you're using Web3Auth with no SOL, the settler partial-signs as fee payer so you don't need a balance for fees.</p>

@@ -101,17 +101,6 @@ defmodule BlocksterV2Web.PoolDetailLiveTest do
   # ============================================================================
 
   describe "routing" do
-    test "SOL vault page renders", %{conn: conn} do
-      {:ok, _view, html} = live(conn, ~p"/pool/sol")
-
-      assert html =~ "SOL Pool"
-      # New: breadcrumb back to index
-      assert html =~ ~s(href="/pool")
-      # New: banner identity eyebrow
-      assert html =~ "Bankroll Vault"
-      # New: hero stats
-      assert html =~ "Current LP price"
-    end
 
     test "BUX vault page renders", %{conn: conn} do
       {:ok, _view, html} = live(conn, ~p"/pool/bux")
@@ -130,124 +119,6 @@ defmodule BlocksterV2Web.PoolDetailLiveTest do
   # Page Render Tests
   # ============================================================================
 
-  describe "SOL vault page render" do
-    test "renders deposit form for unauthenticated user", %{conn: conn} do
-      {:ok, _view, html} = live(conn, ~p"/pool/sol")
-
-      # Deposit / Withdraw tabs
-      assert html =~ "Deposit"
-      assert html =~ "Withdraw"
-      # Anonymous users see Connect Wallet CTA
-      assert html =~ "Connect Wallet"
-      # LP Price line in form
-      assert html =~ "SOL-LP Price"
-    end
-
-    test "renders price chart container", %{conn: conn} do
-      {:ok, _view, html} = live(conn, ~p"/pool/sol")
-
-      assert html =~ "price-chart-sol"
-      assert html =~ "PriceChart"
-      # New chart card header uses lowercase `price`
-      assert html =~ "SOL-LP price"
-    end
-
-    test "renders timeframe selector buttons", %{conn: conn} do
-      {:ok, _view, html} = live(conn, ~p"/pool/sol")
-
-      assert html =~ "1H"
-      assert html =~ "24H"
-      assert html =~ "7D"
-      assert html =~ "30D"
-      assert html =~ "All"
-    end
-
-    test "renders 8-stat pool statistics grid", %{conn: conn} do
-      {:ok, _view, html} = live(conn, ~p"/pool/sol")
-
-      assert html =~ "LP price"
-      assert html =~ "LP supply"
-      assert html =~ "Volume"
-      assert html =~ "Bets"
-      # "Win rate" stat label removed in 2026-04-27 pool-detail UI rewrite.
-      assert html =~ "Profit"
-      assert html =~ "Payout"
-      assert html =~ "House edge"
-    end
-
-    test "renders activity table with tabs", %{conn: conn} do
-      {:ok, _view, html} = live(conn, ~p"/pool/sol")
-
-      # Live pulse label + tabs
-      assert html =~ "Activity · Live"
-      assert html =~ "No activity yet"
-      assert html =~ "All"
-      assert html =~ "Wins"
-      assert html =~ "Losses"
-      assert html =~ "Liquidity"
-      # The dead "Load more →" stub button was removed 2026-04-30; the
-      # activity rows are now in a scrollable container instead.
-      refute html =~ "Load more"
-      assert html =~ "Showing"
-    end
-
-    test "renders full-bleed pool banner hero", %{conn: conn} do
-      {:ok, _view, html} = live(conn, ~p"/pool/sol")
-
-      # Gradient style + identity + live pill
-      assert html =~ "linear-gradient"
-      assert html =~ "Bankroll Vault"
-      assert html =~ "TVL · SOL"
-      # "Est. APY" label removed in 2026-04-27 pool-banner UI rewrite.
-      assert html =~ "Your position"
-    end
-
-    test "renders design system header + footer", %{conn: conn} do
-      {:ok, _view, html} = live(conn, ~p"/pool/sol")
-
-      assert html =~ ~s(id="ds-site-header")
-      assert html =~ ~s(phx-hook="SolanaWallet")
-      assert html =~ "ds-why-earn-bux"
-    end
-
-    test "renders How earnings work card", %{conn: conn} do
-      {:ok, _view, html} = live(conn, ~p"/pool/sol")
-
-      assert html =~ "How earnings work"
-      # The "Read the bankroll docs" CTA was replaced in the redesign
-      # with three docs pivots — assert one of the new pivot links so
-      # the contract is "the card surfaces docs jump-offs", not a
-      # specific copy variant.
-      assert html =~ "How pools work"
-    end
-
-    test "renders pool page for authenticated user with balances", %{conn: conn} do
-      user = create_user()
-      set_solana_balances(user, 5.0, 10000.0)
-      set_lp_balances(user, 2.5, 5000.0)
-      conn = log_in_user(conn, user)
-
-      {:ok, _view, html} = live(conn, ~p"/pool/sol")
-
-      assert html =~ "SOL Pool"
-      # Should show balances
-      assert html =~ "SOL-LP"
-      # Should NOT show connect wallet
-      refute html =~ "Connect Wallet"
-    end
-
-    test "shows LP balances", %{conn: conn} do
-      user = create_user()
-      set_solana_balances(user, 1.0, 500.0)
-      set_lp_balances(user, 3.14, 1000.0)
-      conn = log_in_user(conn, user)
-
-      {:ok, _view, html} = live(conn, ~p"/pool/sol")
-
-      # SOL-LP balance
-      assert html =~ "3.1400"
-    end
-  end
 
   describe "BUX vault page render" do
     test "renders BUX-specific content", %{conn: conn} do
@@ -279,7 +150,7 @@ defmodule BlocksterV2Web.PoolDetailLiveTest do
 
   describe "tab switching" do
     test "switches to withdraw tab", %{conn: conn} do
-      {:ok, view, _html} = live(conn, ~p"/pool/sol")
+      {:ok, view, _html} = live(conn, ~p"/pool/bux")
 
       html =
         view
@@ -291,7 +162,7 @@ defmodule BlocksterV2Web.PoolDetailLiveTest do
     end
 
     test "switches back to deposit tab", %{conn: conn} do
-      {:ok, view, _html} = live(conn, ~p"/pool/sol")
+      {:ok, view, _html} = live(conn, ~p"/pool/bux")
 
       # Switch to withdraw
       view
@@ -325,7 +196,7 @@ defmodule BlocksterV2Web.PoolDetailLiveTest do
 
   describe "amount inputs" do
     test "amount updates on keyup", %{conn: conn} do
-      {:ok, view, _html} = live(conn, ~p"/pool/sol")
+      {:ok, view, _html} = live(conn, ~p"/pool/bux")
 
       html =
         view
@@ -341,7 +212,7 @@ defmodule BlocksterV2Web.PoolDetailLiveTest do
     # hit the handler. This test exercises the phx-change form path.
     test "programmatic phx-change on the amount form fires update_amount handler",
          %{conn: conn} do
-      {:ok, view, _html} = live(conn, ~p"/pool/sol")
+      {:ok, view, _html} = live(conn, ~p"/pool/bux")
 
       html =
         view
@@ -357,7 +228,7 @@ defmodule BlocksterV2Web.PoolDetailLiveTest do
       set_solana_balances(user, 3.5, 1000.0)
       conn = log_in_user(conn, user)
 
-      {:ok, view, _html} = live(conn, ~p"/pool/sol")
+      {:ok, view, _html} = live(conn, ~p"/pool/bux")
 
       html =
         view
@@ -373,7 +244,7 @@ defmodule BlocksterV2Web.PoolDetailLiveTest do
       set_lp_balances(user, 1.75, 500.0)
       conn = log_in_user(conn, user)
 
-      {:ok, view, _html} = live(conn, ~p"/pool/sol")
+      {:ok, view, _html} = live(conn, ~p"/pool/bux")
 
       # Switch to withdraw tab
       view
@@ -412,7 +283,7 @@ defmodule BlocksterV2Web.PoolDetailLiveTest do
 
   describe "chart timeframe" do
     test "set_chart_timeframe updates active timeframe", %{conn: conn} do
-      {:ok, view, _html} = live(conn, ~p"/pool/sol")
+      {:ok, view, _html} = live(conn, ~p"/pool/bux")
 
       html =
         view
@@ -424,7 +295,7 @@ defmodule BlocksterV2Web.PoolDetailLiveTest do
     end
 
     test "request_chart_data event does not crash", %{conn: conn} do
-      {:ok, view, _html} = live(conn, ~p"/pool/sol")
+      {:ok, view, _html} = live(conn, ~p"/pool/bux")
 
       html = render_hook(view, "request_chart_data", %{"timeframe" => "24H"})
       assert is_binary(html)
@@ -437,7 +308,7 @@ defmodule BlocksterV2Web.PoolDetailLiveTest do
 
   describe "activity table" do
     test "set_activity_tab switches tab", %{conn: conn} do
-      {:ok, view, _html} = live(conn, ~p"/pool/sol")
+      {:ok, view, _html} = live(conn, ~p"/pool/bux")
 
       html =
         view
@@ -449,7 +320,7 @@ defmodule BlocksterV2Web.PoolDetailLiveTest do
     end
 
     test "all activity tabs render without error", %{conn: conn} do
-      {:ok, view, _html} = live(conn, ~p"/pool/sol")
+      {:ok, view, _html} = live(conn, ~p"/pool/bux")
 
       for tab <- ~w(all wins losses liquidity) do
         html =
@@ -468,7 +339,7 @@ defmodule BlocksterV2Web.PoolDetailLiveTest do
 
   describe "deposit actions" do
     test "deposit button is disabled without wallet", %{conn: conn} do
-      {:ok, _view, html} = live(conn, ~p"/pool/sol")
+      {:ok, _view, html} = live(conn, ~p"/pool/bux")
 
       # Should show connect wallet instead of deposit button
       assert html =~ "Connect Wallet"
@@ -479,7 +350,7 @@ defmodule BlocksterV2Web.PoolDetailLiveTest do
       set_solana_balances(user, 5.0, 1000.0)
       conn = log_in_user(conn, user)
 
-      {:ok, view, _html} = live(conn, ~p"/pool/sol")
+      {:ok, view, _html} = live(conn, ~p"/pool/bux")
 
       view
       |> element("input[phx-keyup=update_amount]")
@@ -501,7 +372,7 @@ defmodule BlocksterV2Web.PoolDetailLiveTest do
       set_lp_balances(user, 2.0, 800.0)
       conn = log_in_user(conn, user)
 
-      {:ok, view, _html} = live(conn, ~p"/pool/sol")
+      {:ok, view, _html} = live(conn, ~p"/pool/bux")
 
       html =
         view
@@ -524,7 +395,7 @@ defmodule BlocksterV2Web.PoolDetailLiveTest do
       set_solana_balances(user, 5.0, 1000.0)
       conn = log_in_user(conn, user)
 
-      {:ok, view, _html} = live(conn, ~p"/pool/sol")
+      {:ok, view, _html} = live(conn, ~p"/pool/bux")
 
       html =
         render_hook(view, "tx_confirmed", %{
@@ -542,7 +413,7 @@ defmodule BlocksterV2Web.PoolDetailLiveTest do
       set_solana_balances(user, 5.0, 1000.0)
       conn = log_in_user(conn, user)
 
-      {:ok, view, _html} = live(conn, ~p"/pool/sol")
+      {:ok, view, _html} = live(conn, ~p"/pool/bux")
 
       html =
         render_hook(view, "tx_failed", %{
@@ -567,7 +438,7 @@ defmodule BlocksterV2Web.PoolDetailLiveTest do
       set_lp_balances(user, 10.0, 500.0)
       conn = log_in_user(conn, user)
 
-      {:ok, _view, html} = live(conn, ~p"/pool/sol")
+      {:ok, _view, html} = live(conn, ~p"/pool/bux")
 
       assert html =~ "Pool share"
     end
@@ -577,7 +448,7 @@ defmodule BlocksterV2Web.PoolDetailLiveTest do
       set_solana_balances(user, 5.0, 1000.0)
       conn = log_in_user(conn, user)
 
-      {:ok, _view, html} = live(conn, ~p"/pool/sol")
+      {:ok, _view, html} = live(conn, ~p"/pool/bux")
 
       refute html =~ "Pool share"
     end
@@ -593,7 +464,7 @@ defmodule BlocksterV2Web.PoolDetailLiveTest do
       set_solana_balances(user, 2.5, 7500.0)
       conn = log_in_user(conn, user)
 
-      {:ok, _view, html} = live(conn, ~p"/pool/sol")
+      {:ok, _view, html} = live(conn, ~p"/pool/bux")
 
       assert html =~ "2.50"
     end

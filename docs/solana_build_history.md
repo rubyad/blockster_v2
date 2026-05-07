@@ -4087,3 +4087,42 @@ Modified (Elixir / HEEx / migrations / docs):
 New:
 `lib/blockster_v2/emails/hub_request_email.ex`, `lib/blockster_v2/hub_followers/seeder.ex`, `lib/blockster_v2/signup_bonus.ex`, `lib/blockster_v2_web/live/hub_live/request.ex`, `lib/blockster_v2_web/live/hub_live/request.html.heex`, `priv/repo/migrations/20260505033113_add_follower_count_offset_to_hubs.exs`, `priv/repo/migrations/20260505042101_add_signup_bonus_granted_at_to_users.exs`, `priv/repo/seeds_hub_followers.exs`, `test/blockster_v2/signup_bonus_test.exs`.
 
+## Session 2026-05-07 — SOL betting + SOL pool retirement; follower count display fix
+
+### Hub follower count: same number on every user-facing surface
+The hubs index page rendered `real_follows + follower_count_offset` (the seeded display number) but the hub show page rendered only the real follower count. So the same hub showed two different numbers depending on which page you opened.
+
+- New `Blog.get_hub_display_follower_count/1` — `real + offset`. Existing `get_hub_follower_count/1` keeps returning real-only count, docstring-tagged for the use cases that need real numbers (notification fan-out, campaign target audience, admin analytics).
+- `HubLive.Show` and the legacy `ShowPreRedesign` both switched to the display variant. The `+1` / `-1` increments on follow/unfollow still work — they bump the real component, which adds to the offset baseline naturally.
+- `DesignSystem.hub_banner` (used on `/hub/:slug`) now formats the follower count with commas (`delimit_number/1`) instead of compact "1.0k" — matches the hubs index format.
+- Notification analytics admin page intentionally untouched — it computes opt-in rate from `follower_count`, so inflating the denominator would make the rate misleading.
+
+### `/play` is BUX-only; `/pool` is the BUX pool
+- Token selector on `/play` (mobile + desktop) deleted. Mount changed: `tokens = ["BUX"]`, `initial_token = "BUX"`, all hardcoded "SOL" defaults flipped, the `start_async(:fetch_house_balance, … "SOL")` calls now fetch BUX. The "SOL Pool" stat card on the desktop hero dropped — grid is now 2-col (BUX Pool + House Edge). The `/pool/sol`-style links on the page rewritten to `/pool`. Existing `select_token` event handler kept as a no-op safety net (no surface fires it).
+- `router.ex`: `/pool` → `PoolDetailLive` (was `PoolIndexLive`). `/pool/:vault_type` kept for `/pool/bux` backward compat.
+- `PoolDetailLive`: `@valid_vault_types` is `["bux"]` only. Bare `/pool` (no param) defaults to BUX via a new mount clause delegating to the parameterized one. `/pool/sol` and any unknown vault falls through to the catch-all `push_navigate(~p"/pool")`.
+- `PoolIndexLive` (`lib/blockster_v2_web/live/pool_index_live.ex`) and its test deleted — page no longer routed.
+- Wallet page (`/wallet`): SOL-LP card hidden when `@sol_lp_balance == 0`. Legacy SOL-LP holders still see their balance (informational — manage link removed since the pool is retired). BUX-LP card unchanged but its link now points to `/pool` instead of `/pool/bux`.
+- `pool_components.ex` "Enter Pool" CTA → `~p"/pool"`. `design_system.ex` footer "BUX Token" link → `~p"/pool"`.
+- Docs `pools.html.heex` overview rewritten to BUX-only framing. Deeper instruction-level sections (`deposit_sol.rs`, `withdraw_sol.rs` etc.) intentionally kept — they document the on-chain Anchor program which still has both vaults, just with no UI surface for SOL.
+- Docs `provably_fair.html.heex` example bets switched from `1.0 SOL` / `0.1 SOL` to `25 BUX`.
+
+### Untouched on purpose
+- `pool_components.ex` `if @is_sol` branch — dead code (vault_type can never be "sol" anymore) but never rendered. Could be cleaned up later.
+- `pool_live.ex` — unrouted dead module from a previous redesign. Like the deleted PoolIndexLive but kept for now pending a separate cleanup pass.
+- `docs_live/coin_flip.html.heex` "Zero-SOL bettors" subsection — about Web3Auth users without SOL **for tx fees**, not SOL betting. Still relevant since BUX bets pay tx fees in SOL.
+- Shop / cart / product surfaces with "Pay in SOL" copy — that's SOL-direct shop checkout, unrelated to SOL betting/pool.
+
+### Test impact
+- `coin_flip_live_test.exs` — stat band test now refutes "SOL Pool" + asserts BUX Pool + House Edge; the preset test uses a BUX preset (`25` instead of SOL `0.25`); the select_token describe block reframed to assert the handler still no-ops.
+- `pool_detail_live_test.exs` — sed-swapped `~p"/pool/sol"` → `~p"/pool/bux"`; deleted the "SOL vault page renders" routing test and the entire "SOL vault page render" describe block (assertions referenced SOL strings that don't exist on the BUX page).
+- Full suite: 22 failures (1 above the 21-failure pre-existing baseline — all in unrelated areas).
+
+### Files touched
+
+Modified:
+`CLAUDE.md`, `docs/session_learnings.md`, `docs/solana_build_history.md`, `docs/solana/docs_live/pools.html.heex` (n/a — `lib/blockster_v2_web/live/docs_live/pools.html.heex`), `lib/blockster_v2/blog.ex`, `lib/blockster_v2_web/components/design_system.ex`, `lib/blockster_v2_web/components/pool_components.ex`, `lib/blockster_v2_web/controllers/auth_controller.ex` (no SOL change — listed for completeness), `lib/blockster_v2_web/live/coin_flip_live.ex`, `lib/blockster_v2_web/live/docs_live/pools.html.heex`, `lib/blockster_v2_web/live/docs_live/provably_fair.html.heex`, `lib/blockster_v2_web/live/hub_live/legacy/show_pre_redesign.ex`, `lib/blockster_v2_web/live/hub_live/show.ex`, `lib/blockster_v2_web/live/pool_detail_live.ex`, `lib/blockster_v2_web/live/wallet_live/index.html.heex`, `lib/blockster_v2_web/router.ex`, `test/blockster_v2_web/live/coin_flip_live_test.exs`, `test/blockster_v2_web/live/pool_detail_live_test.exs`.
+
+Deleted:
+`lib/blockster_v2_web/live/pool_index_live.ex`, `test/blockster_v2_web/live/pool_index_live_test.exs`.
+

@@ -1651,7 +1651,7 @@ defmodule BlocksterV2Web.DesignSystem do
             <ul class="space-y-2.5 text-[13px]">
               <li>
                 <.link
-                  navigate={~p"/pool/bux"}
+                  navigate={~p"/pool"}
                   class="text-white/70 hover:text-white transition-colors"
                 >
                   BUX Token

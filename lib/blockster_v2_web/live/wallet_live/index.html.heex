@@ -205,35 +205,31 @@
             Pool positions
           </div>
 
-          <%!-- SOL-LP --%>
-          <div class="flex items-center gap-2.5 mb-1.5 md:mb-2">
-            <img
-              src="https://ik.imagekit.io/blockster/solana-sol-logo.png"
-              alt=""
-              class="w-5 h-5 md:w-6 md:h-6 rounded-full shrink-0 ring-2 ring-[#CAFC00]/30"
-              aria-hidden="true"
-            />
-            <span class="text-[11px] uppercase tracking-[0.16em] text-neutral-500 font-mono font-bold">SOL Pool · LP</span>
-            <.link navigate={~p"/pool/sol"} class="ml-auto text-[10px] uppercase tracking-[0.14em] text-neutral-400 hover:text-[#141414] font-mono transition-colors">
-              <%= if @sol_lp_balance > 0, do: "Manage", else: "Deposit" %> ↗
-            </.link>
-          </div>
-          <div class="flex items-baseline gap-2 md:gap-3 mb-1 md:mb-2 flex-wrap">
-            <span
-              class={[
-                "text-[28px] md:text-[56px] font-bold leading-none tabular-nums",
-                if(@sol_lp_balance > 0, do: "text-[#141414]", else: "text-neutral-300")
-              ]}
-              style="font-variant-numeric: tabular-nums; letter-spacing: -0.035em; font-weight: 700;"
-            >
-              <%= format_lp(@sol_lp_balance) %>
-            </span>
-            <span class="text-[13px] md:text-[20px] font-bold text-neutral-400 tracking-tight pb-0.5">
-              SOL-LP
-            </span>
-          </div>
-          <div class="flex items-center gap-2 md:gap-3 text-[12px] md:text-[14px] text-neutral-500 flex-wrap mb-5 md:mb-8">
-            <%= if @sol_lp_balance > 0 do %>
+          <%!-- SOL-LP — legacy holders only. SOL pool was retired 2026-05-07;
+               new users never see this card. Existing holders keep visibility
+               on their balance (manage path goes to the BUX pool page). --%>
+          <%= if @sol_lp_balance > 0 do %>
+            <div class="flex items-center gap-2.5 mb-1.5 md:mb-2">
+              <img
+                src="https://ik.imagekit.io/blockster/solana-sol-logo.png"
+                alt=""
+                class="w-5 h-5 md:w-6 md:h-6 rounded-full shrink-0 ring-2 ring-[#CAFC00]/30"
+                aria-hidden="true"
+              />
+              <span class="text-[11px] uppercase tracking-[0.16em] text-neutral-500 font-mono font-bold">SOL-LP · legacy</span>
+            </div>
+            <div class="flex items-baseline gap-2 md:gap-3 mb-1 md:mb-2 flex-wrap">
+              <span
+                class="text-[28px] md:text-[56px] font-bold leading-none tabular-nums text-[#141414]"
+                style="font-variant-numeric: tabular-nums; letter-spacing: -0.035em; font-weight: 700;"
+              >
+                <%= format_lp(@sol_lp_balance) %>
+              </span>
+              <span class="text-[13px] md:text-[20px] font-bold text-neutral-400 tracking-tight pb-0.5">
+                SOL-LP
+              </span>
+            </div>
+            <div class="flex items-center gap-2 md:gap-3 text-[12px] md:text-[14px] text-neutral-500 flex-wrap mb-5 md:mb-8">
               <span class="font-mono tabular-nums">
                 ≈ <%= format_sol_4dp(@sol_lp_balance * @sol_lp_price) %> SOL
               </span>
@@ -242,11 +238,11 @@
                 ≈ $<%= format_usd(@sol_lp_balance * @sol_lp_price, @sol_usd_price) %> USD
               </span>
               <span class="w-0.5 h-0.5 rounded-full bg-neutral-300" aria-hidden="true"></span>
-            <% end %>
-            <span class="font-mono tabular-nums">
-              @ <%= format_sol_4dp(@sol_lp_price) %>/LP
-            </span>
-          </div>
+              <span class="font-mono tabular-nums">
+                @ <%= format_sol_4dp(@sol_lp_price) %>/LP
+              </span>
+            </div>
+          <% end %>
 
           <%!-- BUX-LP --%>
           <div class="flex items-center gap-2.5 mb-1.5 md:mb-2">
@@ -257,7 +253,7 @@
               aria-hidden="true"
             />
             <span class="text-[11px] uppercase tracking-[0.16em] text-neutral-500 font-mono font-bold">BUX Pool · LP</span>
-            <.link navigate={~p"/pool/bux"} class="ml-auto text-[10px] uppercase tracking-[0.14em] text-neutral-400 hover:text-[#141414] font-mono transition-colors">
+            <.link navigate={~p"/pool"} class="ml-auto text-[10px] uppercase tracking-[0.14em] text-neutral-400 hover:text-[#141414] font-mono transition-colors">
               <%= if @bux_lp_balance > 0, do: "Manage", else: "Deposit" %> ↗
             </.link>
           </div>

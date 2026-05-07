@@ -16,7 +16,10 @@ defmodule BlocksterV2Web.PoolDetailLive do
 
   import BlocksterV2Web.PoolComponents
 
-  @valid_vault_types ~w(sol bux)
+  # SOL vault retired 2026-05-07. Only BUX is a valid vault — `sol` and any
+  # other unknown value falls through to the catch-all clause that redirects
+  # to /pool.
+  @valid_vault_types ~w(bux)
 
   @impl true
   def mount(%{"vault_type" => vault_type}, _session, socket)
@@ -129,6 +132,13 @@ defmodule BlocksterV2Web.PoolDetailLive do
     {:ok, socket}
   end
 
+  # Bare `/pool` (no vault_type param) — render the BUX pool by delegating
+  # to the parameterized clause above.
+  def mount(params, session, socket) when not is_map_key(params, "vault_type") do
+    mount(%{"vault_type" => "bux"}, session, socket)
+  end
+
+  # `/pool/<unknown>` (e.g. legacy `/pool/sol`) — redirect to /pool.
   def mount(_params, _session, socket) do
     {:ok, push_navigate(socket, to: ~p"/pool")}
   end

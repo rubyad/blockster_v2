@@ -123,7 +123,7 @@ defmodule BlocksterV2Web.PoolComponents do
       <%!-- CTA Button --%>
       <div class="px-6 pb-6">
         <.link
-          navigate={if @is_sol, do: ~p"/pool/sol", else: ~p"/pool/bux"}
+          navigate={~p"/pool"}
           class={[
             "flex items-center justify-center gap-2 w-full py-3.5 rounded-xl",
             "font-haas_medium_65 text-sm tracking-wide transition-all duration-200 cursor-pointer",

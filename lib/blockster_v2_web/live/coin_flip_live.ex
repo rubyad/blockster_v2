@@ -26,8 +26,8 @@ defmodule BlocksterV2Web.CoinFlipLive do
   @impl true
   def mount(_params, _session, socket) do
     current_user = socket.assigns[:current_user]
-    # SOL + BUX only (no ROGUE)
-    tokens = ["SOL", "BUX"]
+    # BUX-only since SOL betting was removed.
+    tokens = ["BUX"]
 
     if current_user do
       wallet_address = current_user.wallet_address
@@ -70,12 +70,8 @@ defmodule BlocksterV2Web.CoinFlipLive do
 
       error_msg = if wallet_address, do: nil, else: "No wallet connected"
 
-      # Default token must match the load_user_stats call below so the
-      # initial render's stats panel reflects the same token its label
-      # will say. Previously the panel showed BUX numbers under a SOL
-      # label because mount defaulted selected_token="SOL" but called
-      # load_user_stats/1 (which defaulted to "BUX").
-      initial_token = "SOL"
+      # BUX-only mode — SOL betting removed.
+      initial_token = "BUX"
 
       socket =
         socket
@@ -127,7 +123,7 @@ defmodule BlocksterV2Web.CoinFlipLive do
           user_id = current_user.id
 
           socket
-          |> start_async(:fetch_house_balance, fn -> fetch_house_balance_async("SOL", 1) end)
+          |> start_async(:fetch_house_balance, fn -> fetch_house_balance_async("BUX", 1) end)
           |> start_async(:fetch_pool_balances, fn -> fetch_pool_balances_async() end)
           |> start_async(:load_recent_games, fn -> load_recent_games(user_id, limit: 30) end)
         else
@@ -146,12 +142,12 @@ defmodule BlocksterV2Web.CoinFlipLive do
         |> assign(balances: balances)
         |> assign(tokens: tokens)
         |> assign(difficulty_options: @difficulty_options)
-        |> assign(selected_token: "SOL")
-        |> assign(header_token: "SOL")
+        |> assign(selected_token: "BUX")
+        |> assign(header_token: "BUX")
         |> assign(selected_difficulty: 1)
-        |> assign(bet_amount: default_bet_amount(balances, "SOL"))
-        |> assign(current_bet: default_bet_amount(balances, "SOL"))
-        |> assign(placed_stake: default_bet_amount(balances, "SOL"))
+        |> assign(bet_amount: default_bet_amount(balances, "BUX"))
+        |> assign(current_bet: default_bet_amount(balances, "BUX"))
+        |> assign(placed_stake: default_bet_amount(balances, "BUX"))
         |> assign(house_balance: 0.0)
         |> assign(sol_house_balance: 0.0)
         |> assign(bux_house_balance: 0.0)
@@ -185,7 +181,7 @@ defmodule BlocksterV2Web.CoinFlipLive do
         |> assign(settlement_sig: nil)
         |> assign(next_game_session: nil)
         |> assign(sol_usd_rate: fetch_sol_usd_rate())
-        |> start_async(:fetch_house_balance, fn -> fetch_house_balance_async("SOL", 1) end)
+        |> start_async(:fetch_house_balance, fn -> fetch_house_balance_async("BUX", 1) end)
         |> start_async(:fetch_pool_balances, fn -> fetch_pool_balances_async() end)
 
       socket =
@@ -237,44 +233,11 @@ defmodule BlocksterV2Web.CoinFlipLive do
              the site header's `z-30`, so the stat cards stop bleeding
              through the sticky header on scroll-to-top. --%>
         <section id="ds-play-hero" class="pt-2 pb-2 md:pt-12 md:pb-8 relative z-0">
-          <%!-- Mobile: ultra-compact one-row header with token toggle inline.
-               Tokens move here so the difficulty row can start as close to
-               the top of the card as possible. --%>
-          <div class="md:hidden flex items-center justify-between gap-3">
+          <%!-- Mobile: compact title row. Token selector removed — BUX-only. --%>
+          <div class="md:hidden">
             <h1 class="text-[28px] leading-[0.96] font-bold tracking-[-0.022em] text-[#141414]">
               Coin Flip
             </h1>
-            <div class="flex items-center gap-1.5 shrink-0 pb-0.5">
-              <%= for token <- @tokens do %>
-                <button
-                  type="button"
-                  phx-click="select_token"
-                  phx-value-token={token}
-                  class={[
-                    "flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-[11px] font-bold transition-colors cursor-pointer",
-                    if(@selected_token == token,
-                      do: "bg-[#0a0a0a] text-white",
-                      else: "bg-white border border-neutral-200 text-neutral-500"
-                    )
-                  ]}
-                >
-                  <%= if token == "SOL" do %>
-                    <img
-                      src="https://ik.imagekit.io/blockster/solana-sol-logo.png"
-                      alt="SOL"
-                      class="w-3.5 h-3.5 rounded-full"
-                    />
-                  <% else %>
-                    <img
-                      src="https://ik.imagekit.io/blockster/blockster-icon.png"
-                      alt="BUX"
-                      class="w-3.5 h-3.5 rounded-full"
-                    />
-                  <% end %>
-                  {token}
-                </button>
-              <% end %>
-            </div>
           </div>
 
           <%!-- Desktop: full marketing hero + 3-stat card grid. --%>
@@ -311,30 +274,9 @@ defmodule BlocksterV2Web.CoinFlipLive do
               </div>
             </div>
             <div class="col-span-12 md:col-span-5">
-              <div class="grid grid-cols-3 gap-3">
+              <div class="grid grid-cols-2 gap-3">
                 <.link
-                  navigate={~p"/pool/sol"}
-                  class="bg-white rounded-2xl border border-neutral-200/70 p-4 text-right shadow-[0_1px_3px_rgba(0,0,0,0.04)] hover:border-[#141414] transition-colors cursor-pointer"
-                >
-                  <div class="text-[9px] uppercase tracking-[0.14em] text-neutral-500 mb-1">
-                    SOL Pool
-                  </div>
-                  <div class="flex items-center justify-end gap-1.5 font-mono font-bold text-[18px] text-[#141414]">
-                    <img
-                      src="https://ik.imagekit.io/blockster/solana-sol-logo.png"
-                      alt="SOL"
-                      class="w-5 h-5 shrink-0"
-                    />
-                    <span class="truncate">{format_balance(@sol_house_balance)}</span>
-                  </div>
-                  <%= if @selected_token == "SOL" and is_number(@sol_usd_rate) do %>
-                    <div class="text-[10px] text-neutral-500 font-mono mt-0.5">
-                      {sol_usd_str(@sol_house_balance, @sol_usd_rate)}
-                    </div>
-                  <% end %>
-                </.link>
-                <.link
-                  navigate={~p"/pool/bux"}
+                  navigate={~p"/pool"}
                   class="bg-white rounded-2xl border border-neutral-200/70 p-4 text-right shadow-[0_1px_3px_rgba(0,0,0,0.04)] hover:border-[#141414] transition-colors cursor-pointer"
                 >
                   <div class="text-[9px] uppercase tracking-[0.14em] text-neutral-500 mb-1">
@@ -462,72 +404,34 @@ defmodule BlocksterV2Web.CoinFlipLive do
                   </div>
                 <% end %>
 
-                <%!-- Token selector + balance row — desktop only.
-                     Mobile: tokens live in the page header (above) and the
-                     balance/house row is hidden to free vertical space. --%>
+                <%!-- Balance row — desktop only. BUX-only mode (SOL betting
+                     removed), so the token selector is gone; left side is now
+                     a static BUX label, right side is the user's BUX balance
+                     and the BUX house pool. --%>
                 <div class="hidden md:flex px-4 pt-3 pb-3 md:px-6 md:pt-5 md:pb-4 border-b border-neutral-100 items-center justify-between flex-wrap gap-2">
-                  <div class="flex items-center gap-1.5 md:gap-2">
-                    <%= for token <- @tokens do %>
-                      <button
-                        type="button"
-                        phx-click="select_token"
-                        phx-value-token={token}
-                        class={[
-                          "flex items-center gap-1.5 md:gap-2 px-2.5 md:px-3 py-1.5 md:py-2 rounded-full text-[11px] md:text-[12px] font-bold transition-colors cursor-pointer",
-                          if(@selected_token == token,
-                            do: "bg-[#0a0a0a] text-white",
-                            else:
-                              "bg-white border border-neutral-200 text-neutral-500 hover:border-[#141414] hover:text-[#141414]"
-                          )
-                        ]}
-                      >
-                        <%= if token == "SOL" do %>
-                          <img
-                            src="https://ik.imagekit.io/blockster/solana-sol-logo.png"
-                            alt="SOL"
-                            class="w-3.5 h-3.5 md:w-4 md:h-4 rounded-full"
-                          />
-                        <% else %>
-                          <img
-                            src="https://ik.imagekit.io/blockster/blockster-icon.png"
-                            alt="BUX"
-                            class="w-3.5 h-3.5 md:w-4 md:h-4 rounded-full"
-                          />
-                        <% end %>
-                        {token}
-                      </button>
-                    <% end %>
+                  <div class="flex items-center gap-2">
+                    <img
+                      src="https://ik.imagekit.io/blockster/blockster-icon.png"
+                      alt="BUX"
+                      class="w-4 h-4 rounded-full"
+                    />
+                    <span class="text-[12px] font-bold text-[#141414]">BUX</span>
                   </div>
-                  <div class="flex items-end gap-2 md:gap-4 text-[10px] md:text-[11px]">
-                    <div class="flex flex-col items-end">
-                      <div>
-                        <span class="text-neutral-500 hidden md:inline">Your balance: </span>
-                        <span class="text-neutral-500 md:hidden">You: </span>
-                        <span class="font-mono font-bold text-[#141414]">
-                          {format_balance(Map.get(@balances, @selected_token, 0))}
-                        </span>
-                      </div>
-                      <%= if @selected_token == "SOL" and is_number(@sol_usd_rate) do %>
-                        <span class="text-[10px] text-neutral-500 font-mono">
-                          {sol_usd_str(Map.get(@balances, @selected_token, 0), @sol_usd_rate)}
-                        </span>
-                      <% end %>
+                  <div class="flex items-end gap-4 text-[11px]">
+                    <div>
+                      <span class="text-neutral-500">Your balance: </span>
+                      <span class="font-mono font-bold text-[#141414]">
+                        {format_balance(Map.get(@balances, "BUX", 0))}
+                      </span>
                     </div>
-                    <div class="flex flex-col items-end">
-                      <div>
-                        <span class="text-neutral-500">House: </span>
-                        <.link
-                          navigate={~p"/pool/#{String.downcase(@selected_token)}"}
-                          class="font-mono font-bold text-[#141414] hover:text-[#22C55E] transition-colors"
-                        >
-                          {format_balance(@house_balance)} ↗
-                        </.link>
-                      </div>
-                      <%= if @selected_token == "SOL" and is_number(@sol_usd_rate) do %>
-                        <span class="text-[10px] text-neutral-500 font-mono">
-                          {sol_usd_str(@house_balance, @sol_usd_rate)}
-                        </span>
-                      <% end %>
+                    <div>
+                      <span class="text-neutral-500">House: </span>
+                      <.link
+                        navigate={~p"/pool"}
+                        class="font-mono font-bold text-[#141414] hover:text-[#22C55E] transition-colors"
+                      >
+                        {format_balance(@house_balance)} ↗
+                      </.link>
                     </div>
                   </div>
                 </div>
@@ -545,12 +449,12 @@ defmodule BlocksterV2Web.CoinFlipLive do
                       Higher difficulty = bigger payout · lower odds
                     </div>
                     <.link
-                      navigate={~p"/pool/#{String.downcase(@selected_token)}"}
+                      navigate={~p"/pool"}
                       class="md:hidden text-[10px] text-neutral-500 shrink-0 whitespace-nowrap hover:text-[#141414] transition-colors"
                     >
                       House
                       <span class="font-mono font-bold text-[#141414]">
-                        {format_balance(@house_balance)} {@selected_token}
+                        {format_balance(@house_balance)} BUX
                       </span>
                       ↗
                     </.link>
@@ -1869,7 +1773,7 @@ defmodule BlocksterV2Web.CoinFlipLive do
                          new info. --%>
                   <% else %>
                     <% lp_token = "#{@selected_token}-LP" %>
-                    <% pool_path = if @selected_token == "SOL", do: ~p"/pool/sol", else: ~p"/pool/bux" %>
+                    <% pool_path = ~p"/pool" %>
                     <p class="text-[12px] text-neutral-600 leading-[1.55]">
                       Your
                       <strong class="text-[#141414]">

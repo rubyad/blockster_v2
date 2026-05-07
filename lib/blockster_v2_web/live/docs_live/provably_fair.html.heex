@@ -99,7 +99,7 @@ end
 """}
       />
       <p>
-        Concretely, if user <BlocksterV2Web.DocsComponents.inline_code>42</BlocksterV2Web.DocsComponents.inline_code> bets <BlocksterV2Web.DocsComponents.inline_code>1.0</BlocksterV2Web.DocsComponents.inline_code> SOL at difficulty <BlocksterV2Web.DocsComponents.inline_code>+2</BlocksterV2Web.DocsComponents.inline_code> (Win All, 2 flips) with predictions <BlocksterV2Web.DocsComponents.inline_code>[:heads, :tails]</BlocksterV2Web.DocsComponents.inline_code>, the input string is <BlocksterV2Web.DocsComponents.inline_code>"42:1.0:sol:2:heads,tails"</BlocksterV2Web.DocsComponents.inline_code>. That string is SHA-256'd to produce 32 bytes. If you know the user's id and the bet parameters (both public once the bet is placed), you can reconstruct the client seed without any server cooperation.
+        Concretely, if user <BlocksterV2Web.DocsComponents.inline_code>42</BlocksterV2Web.DocsComponents.inline_code> bets <BlocksterV2Web.DocsComponents.inline_code>25</BlocksterV2Web.DocsComponents.inline_code> BUX at difficulty <BlocksterV2Web.DocsComponents.inline_code>+2</BlocksterV2Web.DocsComponents.inline_code> (Win All, 2 flips) with predictions <BlocksterV2Web.DocsComponents.inline_code>[:heads, :tails]</BlocksterV2Web.DocsComponents.inline_code>, the input string is <BlocksterV2Web.DocsComponents.inline_code>"42:25:bux:2:heads,tails"</BlocksterV2Web.DocsComponents.inline_code>. That string is SHA-256'd to produce 32 bytes. If you know the user's id and the bet parameters (both public once the bet is placed), you can reconstruct the client seed without any server cooperation.
       </p>
     </BlocksterV2Web.DocsComponents.subsection>
 
@@ -322,7 +322,7 @@ function verify({ serverSeedHex, commitmentHex, userId, amount, vault, difficult
 
   <BlocksterV2Web.DocsComponents.section id="worked" title="Worked example" eyebrow="07">
     <p>
-      Let's walk through a real example with concrete numbers. Suppose player <BlocksterV2Web.DocsComponents.inline_code>42</BlocksterV2Web.DocsComponents.inline_code> bets 0.1 SOL on difficulty <BlocksterV2Web.DocsComponents.inline_code>+2</BlocksterV2Web.DocsComponents.inline_code> (Win All of 2 flips, 3.96×), predicting heads then tails, at nonce <BlocksterV2Web.DocsComponents.inline_code>7</BlocksterV2Web.DocsComponents.inline_code>. The server happens to pick seed <BlocksterV2Web.DocsComponents.inline_code>0xa1b2...c3d4</BlocksterV2Web.DocsComponents.inline_code> (32 bytes).
+      Let's walk through a real example with concrete numbers. Suppose player <BlocksterV2Web.DocsComponents.inline_code>42</BlocksterV2Web.DocsComponents.inline_code> bets 25 BUX on difficulty <BlocksterV2Web.DocsComponents.inline_code>+2</BlocksterV2Web.DocsComponents.inline_code> (Win All of 2 flips, 3.96×), predicting heads then tails, at nonce <BlocksterV2Web.DocsComponents.inline_code>7</BlocksterV2Web.DocsComponents.inline_code>. The server happens to pick seed <BlocksterV2Web.DocsComponents.inline_code>0xa1b2...c3d4</BlocksterV2Web.DocsComponents.inline_code> (32 bytes).
     </p>
 
     <BlocksterV2Web.DocsComponents.kv_table

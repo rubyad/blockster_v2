@@ -191,7 +191,9 @@ defmodule BlocksterV2Web.Router do
       live "/hub/:slug", HubLive.Show, :show
       live "/member/:slug", MemberLive.Show, :show
       live "/play", CoinFlipLive, :index
-      live "/pool", PoolIndexLive, :index
+      live "/pool", PoolDetailLive, :show
+      # Backward-compat: /pool/bux still works; /pool/sol redirects to /pool
+      # (SOL betting + SOL pool removed 2026-05-07).
       live "/pool/:vault_type", PoolDetailLive, :show
       live "/airdrop", AirdropLive, :index
       live "/shop", ShopLive.Index, :index

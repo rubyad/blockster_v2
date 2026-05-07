@@ -202,7 +202,7 @@ Originally launched 2026-04-28 with `@web3auth/modal` (iframe-based MPC). Migrat
 
 ## Coin Flip (Solana)
 
-- Route: `/play` → `CoinFlipLive`.
+- Route: `/play` → `CoinFlipLive`. **BUX-only since 2026-05-07** — SOL betting retired (token selector removed, `tokens = ["BUX"]`, `initial_token = "BUX"`). The on-chain program still has SOL bet instructions but no UI surface fires them.
 - Game logic: `lib/blockster_v2/coin_flip_game.ex`. Settler: `coin_flip_bet_settler.ex` (GlobalSingleton, minute loop).
 - JS hook: `assets/js/coin_flip_solana.js` (Wallet Standard, optimistic flow).
 - Payout/max-bet math: MUST use `trunc`/`div` (not `Float.round`) to match on-chain integer truncation.
@@ -213,10 +213,12 @@ Originally launched 2026-04-28 with `@web3auth/modal` (iframe-based MPC). Migrat
 
 ## Pool / LP System
 
-- Routes: `/pool` (`PoolIndexLive`), `/pool/sol`, `/pool/bux` (`PoolDetailLive`).
+- Route: `/pool` → `PoolDetailLive` (renders BUX pool). `/pool/bux` still works for backward compat; `/pool/sol` redirects to `/pool` (SOL pool retired 2026-05-07 alongside SOL betting). `PoolIndexLive` deleted.
+- `@valid_vault_types` in `pool_detail_live.ex` is `["bux"]` only — anything else falls through to the catch-all redirect clause.
 - Pool JS hook: `assets/js/hooks/pool_hook.js` (deposit/withdraw signing).
 - LP prices: `LpPriceTracker` (GlobalSingleton, 60s poll) + `LpPriceHistory` (Mnesia, per-timeframe downsampling). Real-time chart updates via PubSub on `{:bet_settled, vault_type}`.
 - Cost basis / P/L: `BlocksterV2.PoolPositions` + Mnesia `:user_pool_positions` (ACB accounting). Updated on every confirmed deposit/withdraw; pre-existing holders seeded with `cost = lp × current_lp_price` on first render.
+- Wallet page: SOL-LP card hidden when balance is 0; legacy holders still see their balance (informational only — no manage path now that the SOL pool is retired).
 
 ## Shop / Checkout (SOL-direct)
 

@@ -104,10 +104,11 @@ defmodule BlocksterV2Web.CoinFlipLiveTest do
       # "Pick a side" hero copy removed in 2026-04-27 coin-flip UI rewrite.
     end
 
-    test "renders the 3-card stat band", %{conn: conn} do
+    test "renders the 2-card stat band (BUX Pool + House Edge)", %{conn: conn} do
       {:ok, _view, html} = live(conn, ~p"/play")
 
-      assert html =~ "SOL Pool"
+      # SOL Pool stat card removed 2026-05-07 with the SOL betting + pool retirement.
+      refute html =~ "SOL Pool"
       assert html =~ "BUX Pool"
       assert html =~ "House Edge"
     end
@@ -298,22 +299,21 @@ defmodule BlocksterV2Web.CoinFlipLiveTest do
 
       {:ok, view, _html} = live(conn, ~p"/play")
 
-      html = view |> element(~s([phx-click="set_preset"][phx-value-amount="0.25"])) |> render_click()
-      assert html =~ "0.25"
+      # BUX preset (presets are now [1, 5, 10, 25, 50, 100] — SOL betting retired 2026-05-07).
+      html = view |> element(~s([phx-click="set_preset"][phx-value-amount="25"])) |> render_click()
+      assert html =~ "25"
     end
   end
 
   describe "handler: select_token" do
-    test "switches selected token", %{conn: conn} do
+    # Selector UI removed 2026-05-07 — BUX-only mode. The select_token handler
+    # still exists as a no-op safety net but no surface fires it anymore.
+    test "select_token to BUX is a no-op (handler still wired)", %{conn: conn} do
       user = insert_user(%{slug: "cf-token"})
       conn = log_in_user(conn, user)
 
       {:ok, view, _html} = live(conn, ~p"/play")
 
-      # The 2026-04-24 mobile-compact pass duplicates the token toggle
-      # (mobile header + desktop card), so a CSS selector returns 2
-      # elements and `element/2` raises. Fire the event by name instead
-      # — the handler is the same regardless of which surface clicked.
       html = render_click(view, "select_token", %{"token" => "BUX"})
       assert html =~ "BUX"
     end
