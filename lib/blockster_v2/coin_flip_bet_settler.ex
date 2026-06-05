@@ -7,6 +7,11 @@ defmodule BlocksterV2.CoinFlipBetSettler do
   2. Checks if they're older than 2 minutes
   3. Attempts to settle them via CoinFlipGame.settle_game
 
+  Bets whose on-chain order passed the program's bet_timeout fail with
+  OrderExpired forever — those are marked status :expired (terminal for
+  this loop, but still matched by the /play reclaim banner so the player
+  can recover their stake via reclaim_expired).
+
   Uses GlobalSingleton to run only one instance across multi-node deployments.
   """
 
@@ -108,41 +113,77 @@ defmodule BlocksterV2.CoinFlipBetSettler do
         :manual_review
 
       {:error, reason} ->
-        classification = BlocksterV2.SettlerRetry.classify(reason)
-        reason_str = if is_binary(reason), do: reason, else: inspect(reason)
-
-        case classification do
-          :terminal ->
-            # On-chain state (or class of error) says retrying won't help.
-            # Mark the Mnesia game as failed + dead-letter for admin review.
-            Logger.warning(
-              "[CoinFlipBetSettler] Bet #{bet.game_id} hit terminal error (#{reason_str}) — dead-lettering"
-            )
-            mark_game_failed(bet.game_id)
-            BlocksterV2.SettlerRetry.park_dead_letter(:coin_flip, bet.game_id, %{
-              reason: reason_str,
-              bet_age_seconds: age_seconds,
-              user_id: Map.get(bet, :user_id)
-            })
-            :error
-
-          :transient ->
-            # RPC / blockhash flake — keep retrying on the next tick. Log
-            # at info so we can see these patterns without spamming error.
-            Logger.info(
-              "[CoinFlipBetSettler] Bet #{bet.game_id} transient error (#{reason_str}) — will retry next tick"
-            )
-            :error
-
-          :retry ->
-            Logger.error("[CoinFlipBetSettler] Failed to settle bet #{bet.game_id}: #{reason_str}")
-            :error
-        end
+        handle_settle_error(bet, reason, age_seconds)
     end
   rescue
     error ->
       Logger.error("[CoinFlipBetSettler] Exception settling bet #{bet.game_id}: #{inspect(error)}")
       :error
+  end
+
+  @doc false
+  # Maps a settle_game error onto the retry decision + Mnesia side effects
+  # for one bet. Public for tests — the settle path itself needs the settler
+  # HTTP service, but the classification/marking contract doesn't.
+  def handle_settle_error(bet, reason, age_seconds) do
+    classification = BlocksterV2.SettlerRetry.classify(reason)
+    reason_str = if is_binary(reason), do: reason, else: inspect(reason)
+
+    case classification do
+      :expired ->
+        # The on-chain order passed the program's bet_timeout — settle_bet
+        # reverts OrderExpired (settle_bet.rs) forever, so retrying is
+        # pointless. Mark :expired (NOT :settled — mark_game_failed would
+        # hide the /play reclaim banner) so the loop stops while the
+        # player can still sign reclaim_expired to recover their stake.
+        Logger.warning(
+          "[CoinFlipBetSettler] Bet #{bet.game_id} expired on-chain after #{age_seconds}s — " <>
+            "marking :expired, stake reclaimable on /play"
+        )
+        mark_game_expired(bet.game_id)
+        BlocksterV2.SettlerRetry.park_dead_letter(:coin_flip, bet.game_id, %{
+          reason: :order_expired,
+          bet_age_seconds: age_seconds,
+          user_id: Map.get(bet, :user_id)
+        })
+        :expired
+
+      :terminal ->
+        # On-chain state (or class of error) says retrying won't help.
+        # Mark the Mnesia game as failed + dead-letter for admin review.
+        Logger.warning(
+          "[CoinFlipBetSettler] Bet #{bet.game_id} hit terminal error (#{reason_str}) — dead-lettering"
+        )
+        mark_game_failed(bet.game_id)
+        BlocksterV2.SettlerRetry.park_dead_letter(:coin_flip, bet.game_id, %{
+          reason: reason_str,
+          bet_age_seconds: age_seconds,
+          user_id: Map.get(bet, :user_id)
+        })
+        :error
+
+      :transient ->
+        # RPC / blockhash flake — keep retrying on the next tick. Log
+        # at info so we can see these patterns without spamming error.
+        Logger.info(
+          "[CoinFlipBetSettler] Bet #{bet.game_id} transient error (#{reason_str}) — will retry next tick"
+        )
+        :error
+
+      :retry ->
+        Logger.error("[CoinFlipBetSettler] Failed to settle bet #{bet.game_id}: #{reason_str}")
+        :error
+    end
+  end
+
+  defp mark_game_expired(game_id) do
+    case :mnesia.dirty_read({:coin_flip_games, game_id}) do
+      [record] ->
+        # position 7 = status. Leave settlement_sig + settled_at untouched —
+        # the bet never settled. Reclaim flows match status [:placed, :expired].
+        :mnesia.dirty_write(put_elem(record, 7, :expired))
+      _ -> :ok
+    end
   end
 
   defp mark_game_failed(game_id) do

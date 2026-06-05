@@ -8,6 +8,10 @@ defmodule BlocksterV2.SettlerRetry do
     `:retry` but never counts toward the terminal attempt cap.
   - `:terminal` — structurally unrecoverable; dead-letter via
     `park_dead_letter/3` and stop retrying.
+  - `:expired` — the on-chain order passed the program's `bet_timeout`
+    (`OrderExpired` / `0x1788` from settle_bet.rs); settlement can never
+    succeed. Stop retrying, but the bet must stay reclaimable by the
+    player (`reclaim_expired`) — callers must NOT mark it settled.
 
   Backoff schedule `[10, 30, 90, 270, 810, 900]` seconds with a 15-min cap,
   matching the audit's GLOBAL-02 prescription.
@@ -24,7 +28,7 @@ defmodule BlocksterV2.SettlerRetry do
   @backoff_cap_seconds 900
   @terminal_attempt_cap 3
 
-  @type classification :: :retry | :transient | :terminal
+  @type classification :: :retry | :transient | :terminal | :expired
   @type operation_type :: :coin_flip | :bux_mint | :payment_intent | :airdrop_claim
   @type reason :: any()
 
@@ -51,6 +55,13 @@ defmodule BlocksterV2.SettlerRetry do
 
   def classify(reason) when is_binary(reason) do
     cond do
+      # OrderExpired (0x1788 / 6024) MUST be checked before the generic
+      # :terminal patterns below — a settler error blob can contain both
+      # (e.g. "InstructionError ... OrderExpired"), and the :terminal path
+      # marks the bet :settled, which would hide the player's reclaim
+      # banner. Expired bets stay player-reclaimable.
+      String.contains?(reason, "OrderExpired") -> :expired
+      String.contains?(reason, "0x1788") -> :expired
       String.contains?(reason, "InvalidServerSeed") -> :terminal
       String.contains?(reason, "0x178a") -> :terminal
       String.contains?(reason, "AccountNotInitialized") -> :terminal

@@ -31,6 +31,21 @@ defmodule BlocksterV2.CoinFlipBetSettlerTest do
         :mnesia.clear_table(:coin_flip_games)
     end
 
+    # Dead-letter table — handle_settle_error parks terminal/expired bets here
+    case :mnesia.create_table(:settler_dead_letters, [
+           attributes: [
+             :id, :operation_type, :operation_id, :reason,
+             :attempt_count, :first_failed_at, :last_failed_at, :payload
+           ],
+           ram_copies: [node()],
+           type: :set,
+           index: [:operation_type, :last_failed_at]
+         ]) do
+      {:atomic, :ok} -> :ok
+      {:aborted, {:already_exists, :settler_dead_letters}} ->
+        :mnesia.clear_table(:settler_dead_letters)
+    end
+
     :ok
   end
 
@@ -152,6 +167,117 @@ defmodule BlocksterV2.CoinFlipBetSettlerTest do
       # The module is configured with @check_interval :timer.minutes(1)
       # We verify the module compiles correctly with these attributes
       assert is_atom(CoinFlipBetSettler)
+    end
+  end
+
+  # Regression for the 2026-06-05 incident: 4 bets whose on-chain orders had
+  # passed bet_timeout were retried by the settler every minute, forever —
+  # OrderExpired wasn't classified, so the bets never left :placed.
+  describe "handle_settle_error/3 with OrderExpired" do
+    # The exact error shape CoinFlipGame.settle_game returns when the settler
+    # service relays the on-chain OrderExpired revert.
+    @order_expired_reason "HTTP 500: {\"error\":\"Simulation failed. \\nMessage: Transaction " <>
+                            "simulation failed: Error processing Instruction 2: custom program " <>
+                            "error: 0x1788. \\nLogs: [\\\"Program log: AnchorError thrown in " <>
+                            "programs/blockster-bankroll/src/instructions/settle_bet.rs:140. " <>
+                            "Error Code: OrderExpired. Error Number: 6024. Error Message: " <>
+                            "Bet order has expired.\\\"]\"}"
+
+    defp write_placed_bet(game_id, user_id, age_seconds) do
+      created_at = System.system_time(:second) - age_seconds
+
+      :mnesia.dirty_write({
+        :coin_flip_games,
+        game_id, user_id, "walletX", "seed", "hash", 396, :placed,
+        :bux, 2.05, 1, [:heads], [:heads], true, 4.059,
+        "commit_sig", "bet_sig", nil, created_at, nil
+      })
+
+      created_at
+    end
+
+    test "marks the bet :expired, dead-letters it, and returns :expired" do
+      created_at = write_placed_bet("expired_bet", 2485, 509_000)
+      bet = %{game_id: "expired_bet", user_id: 2485, created_at: created_at}
+
+      assert CoinFlipBetSettler.handle_settle_error(bet, @order_expired_reason, 509_000) ==
+               :expired
+
+      [updated] = :mnesia.dirty_read({:coin_flip_games, "expired_bet"})
+      assert elem(updated, 7) == :expired
+      # The bet never settled — settlement_sig and settled_at stay nil
+      # (mark_game_failed would have stamped both; that path must NOT run).
+      assert elem(updated, 17) == nil
+      assert elem(updated, 19) == nil
+
+      dead = BlocksterV2.SettlerRetry.list_dead_letters()
+
+      assert Enum.any?(dead, fn d ->
+               d.operation_type == :coin_flip and d.operation_id == "expired_bet"
+             end)
+    end
+
+    test ":expired bets stop matching the settler's :placed match spec" do
+      created_at = write_placed_bet("loop_stopper", 2485, 509_000)
+      bet = %{game_id: "loop_stopper", user_id: 2485, created_at: created_at}
+      CoinFlipBetSettler.handle_settle_error(bet, @order_expired_reason, 509_000)
+
+      # The exact match spec find_unsettled_bets/1 uses — the retry loop
+      # must not see this bet again.
+      unsettled =
+        :mnesia.dirty_match_object(
+          {:coin_flip_games, :_, :_, :_, :_, :_, :_, :placed, :_, :_, :_, :_, :_, :_, :_, :_, :_,
+           :_, :_, :_}
+        )
+
+      assert unsettled == []
+    end
+
+    test ":expired bets still match the /play reclaim filter" do
+      created_at = write_placed_bet("reclaimable", 2485, 509_000)
+      bet = %{game_id: "reclaimable", user_id: 2485, created_at: created_at}
+      CoinFlipBetSettler.handle_settle_error(bet, @order_expired_reason, 509_000)
+
+      now = System.system_time(:second)
+      bet_timeout = 300
+
+      # Mirrors the filter in CoinFlipLive reclaim_stuck_bet / check_expired_bets —
+      # the player must still be offered the reclaim banner for their stake.
+      reclaimable =
+        :mnesia.dirty_match_object(
+          {:coin_flip_games, :_, :_, :_, :_, :_, :_, :_, :_, :_, :_, :_, :_, :_, :_, :_, :_, :_,
+           :_, :_}
+        )
+        |> Enum.filter(fn record ->
+          status = elem(record, 7)
+          created = elem(record, 18)
+          status in [:placed, :expired] and created != nil and now - created > bet_timeout
+        end)
+
+      assert length(reclaimable) == 1
+      assert elem(hd(reclaimable), 1) == "reclaimable"
+    end
+
+    test "terminal errors still mark :settled with the failed sig (unchanged contract)" do
+      created_at = write_placed_bet("terminal_bet", 7, 400)
+      bet = %{game_id: "terminal_bet", user_id: 7, created_at: created_at}
+
+      assert CoinFlipBetSettler.handle_settle_error(bet, "InvalidServerSeed", 400) == :error
+
+      [updated] = :mnesia.dirty_read({:coin_flip_games, "terminal_bet"})
+      assert elem(updated, 7) == :settled
+      assert elem(updated, 17) == "failed_no_onchain_order"
+      assert is_integer(elem(updated, 19))
+    end
+
+    test "transient errors leave the bet untouched and return :error" do
+      created_at = write_placed_bet("transient_bet", 8, 400)
+      bet = %{game_id: "transient_bet", user_id: 8, created_at: created_at}
+
+      assert CoinFlipBetSettler.handle_settle_error(bet, "ECONNREFUSED", 400) == :error
+
+      [unchanged] = :mnesia.dirty_read({:coin_flip_games, "transient_bet"})
+      assert elem(unchanged, 7) == :placed
     end
   end
 end

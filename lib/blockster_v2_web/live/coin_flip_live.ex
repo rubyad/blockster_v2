@@ -2442,7 +2442,11 @@ defmodule BlocksterV2Web.CoinFlipLive do
               |> Enum.filter(fn record ->
                 status = elem(record, 7)
                 created_at = elem(record, 18)
-                status == :placed and created_at != nil and now - created_at > bet_timeout
+                # :expired = CoinFlipBetSettler hit OrderExpired on-chain and
+                # gave up retrying; the stake still sits in escrow and only
+                # the player can reclaim it.
+                status in [:placed, :expired] and created_at != nil and
+                  now - created_at > bet_timeout
               end)
               |> Enum.sort_by(fn record -> elem(record, 18) end, :asc)
               |> List.first()
@@ -3233,7 +3237,10 @@ defmodule BlocksterV2Web.CoinFlipLive do
               Enum.any?(games, fn record ->
                 status = elem(record, 7)
                 created_at = elem(record, 18)
-                status == :placed and created_at != nil and now - created_at > ui_timeout
+                # Include :expired — bets the settler gave up on (OrderExpired)
+                # but whose stake is still player-reclaimable.
+                status in [:placed, :expired] and created_at != nil and
+                  now - created_at > ui_timeout
               end)
 
             _ ->

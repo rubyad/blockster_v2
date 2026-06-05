@@ -52,6 +52,30 @@ defmodule BlocksterV2.SettlerRetryTest do
       assert SettlerRetry.classify("InstructionError: Custom(0)") == :terminal
     end
 
+    test "OrderExpired / 0x1788 are :expired, not :terminal or :retry" do
+      assert SettlerRetry.classify("OrderExpired") == :expired
+      assert SettlerRetry.classify("custom program error: 0x1788") == :expired
+
+      # The real production payload shape from the 2026-06-05 incident —
+      # before the fix this fell through to :retry and the settler
+      # re-attempted the same 4 dead bets every minute, forever.
+      production_blob =
+        "HTTP 500: {\"error\":\"Simulation failed. \\nMessage: Transaction simulation failed: " <>
+          "Error processing Instruction 2: custom program error: 0x1788. \\nLogs: \\n[\\n  " <>
+          "\\\"Program log: AnchorError thrown in programs/blockster-bankroll/src/instructions/" <>
+          "settle_bet.rs:140. Error Code: OrderExpired. Error Number: 6024. " <>
+          "Error Message: Bet order has expired.\\\"\\n]\"}"
+
+      assert SettlerRetry.classify(production_blob) == :expired
+    end
+
+    test ":expired wins over :terminal patterns when both appear in one blob" do
+      # An error string can contain both InstructionError and OrderExpired.
+      # Classification must pick :expired — the :terminal path marks the bet
+      # :settled, which hides the player's reclaim banner.
+      assert SettlerRetry.classify("InstructionError: Custom(6024) OrderExpired") == :expired
+    end
+
     test "TransportError / timeout / BlockhashNotFound are transient" do
       assert SettlerRetry.classify("TransportError") == :transient
       assert SettlerRetry.classify("Request timeout after 60s") == :transient

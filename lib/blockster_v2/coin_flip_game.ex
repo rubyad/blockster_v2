@@ -651,7 +651,10 @@ defmodule BlocksterV2.CoinFlipGame do
     ) do
       [] -> 0
       games ->
-        placed_games = Enum.filter(games, fn game -> elem(game, 7) in [:placed, :settled] end)
+        # :expired bets consumed their on-chain nonce too (the order WAS
+        # placed; it just can't settle anymore) — excluding them would
+        # compute an already-used nonce and lean on Reconciler A below.
+        placed_games = Enum.filter(games, fn game -> elem(game, 7) in [:placed, :settled, :expired] end)
         case placed_games do
           [] -> 0
           _ ->
