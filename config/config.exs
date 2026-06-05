@@ -50,8 +50,10 @@ config :blockster_v2, Oban,
     {Oban.Plugins.Pruner, max_age: 60 * 60 * 24 * 7},
     {Oban.Plugins.Cron,
      crontab: [
-       {"0 6 * * *", BlocksterV2.Workers.AIManagerReviewWorker, args: %{"type" => "daily"}, queue: :default},
-       {"0 7 * * 1", BlocksterV2.Workers.AIManagerReviewWorker, args: %{"type" => "weekly"}, queue: :default},
+       # AIManagerReviewWorker cron entries removed 2026-06-05 — the daily/weekly
+       # autonomous reviews each ran Claude Opus on a schedule. The AI Manager is
+       # now manual-only via the /admin/ai-manager chat. Do not re-add without
+       # explicit sign-off on the recurring Anthropic spend.
        # Cleanup
        {"0 3 * * *", BlocksterV2.Workers.EventCleanupWorker, queue: :default},
        # AI Ads Manager workers

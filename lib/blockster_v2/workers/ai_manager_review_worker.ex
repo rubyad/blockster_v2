@@ -1,12 +1,15 @@
 defmodule BlocksterV2.Workers.AIManagerReviewWorker do
   @moduledoc """
-  Oban cron worker for AI Manager autonomous reviews.
-  - Daily review: 6 AM UTC
-  - Weekly optimization: Monday 7 AM UTC
+  Oban worker for AI Manager autonomous reviews (daily / weekly).
 
-  Configure in Oban crontab:
-    {"0 6 * * *", BlocksterV2.Workers.AIManagerReviewWorker, args: %{"type" => "daily"}}
-    {"0 7 * * 1", BlocksterV2.Workers.AIManagerReviewWorker, args: %{"type" => "weekly"}}
+  DORMANT (2026-06-05): the cron entries were removed from config.exs — each
+  scheduled run was a Claude Opus call (~420/year). The module is kept so a
+  review can still be run on demand:
+
+      Oban.insert(BlocksterV2.Workers.AIManagerReviewWorker.new(%{"type" => "daily"}))
+
+  Re-adding the crontab entries reintroduces recurring Anthropic spend —
+  get explicit sign-off first. The dormancy contract test guards this.
   """
 
   use Oban.Worker, queue: :email_marketing, max_attempts: 2

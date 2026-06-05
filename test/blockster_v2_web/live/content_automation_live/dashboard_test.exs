@@ -54,7 +54,7 @@ defmodule BlocksterV2Web.ContentAutomationLive.DashboardTest do
       {:ok, _view, html} = live(conn, ~p"/admin/content")
 
       assert html =~ "Content Automation"
-      assert html =~ "Pipeline overview and controls"
+      assert html =~ "Claude only runs when you click Populate Stories"
     end
 
     test "shows stat cards", %{conn: conn, admin: admin} do
@@ -80,7 +80,7 @@ defmodule BlocksterV2Web.ContentAutomationLive.DashboardTest do
       {:ok, _view, html} = live(conn, ~p"/admin/content")
 
       assert html =~ "Request Article"
-      assert html =~ "Force Analyze"
+      assert html =~ "Populate Stories"
       assert html =~ "Market Analysis"
       assert html =~ "Pause Pipeline"
     end

@@ -49,9 +49,16 @@ defmodule BlocksterV2Web.ContentAutomationLive.Dashboard do
   end
 
   def handle_event("force_analyze", _params, socket) do
+    open_slots = max(socket.assigns.target_queue_size - (socket.assigns.stats.pending || 0), 0)
+
     case TopicEngine.force_analyze() do
       :ok ->
-        {:noreply, put_flash(socket, :info, "Analysis triggered — articles will appear shortly")}
+        {:noreply,
+         put_flash(
+           socket,
+           :info,
+           "Populating stories — generating up to #{open_slots} articles (this is the only step that spends Claude credits)"
+         )}
 
       {:error, :not_running} ->
         {:noreply, put_flash(socket, :error, "TopicEngine is not running (CONTENT_AUTOMATION_ENABLED=false?)")}
@@ -191,7 +198,7 @@ defmodule BlocksterV2Web.ContentAutomationLive.Dashboard do
       <div class="flex items-center justify-between mb-8">
         <div>
           <h1 class="text-2xl font-haas_medium_65 text-gray-900">Content Automation</h1>
-          <p class="text-gray-500 text-sm mt-1">Pipeline overview and controls</p>
+          <p class="text-gray-500 text-sm mt-1">Feeds poll automatically (free) — Claude only runs when you click Populate Stories</p>
         </div>
         <div class="flex items-center gap-3">
           <.link navigate={~p"/admin/content/queue"} class="px-4 py-2 bg-gray-900 text-white rounded-lg text-sm font-medium hover:bg-gray-800 cursor-pointer">
@@ -201,7 +208,7 @@ defmodule BlocksterV2Web.ContentAutomationLive.Dashboard do
             Request Article
           </.link>
           <button phx-click="force_analyze" class="px-4 py-2 bg-gray-900 text-white rounded-lg text-sm font-medium cursor-pointer hover:bg-gray-800">
-            Force Analyze
+            Populate Stories
           </button>
           <button phx-click="generate_market_analysis" class="px-4 py-2 bg-gray-900 text-white rounded-lg text-sm font-medium cursor-pointer hover:bg-gray-800">
             Market Analysis

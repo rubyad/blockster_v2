@@ -1,13 +1,21 @@
 defmodule BlocksterV2.ContentAutomation.TopicEngine do
   @moduledoc """
-  Analyzes unprocessed feed items every 15 minutes, clusters them into topics
-  using Claude Haiku, ranks/scores them, and selects the best topics for
-  content generation.
+  Analyzes unprocessed feed items ON DEMAND — clusters them into topics using
+  Claude Haiku, ranks/scores them, selects the best topics, and generates
+  articles for them (Claude Opus).
+
+  DORMANT BY DESIGN (2026-06-05): there is NO automatic analysis timer.
+  Every Claude call in this module is triggered exclusively by an admin
+  clicking "Populate Stories" on /admin/content (→ `force_analyze/0`).
+  Do not add a scheduled trigger back without revisiting API spend —
+  the old 15-minute loop burned Anthropic credits around the clock
+  keeping the queue topped up.
 
   Runs as a global singleton across the cluster (one engine per cluster).
 
   Pipeline: fetch items → Claude clustering → enrich → keyword blocks →
-  rank/score → dedup → category diversity → select → store (two-phase)
+  rank/score → dedup → category diversity → select → store (two-phase) →
+  generate articles
   """
 
   use GenServer
@@ -22,8 +30,6 @@ defmodule BlocksterV2.ContentAutomation.TopicEngine do
     FeedStore,
     Settings
   }
-
-  @default_analysis_interval :timer.minutes(15)
 
   @categories ~w(
     defi rwa regulation gaming trading token_launches gambling privacy
@@ -47,7 +53,11 @@ defmodule BlocksterV2.ContentAutomation.TopicEngine do
     end
   end
 
-  @doc "Force an immediate analysis cycle (for admin dashboard)."
+  @doc """
+  Run one full analysis + generation cycle. The ONLY entry point that spends
+  Anthropic credits in this module — wired to the admin "Populate Stories"
+  button. Fills the queue up to `Settings.target_queue_size`.
+  """
   def force_analyze do
     case :global.whereis_name(__MODULE__) do
       :undefined -> {:error, :not_running}
@@ -67,23 +77,17 @@ defmodule BlocksterV2.ContentAutomation.TopicEngine do
 
   @impl true
   def init(_opts) do
-    Logger.info("[TopicEngine] Starting on #{node()}")
+    Logger.info("[TopicEngine] Starting on #{node()} (dormant — analysis runs only on admin trigger)")
 
-    # First analysis after a short delay
-    Process.send_after(self(), :analyze, :timer.seconds(60))
+    # Deliberately NO analysis timer here. See moduledoc: generation is
+    # admin-triggered only. The engine stays alive purely to serve
+    # force_analyze/0 and get_state/0.
 
     {:ok, %{
       last_analysis: nil,
       last_results: %{},
       total_cycles: 0
     }}
-  end
-
-  @impl true
-  def handle_info(:analyze, state) do
-    state = run_analysis(state)
-    schedule_analysis()
-    {:noreply, state}
   end
 
   @impl true
@@ -107,23 +111,21 @@ defmodule BlocksterV2.ContentAutomation.TopicEngine do
 
   # ── Analysis Pipeline ──
 
+  # No pause gate here: the only caller is the explicit admin
+  # "Populate Stories" click, which should work even while auto-publishing
+  # is paused (generated articles just sit in the review queue).
   defp run_analysis(state) do
-    if Settings.paused?() do
-      Logger.info("[TopicEngine] Pipeline paused, skipping analysis")
-      state
-    else
-      case analyze_and_select() do
-        {:ok, selected_topics} ->
-          %{state |
-            last_analysis: DateTime.utc_now() |> DateTime.truncate(:second),
-            last_results: %{selected: length(selected_topics)},
-            total_cycles: state.total_cycles + 1
-          }
+    case analyze_and_select() do
+      {:ok, selected_topics} ->
+        %{state |
+          last_analysis: DateTime.utc_now() |> DateTime.truncate(:second),
+          last_results: %{selected: length(selected_topics)},
+          total_cycles: state.total_cycles + 1
+        }
 
-        {:error, reason} ->
-          Logger.error("[TopicEngine] Analysis failed: #{inspect(reason)}")
-          %{state | total_cycles: state.total_cycles + 1}
-      end
+      {:error, reason} ->
+        Logger.error("[TopicEngine] Analysis failed: #{inspect(reason)}")
+        %{state | total_cycles: state.total_cycles + 1}
     end
   end
 
@@ -621,13 +623,5 @@ defmodule BlocksterV2.ContentAutomation.TopicEngine do
   defp hours_since(timestamp) do
     diff = DateTime.diff(DateTime.utc_now(), timestamp, :second)
     if diff >= 0, do: div(diff, 3600), else: 0
-  end
-
-  defp schedule_analysis do
-    interval =
-      Application.get_env(:blockster_v2, :content_automation, [])[:topic_analysis_interval] ||
-        @default_analysis_interval
-
-    Process.send_after(self(), :analyze, interval)
   end
 end

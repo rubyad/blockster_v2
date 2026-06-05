@@ -101,8 +101,9 @@ config :blockster_v2,
       val -> String.to_integer(val)
     end),
     feed_poll_interval: :timer.minutes(5),
-    x_feed_poll_interval: :timer.minutes(60),
-    topic_analysis_interval: :timer.minutes(15)
+    x_feed_poll_interval: :timer.minutes(60)
+    # topic_analysis_interval removed 2026-06-05 — TopicEngine no longer runs
+    # on a timer; article generation is admin-triggered only (Populate Stories).
   ],
   hourly_promo: [
     enabled: String.trim(System.get_env("HOURLY_PROMO_ENABLED", "false")) == "true"
