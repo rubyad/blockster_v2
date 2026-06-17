@@ -72,3 +72,4 @@ contracts/blockster-bankroll/
 !.claude/hooks/
 !.claude/hooks/**
 mobile-review/
+.gstack/
