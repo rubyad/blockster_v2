@@ -24,6 +24,10 @@ Phoenix LiveView web3 content platform — shop, hubs, events, token-based engag
 - Use `getSignatureStatuses` polling for confirmation — NEVER `confirmTransaction` (websocket), NEVER manual rebroadcast loops.
 - NEVER chain dependent txs back-to-back — state propagation is unreliable even on the same RPC. Trigger dependent txs from user actions.
 
+**Solana gas wallet (mainnet) — keep `6b4n…` funded** (added 2026-06-17 after a full BUX outage):
+- **Prod runs on Solana mainnet.** The settler `MINT_AUTHORITY` keypair `6b4nMSTWJ1yxZZVmqokf6QrVoF9euvBSdB11fC3qfuv1` is the **single fee + ATA-rent payer** for every BUX mint, coin-flip settlement, and shop sweep. If it runs low on SOL, **all** mints fail simulation with `Transaction results in an account (0) with insufficient funds for rent` — and since homepage post-card BUX counters only tick on a *successful* mint (`mint ok → deduct_from_pool_guaranteed → broadcast_bux_update`), every card freezes at once (so do settlements + shop sweeps). Keep a buffer (≥ ~0.5 SOL); fund manually, never airdrop. Check: `getBalance` on the mainnet RPC + `flyctl logs --app blockster-settler`. Narrative: [docs/session_learnings.md](docs/session_learnings.md).
+- **Per-user earning gate:** a logged-in user earns BUX on a read only if `overall_multiplier > 0`, and `overall = x × phone × sol × email` — the **sol component is 0 when the connected wallet holds < 0.01 SOL** (`sol_multiplier.ex`). So a wallet with no SOL reads for zero by design ("add SOL to start earning"); this is NOT the gas-wallet bug.
+
 **Settler API auth = HMAC, not Bearer** (see `lib/blockster_v2/settler_hmac.ex` + `contracts/blockster-settler/src/middleware/hmac-auth.ts`):
 - Every main-app → settler call must send `x-timestamp` + `x-signature` headers via `BlocksterV2.SettlerHmac.headers(body, secret)`. The legacy `Authorization: Bearer …` pattern is for the EVM `bux-minter.fly.dev` only — the Solana settler 401s it. Bearer-emitting calls fail SILENTLY (callers swallow 401), so a feature that "looks like it works" might actually be missing every on-chain side effect (BUX never minted, balances stale, settlements never landing).
 - POST: `body = Jason.encode!(payload); headers = SettlerHmac.headers(body, secret); http_post(url, body, headers)`. Compute the body once and reuse — the signature must be over the EXACT bytes you send.
@@ -63,7 +67,7 @@ Phoenix LiveView web3 content platform — shop, hubs, events, token-based engag
 
 - **Backend**: Elixir/Phoenix 1.7+ LiveView, PostgreSQL + Ecto, Mnesia (distributed real-time state)
 - **Frontend**: TailwindCSS, TipTap, Solana Wallet Standard
-- **Blockchain**: Solana (devnet now, mainnet pending). Legacy EVM (Rogue Chain 560013) preserved on `evm-archive` branch.
+- **Blockchain**: Solana — **prod is LIVE on mainnet** (mints real BUX, takes real SOL); local dev uses devnet. Legacy EVM (Rogue Chain 560013) preserved on `evm-archive` branch.
 - **Deployment**: Fly.io (app: `blockster-v2`)
 
 ## Key Directories
@@ -260,7 +264,7 @@ Originally launched 2026-04-28 with `@web3auth/modal` (iframe-based MPC). Migrat
 | Service | URL | Role |
 |---------|-----|------|
 | Main App | `https://blockster.com` | Phoenix LiveView |
-| Settler (Solana) | `https://blockster-settler.fly.dev` (prod deploy pending) | BUX mint, bet settlement, airdrop txs, shop payment intents |
+| Settler (Solana) | `https://blockster-settler.fly.dev` (LIVE, mainnet) | BUX mint, bet settlement, airdrop txs, shop payment intents |
 | Legacy BUX Minter (EVM) | `https://bux-minter.fly.dev` | Scheduled for shutdown post-migration; settler replaced it |
 
 **Telegram**: [Group](https://t.me/+7bIzOyrYBEc3OTdh), [Bot](https://t.me/BlocksterV2Bot). `t.me/blockster` is NOT ours — never use it.

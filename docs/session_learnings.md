@@ -7,6 +7,7 @@ For active reference material, see the main [CLAUDE.md](../CLAUDE.md).
 ---
 
 ## Table of Contents
+- [Homepage post-card counters froze — the mainnet gas wallet ran dry](#homepage-post-card-counters-froze--the-mainnet-gas-wallet-ran-dry-2026-06-17)
 - [Mnesia disaster recovery via volume snapshots — restoring 13K rows after the runbook destroyed them](#mnesia-disaster-recovery-via-volume-snapshots--restoring-13k-rows-after-the-runbook-destroyed-them-2026-05-04)
 - [Tag transient vs session-invalid in the SFA hook so a JWT blip doesn't pop the login modal](#tag-transient-vs-session-invalid-in-the-sfa-hook-so-a-jwt-blip-doesnt-pop-the-login-modal-2026-05-01)
 - [Verifying Mnesia split-brain recovery — `dirty_all_keys` not `table_info(_, :size)`](#verifying-mnesia-split-brain-recovery--dirty_all_keys-not-table_info_-size-2026-04-30)
@@ -93,6 +94,24 @@ For active reference material, see the main [CLAUDE.md](../CLAUDE.md).
 - [AirdropVault V2 Upgrade](#airdropvault-v2-upgrade--client-side-deposits-feb-28-2026)
 - [NFTRewarder V6 & RPC Batching](#nftrewarder-v6--rpc-batching-mar-2026)
 - [Engagement Tracker Silent Failure — `#post-content` Selector Miss After Redesign](#engagement-tracker-silent-failure--post-content-selector-miss-after-redesign-apr-2026)
+
+---
+
+## Homepage post-card counters froze — the mainnet gas wallet ran dry (2026-06-17)
+
+**Symptom.** Every post card on the homepage stopped counting up. Reported as a UI bug ("the counter stopped"). It is not a UI bug.
+
+**The counter is server-driven, and it only moves on a *successful* mint.** Each card's green pill shows `total_distributed` (idx 6 of the `:post_bux_points` Mnesia record). The only path that increments it: a bot/user finishes a read → `BuxMinter.mint_bux` → settler mints on-chain → `{:ok}` → `EngagementTracker.deduct_from_pool_guaranteed` → `broadcast_bux_update(post_id, balance, total_distributed)` → homepage `handle_info({:bux_update, …})` → `send_update` → pill re-renders. There is **no client-side animation and no timer** — if the mint fails, the deduct never runs, nothing broadcasts, and the number stays put. So a chain-level mint failure looks exactly like "the counter froze," across every card at once.
+
+**Root cause.** Prod settler runs on **mainnet**, and `mintBux` (`token-service.ts`) makes the `MINT_AUTHORITY` keypair `6b4nMSTWJ1yxZZVmqokf6QrVoF9euvBSdB11fC3qfuv1` the fee payer + ATA-rent payer for every mint. That wallet had drained to **892,203 lamports** — its rent-exempt floor for a 0-byte system account is **890,880**, leaving ~1,300 lamports spendable, not even one 5,000-lamport tx fee. Every mint failed simulation with `Transaction results in an account (0) with insufficient funds for rent` (account 0 = fee payer). Settler logs were a wall of `Mint error [SendTransactionError]: Simulation failed.` every few seconds.
+
+**Diagnosis trail (what actually nailed it, vs. red herrings).** Two earlier suspects were *wrong*: (a) commit `17be4dd` made content generation admin-only — plausible "bots starve with no new posts," but the settler logs showed mints were still being *attempted* constantly, so bots were active; (b) commit `b43d477` downsized the settler to shared-cpu-1x — coincidental, not causal. The decisive evidence was on-chain: `getBalance(6b4n…)` on the mainnet RPC = ~0.00089 SOL (devnet copy of the same wallet had 18.5 SOL — confirming prod is mainnet), plus `getMinimumBalanceForRentExemption(0)` = 890,880 showing the wallet was pinned at its floor. **Lesson: when "a counter stopped," trace the value's write path to its real trigger before theorizing about the UI; here the trigger was an on-chain tx, and the truth was one `getBalance` call away.**
+
+**Fix.** Operational, not code: fund `6b4n…` with SOL on mainnet (we keep a ≥ ~0.5 SOL buffer now). Mints resume immediately, no deploy/restart needed (the BEAM keeps retrying; the bot mint queue is live). Same wallet pays coin-flip settlements + shop sweeps, so an empty gas wallet silently breaks those too.
+
+**Cleanup after recovery.** Posts published *during* the outage window were stuck at `total_distributed = 0` and won't self-heal — bots call `record_read_reward` (marking themselves `already_rewarded`) *before* the mint, so they don't re-read once SOL is back. We backfilled those 6 published cards (ids 1317–1322) with age-matched, jittered values sampled from the recent healthy cohort (a ~1-day-old post shows ~5k; a fresh one ~250), and set `balance = deposited − distributed` to keep the detail/admin views consistent. (3 genuinely ancient posts with no pool record at all — 268/526/536 — are a separate pre-existing condition, left as-is.)
+
+**Adjacent gotcha surfaced same day.** An admin read an article and earned 0 BUX — *not* the gas bug. A logged-in user earns only when `overall_multiplier > 0`, and `overall = x × phone × sol × email`; the **sol component is 0 below 0.01 SOL** in the connected wallet (`sol_multiplier.ex`). The admin's wallet held 0 SOL → overall 0 → reads pay nothing by design ("add SOL to start earning"). Don't conflate this per-user gate with a system-wide mint failure.
 
 ---
 
