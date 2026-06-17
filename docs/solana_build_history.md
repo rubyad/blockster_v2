@@ -9,6 +9,18 @@ Chronological record of all Solana migration changes and post-migration updates 
 
 ---
 
+## Mainnet gas-wallet outage — homepage BUX counters froze (2026-06-17) ✅
+
+Production incident, no code shipped — operational fix + a data backfill.
+
+- **Discovery:** "the counter on every post card stopped counting up." Root cause was on-chain, not UI: the mainnet `MINT_AUTHORITY` gas wallet (`6b4n…`) had drained to its rent-exempt floor (892,203 lamports vs 890,880 minimum), so every BUX mint failed simulation with `insufficient funds for rent`. Post-card counters only advance on a *successful* mint (`mint ok → deduct_from_pool_guaranteed → broadcast_bux_update`), so all cards froze together. Also silently broke coin-flip settlements + shop sweeps (same fee payer).
+- **Confirmed prod is on mainnet** (CLAUDE.md/addresses.md previously said "mainnet pending" — corrected): mainnet `getBalance(6b4n…)` ≈ 0.00089 SOL while the devnet copy held 18.5 SOL; settler logs were a steady stream of `Mint error … Simulation failed`.
+- **Fix:** funded `6b4n…` with SOL (now keep a ≥ ~0.5 SOL buffer). Mints resumed instantly — no deploy/restart.
+- **Backfill:** the 6 posts published during the outage window (ids 1317–1322) were stuck at `total_distributed = 0` and don't self-heal (bots mark `already_rewarded` before the mint, so they don't re-read). Set age-matched jittered values from the recent healthy cohort, with `balance = deposited − distributed`.
+- **Docs:** added the gas-wallet critical rule + per-user SOL-multiplier earning gate to CLAUDE.md; full narrative in [session_learnings.md](session_learnings.md); wallet note in [addresses.md](addresses.md). Also fixed a checked-in `.claude/settings.json` PreToolUse hook that hardcoded another dev's machine path (`/Users/tenmerry/…`) → portable `$CLAUDE_PROJECT_DIR`.
+
+---
+
 ## Post-Launch Day 4 (2026-05-01) ✅ — JWT/transient retry UX, 5th split-brain recovery
 
 Single-issue day, shipped one commit (`7d238f2`) plus its deploy and the now-routine post-deploy Mnesia recovery on `865d14f7225508`.
