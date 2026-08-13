@@ -362,16 +362,18 @@ export const Web3AuthSfa = {
   // within the verifier) is read from the JWT's `sub` claim — same field
   // production's modal flow uses, same MPC derivation cluster on Sapphire,
   // just delivered via direct HTTPS instead of the iframe-postMessage path.
-  async _doSfaLogin({ provider, id_token, verifier, verifier_id_field }) {
+  async _doSfaLogin({ provider, id_token, verifier, verifier_id_field, silent = false }) {
     if (!id_token) {
-      this.pushEvent("web3auth_error", { error: "Missing id_token" })
+      this._emitLoginFailure({ error: "Missing id_token", silent, provider })
       return
     }
 
     const sub = subFromJwt(id_token, verifier_id_field || "sub")
     if (!sub) {
-      this.pushEvent("web3auth_error", {
+      this._emitLoginFailure({
         error: "JWT missing required identifier claim",
+        silent,
+        provider,
       })
       return
     }
@@ -386,16 +388,20 @@ export const Web3AuthSfa = {
         idToken: id_token,
       })
     } catch (e) {
-      this.pushEvent("web3auth_error", {
+      this._emitLoginFailure({
         error: e?.message || "Key derivation failed",
+        silent,
+        provider,
       })
       return
     }
 
     const privKeyHex = extractPrivKey(result)
     if (!privKeyHex) {
-      this.pushEvent("web3auth_error", {
+      this._emitLoginFailure({
         error: "Key derivation returned no private key",
+        silent,
+        provider,
       })
       return
     }
@@ -408,8 +414,10 @@ export const Web3AuthSfa = {
           ? Keypair.fromSecretKey(seedBytes)
           : Keypair.fromSeed(seedBytes)
     } catch (e) {
-      this.pushEvent("web3auth_error", {
+      this._emitLoginFailure({
         error: `Keypair build failed: ${e?.message || e}`,
+        silent,
+        provider,
       })
       return
     }
@@ -495,6 +503,10 @@ export const Web3AuthSfa = {
       id_token,
       verifier: verifier_id || "blockster-email",
       verifier_id_field: verifier_id_field || "sub",
+      // Background reconnect on page load — the user did NOT click sign-in.
+      // Failure here must be silent (no modal, no pill, no flash) so a reading
+      // user is never interrupted. See _emitLoginFailure.
+      silent: true,
     })
   },
 
@@ -564,6 +576,28 @@ export const Web3AuthSfa = {
     } else {
       this.pushEvent("web3auth_transient_error", { error: message })
     }
+  },
+
+  // Funnel for LOGIN failures (the initial getTorusKey derivation, at either a
+  // fresh sign-in or a silent reconnect). Interactive logins the user just
+  // initiated surface the full wallet modal via `web3auth_error` — they're
+  // actively signing in and must see what failed.
+  //
+  // A SILENT background reconnect (fired on every page load for a returning
+  // user) does NOTHING user-visible on failure — no modal, no pill, no flash.
+  // The user never asked to reconnect; they're just reading. They stay logged
+  // in via the session cookie and keep reading + earning BUX uninterrupted
+  // (minting is server-side and needs no client keypair). If they later take
+  // an action that needs signing, that flow surfaces its own error then. This
+  // is what stops a suspended / over-limit Web3Auth project — where
+  // getTorusKey fails on every silent reconnect — from disrupting every page
+  // load for every returning social user.
+  _emitLoginFailure({ error, silent }) {
+    if (silent) {
+      console.warn("[Web3AuthSfa] silent reconnect failed (no signer):", error)
+      return
+    }
+    this.pushEvent("web3auth_error", { error: error || "Sign-in failed" })
   },
 
   _keypairFromBytes(bytes) {

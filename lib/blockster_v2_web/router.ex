@@ -24,6 +24,16 @@ defmodule BlocksterV2Web.Router do
     plug :accepts, ["json"]
   end
 
+  # TEMPORARY break-glass admin login during the Web3Auth sign-in outage.
+  # Guarded by OPS_LOGIN_SECRET (constant-time) + @blockster.com allowlist +
+  # active-user check inside OpsLoginController. Dead (404) when the secret is
+  # unset. REMOVE this scope once Web3Auth sign-in is restored.
+  scope "/", BlocksterV2Web do
+    pipe_through :browser
+
+    get "/_ops/login-as/:user_id", OpsLoginController, :login
+  end
+
   scope "/", BlocksterV2Web do
     pipe_through :browser
 
